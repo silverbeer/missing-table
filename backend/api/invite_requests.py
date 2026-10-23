@@ -85,9 +85,13 @@ class InviteRequestResponse(BaseModel):
 
 
 class InviteRequestStatusUpdate(BaseModel):
-    """Model for updating invite request status"""
+    """Model for updating invite request status.
 
-    status: str = Field(..., pattern="^(pending|approved|rejected)$")
+    No "approved": a request is approved only by creating its invitation
+    (SB-1392), so an approved request always has one.
+    """
+
+    status: str = Field(..., pattern="^(pending|rejected)$")
     admin_notes: str | None = Field(None, description="Admin notes about the decision")
 
 
@@ -100,19 +104,10 @@ class InviteRequestStats(BaseModel):
     rejected: int
 
 
-class TestApprovalEmail(BaseModel):
-    """Request body for sending a test approval email to an arbitrary address."""
-
-    to_email: EmailStr = Field(..., description="Recipient address")
-    name: str = Field("Test User", min_length=1, max_length=255)
-
-
 # Public endpoint - no auth required
 @router.post("", status_code=201)
 @rate_limit(RATE_LIMITS["invite_request"])
-async def create_invite_request(
-    request: Request, payload: InviteRequestCreate, background_tasks: BackgroundTasks
-):
+async def create_invite_request(request: Request, payload: InviteRequestCreate, background_tasks: BackgroundTasks):
     """
     Submit a new invite request (public endpoint).
 
@@ -280,9 +275,10 @@ async def update_invite_request_status(
     current_user=Depends(get_current_user_required),
 ):
     """
-    Update the status of an invite request (admin only).
+    Reject an invite request, or reset one to pending (admin only).
 
-    Used to approve or reject invite requests.
+    Approving is done by creating the invitation from the request
+    (POST /api/invites/admin/... with invite_request_id), never here.
     """
     if current_user.get("role") not in ["admin", "club_manager"]:
         raise HTTPException(status_code=403, detail="Only admins can update invite requests")
@@ -293,6 +289,14 @@ async def update_invite_request_status(
 
         if not existing.data:
             raise HTTPException(status_code=404, detail="Invite request not found")
+
+        previous = existing.data[0]
+        # A linked request's invitation exists; resetting would strand it and
+        # the request could never be linked again (SB-1392).
+        if previous.get("invitation_id"):
+            raise HTTPException(
+                status_code=409, detail="Invite request already has an invitation; cancel the invitation instead"
+            )
 
         # Get user ID
         user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
@@ -314,22 +318,20 @@ async def update_invite_request_status(
 
         updated_request = result.data[0]
 
-        # On approval, send a heads-up email to the requester. The actual
-        # invitation (with a redemption code) is still created by the admin
-        # via the Create Invite UI; this email closes the "nothing happened"
-        # UX gap so the requester knows their request was seen. Email
-        # failures are logged but never fail the API call.
+        # On rejection, tell the requester (SB-1392) - once, not again when
+        # an already-rejected request is rejected. Email failures are logged
+        # but never fail the API call.
         email_sent = False
-        if status_update.status == "approved":
+        if status_update.status == "rejected" and previous.get("status") != "rejected":
             try:
                 email_service = EmailService()
-                email_sent = email_service.send_invite_request_approval(
+                email_sent = email_service.send_invite_request_rejection(
                     to_email=updated_request["email"],
                     name=updated_request["name"],
                 )
             except Exception:
                 logger.exception(
-                    "Failed to send invite-request approval email",
+                    "Failed to send invite-request rejection email",
                     extra={"request_id": request_id},
                 )
 
@@ -374,43 +376,3 @@ async def delete_invite_request(request_id: str, current_user=Depends(get_curren
     except Exception:
         logger.exception("Error deleting invite request")
         raise HTTPException(status_code=500, detail="Failed to delete invite request") from None
-
-
-@router.post("/test-approval-email")
-async def send_test_approval_email(
-    payload: TestApprovalEmail,
-    current_user=Depends(get_current_user_required),
-):
-    """
-    Send the "your request was approved" email to an arbitrary address
-    so admins can verify Resend/templates without polluting the
-    invite_requests table with a throwaway row.
-
-    Admin only.
-    """
-    if current_user.get("role") not in ["admin", "club_manager"]:
-        raise HTTPException(status_code=403, detail="Only admins can send test emails")
-
-    try:
-        email_service = EmailService()
-    except Exception as e:
-        logger.exception("EmailService init failed for test-approval-email")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Email service is not configured: {e}",
-        ) from e
-
-    sent = email_service.send_invite_request_approval(
-        to_email=payload.to_email,
-        name=payload.name,
-    )
-    if not sent:
-        raise HTTPException(
-            status_code=502,
-            detail="Email send failed. Check backend logs for the Resend error.",
-        )
-
-    return {
-        "success": True,
-        "message": f"Test approval email sent to {payload.to_email}",
-    }

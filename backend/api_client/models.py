@@ -259,9 +259,9 @@ class InviteRequestCreate(BaseModel):
 
 
 class InviteRequestStatusUpdate(BaseModel):
-    """Update invite request status (admin only)."""
+    """Update invite request status (admin only). Approve by creating the invitation."""
 
-    status: str = Field(..., pattern="^(pending|approved|rejected)$")
+    status: str = Field(..., pattern="^(pending|rejected)$")
     admin_notes: str | None = Field(None, description="Admin notes about the decision")
 
 

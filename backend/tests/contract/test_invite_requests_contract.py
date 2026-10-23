@@ -138,7 +138,7 @@ class TestInviteRequestAdminContract:
         from api_client import AuthenticationError
         from api_client.models import InviteRequestStatusUpdate
 
-        update = InviteRequestStatusUpdate(status="approved")
+        update = InviteRequestStatusUpdate(status="rejected")
         with pytest.raises((AuthenticationError, AuthorizationError)):
             api_client.update_invite_request_status("fake-id", update)
 

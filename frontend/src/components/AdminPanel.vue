@@ -102,7 +102,7 @@
           class="p-3 sm:p-6"
           data-testid="admin-section-invite-requests"
         >
-          <AdminInviteRequests @create-invite="openInviteFromRequest" />
+          <AdminInviteRequests @approve="openInviteFromRequest" />
         </div>
 
         <!-- Channel Access Requests -->
@@ -471,8 +471,8 @@ export default {
       }
     };
 
-    // "Create invite" on an invite request opens the Invites section with
-    // the form pre-filled from it (SB-1312). Leaving Invites drops it.
+    // "Approve" on an invite request opens the Invites section with the
+    // form pre-filled from it (SB-1312, SB-1392). Leaving Invites drops it.
     const invitePrefill = ref(null);
 
     const openInviteFromRequest = request => {

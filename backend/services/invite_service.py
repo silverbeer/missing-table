@@ -182,9 +182,7 @@ class InviteService:
                             f"team/season/age group. Add the player to the roster first."
                         )
                     if spot.get("user_profile_id"):
-                        raise ValueError(
-                            f"Jersey #{jersey_number} is already claimed by another account."
-                        )
+                        raise ValueError(f"Jersey #{jersey_number} is already claimed by another account.")
                     player_id = spot["id"]
                     tester_name = (spot.get("first_name"), spot.get("last_name"))
                 elif player_id:
@@ -199,9 +197,7 @@ class InviteService:
                     if not check.data:
                         raise ValueError("That roster entry no longer exists.")
                     if check.data[0].get("user_profile_id"):
-                        raise ValueError(
-                            "That roster spot is already claimed by another account."
-                        )
+                        raise ValueError("That roster spot is already claimed by another account.")
                     jersey_number = jersey_number or check.data[0].get("jersey_number")
                     tester_name = (check.data[0].get("first_name"), check.data[0].get("last_name"))
             else:
@@ -343,6 +339,35 @@ class InviteService:
         if invitation.get("testflight_status") == "removed":
             raise ValueError("This tester was removed when their account was deleted")
         return self._add_to_testflight(invitation, invitation.get("testflight_email"))
+
+    def resend_email(self, invite_id: str) -> bool:
+        """Send a pending invitation's email again (admin resend, SB-1392).
+
+        Returns whether the provider accepted it.
+
+        Raises:
+            LookupError: invitation missing.
+            ValueError: no email on the invitation, or it is no longer pending.
+        """
+        response = self.supabase.table("invitations").select("*").eq("id", invite_id).execute()
+        if not response.data:
+            raise LookupError("Invitation not found")
+        invitation = response.data[0]
+        if not invitation.get("email"):
+            raise ValueError("This invitation has no email address")
+        if invitation.get("status") != "pending":
+            raise ValueError(f"This invitation is already {invitation.get('status')}")
+
+        from services.email_service import EmailService
+
+        return EmailService().send_invitation(
+            to_email=invitation["email"],
+            invite_code=invitation["invite_code"],
+            invite_type=invitation.get("invite_type"),
+            expires_at=invitation.get("expires_at"),
+            ios_beta=bool(invitation.get("testflight_status")),
+            testflight_email=invitation.get("testflight_email"),
+        )
 
     def remove_testflight_for_user(self, user_id: str) -> int:
         """Remove a deleted user's TestFlight tester(s) from the beta group.
@@ -497,19 +522,14 @@ class InviteService:
         if player_id:
             try:
                 response = (
-                    self.supabase.table("players")
-                    .select("id, user_profile_id")
-                    .eq("id", player_id)
-                    .limit(1)
-                    .execute()
+                    self.supabase.table("players").select("id, user_profile_id").eq("id", player_id).limit(1).execute()
                 )
             except Exception as e:
                 logger.error(f"Error checking roster spot {player_id}: {e}")
                 return False, "Could not verify the roster spot. Please try again."
             if not response.data:
                 return False, (
-                    "The roster spot for this invite no longer exists. "
-                    "Ask your team manager for a new invite."
+                    "The roster spot for this invite no longer exists. Ask your team manager for a new invite."
                 )
             if response.data[0].get("user_profile_id"):
                 return False, (
@@ -995,11 +1015,7 @@ class InviteService:
             invitations = response.data if response.data else []
 
             # Fetch user profiles for any "used" invites so we can show who redeemed them
-            used_user_ids = list({
-                inv["used_by_user_id"]
-                for inv in invitations
-                if inv.get("used_by_user_id")
-            })
+            used_user_ids = list({inv["used_by_user_id"] for inv in invitations if inv.get("used_by_user_id")})
 
             if used_user_ids:
                 profiles_response = (
