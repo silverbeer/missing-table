@@ -235,7 +235,7 @@ describe('AdminInviteRequests', () => {
     const wrapper = await mountRequests([REQUEST]);
 
     const actions = wrapper.findAll('tbody button').map(b => b.text());
-    expect(actions).toEqual(['Approve', 'Reject']);
+    expect(actions).toEqual(['Approve', 'Reject', 'Already a user']);
     expect(wrapper.text()).not.toContain('test approval email');
   });
 
@@ -259,6 +259,33 @@ describe('AdminInviteRequests', () => {
         body: { status: 'rejected' },
       },
     ]);
+  });
+
+  it('Already a user closes the request without approving or rejecting', async () => {
+    const wrapper = await mountRequests([REQUEST]);
+
+    await wrapper
+      .find('[data-testid="existing-user-request"]')
+      .trigger('click');
+    await flushPromises();
+    expect(window.confirm.mock.calls[0][0]).toContain('No email');
+    expect(put).toEqual([
+      {
+        url: 'http://localhost:8000/api/invite-requests/req-1/status',
+        body: { status: 'existing_user' },
+      },
+    ]);
+    expect(wrapper.emitted('approve')).toBeUndefined();
+  });
+
+  it('an existing-user request is labelled and can be reset', async () => {
+    const wrapper = await mountRequests([
+      { ...REQUEST, status: 'existing_user', reviewed_at: '2026-10-23' },
+    ]);
+
+    expect(wrapper.text()).toContain('already a user');
+    expect(has(wrapper, 'reset-request')).toBe(true);
+    expect(has(wrapper, 'existing-user-request')).toBe(false);
   });
 
   it('sends a test rejection email to the address given, touching no request', async () => {

@@ -28,6 +28,7 @@
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
+          <option value="existing_user">Already a user</option>
         </select>
         <!-- Preview the email Reject sends (SB-1407) -->
         <button
@@ -148,10 +149,12 @@
                   'bg-yellow-100 text-yellow-800': request.status === 'pending',
                   'bg-green-100 text-green-800': request.status === 'approved',
                   'bg-red-100 text-red-800': request.status === 'rejected',
+                  'bg-blue-100 text-blue-800':
+                    request.status === 'existing_user',
                 }"
                 class="px-2 py-1 text-xs font-medium rounded-full"
               >
-                {{ request.status }}
+                {{ STATUS_LABELS[request.status] || request.status }}
               </span>
               <div
                 v-if="request.invitation"
@@ -195,6 +198,13 @@
                   @click="rejectRequest(request)"
                 >
                   Reject
+                </button>
+                <button
+                  data-testid="existing-user-request"
+                  class="text-blue-600 hover:text-blue-800 font-medium"
+                  @click="markExistingUser(request)"
+                >
+                  Already a user
                 </button>
               </div>
               <div v-else class="flex flex-col gap-1 text-xs">
@@ -252,6 +262,8 @@ import { linkedInviteSummary } from '../../utils/inviteRequests';
 // pre-filled from it (SB-1312). Sending that invite is what approves the
 // request (SB-1392) - there is no approval without an invitation.
 const emit = defineEmits(['approve']);
+
+const STATUS_LABELS = { existing_user: 'already a user' };
 
 const authStore = useAuthStore();
 
@@ -396,6 +408,36 @@ const fetchStats = async () => {
     }
   } catch (err) {
     console.error('Error fetching stats:', err);
+  }
+};
+
+// Close a request from someone who already has an account (SB-1408): no
+// email, no invite - Reject would tell them they weren't approved.
+const markExistingUser = async request => {
+  if (
+    !confirm(
+      `Close this request? ${request.email} already has an account. No email is sent.`
+    )
+  )
+    return;
+
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/api/invite-requests/${request.id}/status`,
+      {
+        method: 'PUT',
+        headers: {
+          ...authStore.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'existing_user' }),
+      }
+    );
+    if (!response.ok) throw new Error('Failed to close request');
+    await Promise.all([fetchRequests(), fetchStats()]);
+  } catch (err) {
+    console.error('Error closing request:', err);
+    alert('Failed to close request. Please try again.');
   }
 };
 

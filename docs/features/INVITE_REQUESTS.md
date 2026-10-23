@@ -6,15 +6,16 @@ Invite Requests** (`AdminInviteRequests.vue`).
 
 ## Reviewing a request
 
-A pending request has two actions.
+A pending request has three actions.
 
 | Action | What happens | Email the requester gets |
 |--------|--------------|--------------------------|
 | **Approve** | Opens **Invites** with the form pre-filled from the request (email, name as the note, iPhone beta if they asked). The admin picks the invite type and club/team and creates the invite. Creating it sends `invite_request_id`, which marks the request `approved` and links it (`invitation_id`). | The invitation, with its code (plus TestFlight steps for iPhone beta) |
 | **Reject** | `PUT /api/invite-requests/{id}/status` → `rejected` | A short "not approved right now" note — once; rejecting an already-rejected request sends nothing |
+| **Already a user** | `PUT /api/invite-requests/{id}/status` → `existing_user` (SB-1408). For a requester who already has an account — e.g. asking again to get the iPhone beta. Closes the request; no invite. Add them to TestFlight by hand. | None |
 
 **There is no approval without an invitation** (SB-1392). The status endpoint
-accepts only `pending` and `rejected`; `approved` is set solely by creating the
+accepts only `pending`, `rejected` and `existing_user`; `approved` is set solely by creating the
 invite. Before SB-1392, Approve only flipped the status and sent a "you're
 approved" email with no code, which left the requester with no way in.
 
@@ -30,7 +31,7 @@ request — it stays pending.
 |-----|---------|
 | Approved, linked invite still pending | **Resend invite** — `POST /api/invites/admin/{invite_id}/resend-email` re-sends the same code |
 | Approved, linked invite used/expired | none |
-| Rejected | **Reset** to pending (no email) |
+| Rejected or already a user | **Reset** to pending (no email) |
 
 Rows approved before SB-1392 with no invite were repaired by migration
 `20261023120000_invite_requests_backfill_approved.sql` (SB-1407): linked to the
