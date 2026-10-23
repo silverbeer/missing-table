@@ -31,17 +31,25 @@ request — it stays pending.
 | Approved, linked invite still pending | **Resend invite** — `POST /api/invites/admin/{invite_id}/resend-email` re-sends the same code |
 | Approved, linked invite used/expired | none |
 | Rejected | **Reset** to pending (no email) |
-| Approved before SB-1392 (no invite) | **Reset** to pending, then Approve |
+
+Rows approved before SB-1392 with no invite were repaired by migration
+`20261023120000_invite_requests_backfill_approved.sql` (SB-1407): linked to the
+hand-made invite for the same email if one existed, removed if a newer pending
+request from the same email superseded it, otherwise reset to pending.
 
 A linked request cannot be reset or rejected (`409`): its invitation exists.
 Cancel the invitation from **Invites** instead.
+
+**Send test rejection email** (header button,
+`POST /api/invite-requests/test-rejection-email`) sends the rejection template
+to any address, touching no request — preview it before a real Reject.
 
 Email failures are logged and never fail the action; the row shows the linked
 invite's code, status and TestFlight state.
 
 ## Code
 
-- `backend/api/invite_requests.py` — submit, list, stats, reject/reset
+- `backend/api/invite_requests.py` — submit, list, stats, reject/reset, test rejection email
 - `backend/api/invites.py` — `_require_linkable_invite_request`, `_link_invite_request`, `resend-email`
 - `backend/services/email_service.py` — `send_invitation`, `send_invite_request_rejection`
 - `frontend/src/utils/inviteRequests.js` — request → invite-form prefill

@@ -166,6 +166,49 @@ class TestRejectionEmail:
         assert email_service.EmailService().send_invite_request_rejection("pat@example.com", "Pat") is False
 
 
+class TestTestRejectionEmailEndpoint:
+    """Preview the rejection template before a real Reject (SB-1407)."""
+
+    def _post(self, review, **body):
+        return review.client.post(
+            "/api/invite-requests/test-rejection-email", json={"to_email": "me@example.com", **body}
+        )
+
+    def test_sends_the_rejection_template_and_touches_no_row(self, review):
+        db = review.with_row(PENDING)
+        with patch("api.invite_requests.EmailService") as svc:
+            svc.return_value.send_invite_request_rejection.return_value = True
+            response = self._post(review, name="Me")
+
+        assert response.status_code == 200
+        svc.return_value.send_invite_request_rejection.assert_called_once_with(to_email="me@example.com", name="Me")
+        db.table.assert_not_called()
+
+    def test_send_failure_is_502(self, review):
+        with patch("api.invite_requests.EmailService") as svc:
+            svc.return_value.send_invite_request_rejection.return_value = False
+            response = self._post(review)
+
+        assert response.status_code == 502
+
+    def test_unconfigured_email_is_503_without_details(self, review):
+        with patch("api.invite_requests.EmailService", side_effect=RuntimeError("RESEND_API_KEY missing")):
+            response = self._post(review)
+
+        assert response.status_code == 503
+        assert "RESEND_API_KEY" not in response.text
+
+    def test_non_admin_is_403(self, review):
+        from auth import get_current_user_required
+
+        review.client.app.dependency_overrides[get_current_user_required] = lambda: {"id": "u", "role": "team-fan"}
+        with patch("api.invite_requests.EmailService") as svc:
+            response = self._post(review)
+
+        assert response.status_code == 403
+        svc.assert_not_called()
+
+
 INVITATION = {
     "id": "inv-1",
     "email": "pat@example.com",

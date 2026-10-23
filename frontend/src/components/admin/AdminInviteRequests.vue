@@ -29,6 +29,16 @@
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
+        <!-- Preview the email Reject sends (SB-1407) -->
+        <button
+          type="button"
+          data-testid="test-rejection-email"
+          class="px-3 py-2 text-sm rounded-md border border-line text-fg hover:bg-surface-alt"
+          :disabled="sendingTestEmail"
+          @click="sendTestRejectionEmail"
+        >
+          {{ sendingTestEmail ? 'Sending…' : 'Send test rejection email' }}
+        </button>
       </div>
     </div>
 
@@ -255,6 +265,44 @@ const iosBetaOnly = ref(false);
 // Track per-row "resend in flight" so we can disable the button while the
 // POST is pending. Set works fine without a deep reactive wrapper.
 const resendingIds = ref(new Set());
+const sendingTestEmail = ref(false);
+
+// Send the rejection email to any address, so the template can be checked
+// before a real Reject (SB-1407). Touches no invite request.
+const sendTestRejectionEmail = async () => {
+  const toEmail = window.prompt(
+    'Send the rejection email to which address?',
+    ''
+  );
+  if (!toEmail) return;
+  const name =
+    window.prompt('Name to greet in the email:', 'Test User') || 'Test User';
+
+  sendingTestEmail.value = true;
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/api/invite-requests/test-rejection-email`,
+      {
+        method: 'POST',
+        headers: {
+          ...authStore.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ to_email: toEmail, name }),
+      }
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail || response.statusText);
+    }
+    alert(`Sent — check ${toEmail}.`);
+  } catch (err) {
+    console.error('Test rejection email failed:', err);
+    alert(`Failed to send: ${err.message}`);
+  } finally {
+    sendingTestEmail.value = false;
+  }
+};
 
 // Re-send the linked invitation's email (e.g. the requester missed it).
 const resendInviteEmail = async request => {

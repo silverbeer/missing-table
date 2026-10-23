@@ -261,6 +261,32 @@ describe('AdminInviteRequests', () => {
     ]);
   });
 
+  it('sends a test rejection email to the address given, touching no request', async () => {
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('me@example.com')
+      .mockReturnValueOnce('Me');
+    const wrapper = await mountRequests([REQUEST]);
+
+    await wrapper.find('[data-testid="test-rejection-email"]').trigger('click');
+    await flushPromises();
+    expect(posted).toEqual([
+      {
+        url: 'http://localhost:8000/api/invite-requests/test-rejection-email',
+        body: { to_email: 'me@example.com', name: 'Me' },
+      },
+    ]);
+    expect(put).toHaveLength(0);
+  });
+
+  it('test rejection email does nothing when the prompt is cancelled', async () => {
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null);
+    const wrapper = await mountRequests([REQUEST]);
+
+    await wrapper.find('[data-testid="test-rejection-email"]').trigger('click');
+    await flushPromises();
+    expect(posted).toHaveLength(0);
+  });
+
   it('an approved request resends its invite, and cannot be reset', async () => {
     const wrapper = await mountRequests([LINKED]);
 

@@ -95,6 +95,13 @@ class InviteRequestStatusUpdate(BaseModel):
     admin_notes: str | None = Field(None, description="Admin notes about the decision")
 
 
+class TestRejectionEmail(BaseModel):
+    """Request body for sending a test rejection email to an arbitrary address."""
+
+    to_email: EmailStr = Field(..., description="Recipient address")
+    name: str = Field("Test User", min_length=1, max_length=255)
+
+
 class InviteRequestStats(BaseModel):
     """Statistics about invite requests"""
 
@@ -266,6 +273,34 @@ async def get_invite_request(request_id: str, current_user=Depends(get_current_u
     except Exception:
         logger.exception("Error getting invite request")
         raise HTTPException(status_code=500, detail="Failed to retrieve invite request") from None
+
+
+@router.post("/test-rejection-email")
+async def send_test_rejection_email(
+    payload: TestRejectionEmail,
+    current_user=Depends(get_current_user_required),
+):
+    """
+    Send the rejection email to an arbitrary address so admins can preview
+    the template before a real Reject (SB-1407), without a throwaway
+    invite_requests row.
+
+    Admin only.
+    """
+    if current_user.get("role") not in ["admin", "club_manager"]:
+        raise HTTPException(status_code=403, detail="Only admins can send test emails")
+
+    try:
+        email_service = EmailService()
+    except Exception:
+        logger.exception("EmailService init failed for test-rejection-email")
+        raise HTTPException(status_code=503, detail="Email service is unavailable") from None
+
+    sent = email_service.send_invite_request_rejection(to_email=payload.to_email, name=payload.name)
+    if not sent:
+        raise HTTPException(status_code=502, detail="Email send failed")
+
+    return {"success": True, "message": f"Test rejection email sent to {payload.to_email}"}
 
 
 @router.put("/{request_id}/status")
