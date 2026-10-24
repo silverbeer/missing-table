@@ -236,7 +236,7 @@ Answer a data question here before reaching for the database.
 
 ```bash
 uv tool install --editable ./backend   # once; `mt` then works from anywhere
-mt login                               # session expires; read commands say so
+mt login                               # once; the session refreshes itself (SB-1410)
 mt --env prod team matches "IFA U15"   # one command against prod; nothing persists
 ```
 

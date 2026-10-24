@@ -10,8 +10,11 @@ Provides a comprehensive client with:
 """
 
 import logging
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urljoin
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 import httpx
 from pydantic import BaseModel
@@ -91,6 +94,9 @@ class MissingTableClient:
         self.base_url = base_url.rstrip("/")
         self._access_token = access_token
         self._refresh_token: str | None = None
+        # Set to opt in to refresh-and-retry on a 401 (SB-1410): called with
+        # the new tokens so the caller can persist them.
+        self.on_token_refresh: Callable[[dict[str, Any]], None] | None = None
         self.timeout = timeout
         self.max_retries = max_retries
 
@@ -165,10 +171,26 @@ class MissingTableClient:
             params=params,
         )
 
+        if response.status_code == 401 and self._can_refresh(path):
+            tokens = self.refresh_access_token()
+            self.on_token_refresh(tokens)
+            response = self._client.request(
+                method=method,
+                url=url,
+                headers=self._get_headers(),
+                json=json_data,
+                params=params,
+            )
+
         if not response.is_success:
             self._handle_response_error(response)
 
         return response
+
+    def _can_refresh(self, path: str) -> bool:
+        """A 401 is retried once after a refresh, only when the caller opted in
+        and never for the auth endpoints themselves (no refresh loop)."""
+        return bool(self.on_token_refresh and self._refresh_token and not path.startswith("/api/auth/"))
 
     def _request_multipart(
         self,
