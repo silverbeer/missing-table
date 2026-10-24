@@ -25,7 +25,7 @@ import sys
 from datetime import UTC, datetime
 from getpass import getpass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import typer
 from pydantic import BaseModel
@@ -319,11 +319,51 @@ def get_client() -> tuple[MissingTableClient, CLIState]:
         )
         raise typer.Exit(1)
 
+    if state.refresh_token and _near_expiry(state.access_token):
+        try:
+            fresh_access_token(state, get_base_url(), persist=_persist_session)
+        except (AuthenticationError, APIError):
+            _session_expired()
+
     client = MissingTableClient(
         base_url=get_base_url(),
         access_token=state.access_token,
     )
+    # A token revoked or expired early still gets one refresh-and-retry (SB-1410).
+    client._refresh_token = state.refresh_token
+    client.on_token_refresh = lambda tokens: _persist_session(_with_tokens(state, tokens))
     return client, state
+
+
+def _near_expiry(access_token: str) -> bool:
+    """A readable token within the refresh margin of expiry. An unreadable one
+    goes to the server as-is: a 401 there still triggers the refresh."""
+    import time
+
+    expires = token_expires_at(access_token)
+    return expires is not None and expires - time.time() <= MCP_REFRESH_MARGIN_S
+
+
+def _with_tokens(state: CLIState, tokens: dict) -> CLIState:
+    state.access_token = tokens["access_token"]
+    state.refresh_token = tokens.get("refresh_token") or state.refresh_token
+    return state
+
+
+def _persist_session(state: CLIState) -> None:
+    """Save refreshed tokens to the environment's session and the user's copy.
+
+    Refresh tokens rotate, so a copy left holding the old one could never
+    refresh again.
+    """
+    save_state(state)
+    save_user_state(state)
+
+
+def _session_expired() -> NoReturn:
+    env = get_current_env()
+    console.print(f"[red]Session expired for {env}[/red]\n[yellow]Log in again:[/yellow] mt --env {env} login")
+    raise typer.Exit(1)
 
 
 def require_active_match(state: CLIState) -> int:
@@ -597,7 +637,7 @@ def login(username: str = typer.Argument("tom", help="Username to login with (de
 # --- mt-mcp (SB-1304) ---
 
 # Refresh a session token this close to expiry, so a long Claude Code session
-# never hands mt-mcp a token that dies mid-call.
+# never hands mt-mcp - or any mt command (SB-1410) - a token that dies mid-call.
 MCP_REFRESH_MARGIN_S = 300
 MCP_CLIENT = "claude-code"
 

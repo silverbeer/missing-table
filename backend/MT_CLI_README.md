@@ -56,6 +56,13 @@ Sessions are stored per environment, so a prod login is never sent to a local
 API and an active prod match is not mistaken for a local one. Logging in to one
 does not log you out of the other.
 
+Sessions refresh themselves (SB-1410). The access token lasts an hour; every
+command renews it when it is within five minutes of expiry, and a 401 from the
+API triggers one refresh-and-retry. The rotated refresh token is saved to both
+the environment's session and that user's stored login. You only `mt login`
+again when the refresh token itself is dead — the CLI says so:
+`Session expired for prod — mt --env prod login`.
+
 ### Search for Matches
 
 ```bash
