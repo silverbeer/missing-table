@@ -27,6 +27,10 @@ class EnhancedMatch(BaseModel):
     scheduled_kickoff: datetime | None = None  # Scheduled kickoff datetime in UTC
     home_penalty_score: int | None = None  # Penalty shootout score (only when regulation ends in draw)
     away_penalty_score: int | None = None
+    # Age group a side fielded when it played up/down (SB-1444). Omitted =
+    # same as age_group_id, which is every scraped match.
+    home_age_group_id: int | None = None
+    away_age_group_id: int | None = None
 
 
 class MatchPatch(BaseModel):
@@ -53,6 +57,8 @@ class MatchPatch(BaseModel):
     half_duration: int | None = None
     home_penalty_score: int | None = None  # Penalty shootout score (only when regulation ends in draw)
     away_penalty_score: int | None = None
+    home_age_group_id: int | None = None  # SB-1444; explicit null clears
+    away_age_group_id: int | None = None
 
     class Config:
         # Validation for scores
