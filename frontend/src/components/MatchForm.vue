@@ -209,6 +209,23 @@
               </option>
             </template>
           </select>
+          <!-- The age group this side fielded, for a side playing up
+               (SB-1444). Defaults to the match's; only differs by choice. -->
+          <select
+            v-if="playingUp"
+            v-model="matchData.homeAgeGroup"
+            class="mt-1 block w-full rounded-md border-line bg-card text-fg-muted shadow-sm focus:border-brand-500 focus:ring-brand-500 text-xs"
+            data-testid="home-age-group-select"
+          >
+            <option value="">Plays at {{ selectedAgeGroupName }} (same)</option>
+            <option
+              v-for="ag in ageGroups.filter(a => a.id !== selectedAgeGroup)"
+              :key="ag.id"
+              :value="ag.id"
+            >
+              Plays at {{ ag.name }}
+            </option>
+          </select>
         </div>
 
         <div>
@@ -244,6 +261,23 @@
                 {{ team.name }}
               </option>
             </template>
+          </select>
+          <!-- The age group this side fielded, for a side playing up
+               (SB-1444). Defaults to the match's; only differs by choice. -->
+          <select
+            v-if="playingUp"
+            v-model="matchData.awayAgeGroup"
+            class="mt-1 block w-full rounded-md border-line bg-card text-fg-muted shadow-sm focus:border-brand-500 focus:ring-brand-500 text-xs"
+            data-testid="away-age-group-select"
+          >
+            <option value="">Plays at {{ selectedAgeGroupName }} (same)</option>
+            <option
+              v-for="ag in ageGroups.filter(a => a.id !== selectedAgeGroup)"
+              :key="ag.id"
+              :value="ag.id"
+            >
+              Plays at {{ ag.name }}
+            </option>
           </select>
         </div>
       </div>
@@ -338,6 +372,9 @@ export default {
       kickoffTime: '',
       homeTeam: '',
       awayTeam: '',
+      // '' = same age group as the match (SB-1444)
+      homeAgeGroup: '',
+      awayAgeGroup: '',
       homeScore: 0,
       awayScore: 0,
     });
@@ -364,6 +401,12 @@ export default {
       );
       return allowsPlayingUp(matchType?.name);
     });
+
+    const selectedAgeGroupName = computed(
+      () =>
+        ageGroups.value.find(ag => ag.id === selectedAgeGroup.value)?.name ||
+        'match age group'
+    );
 
     const registeredGroupLabel = computed(() => {
       const ageGroup = ageGroups.value.find(
@@ -556,6 +599,15 @@ export default {
         ),
       };
 
+      // Only a side that played up is sent; the API stores the rest as
+      // "same age group" (SB-1444).
+      if (playingUp.value) {
+        if (matchData.value.homeAgeGroup)
+          matchDataToSubmit.home_age_group_id = matchData.value.homeAgeGroup;
+        if (matchData.value.awayAgeGroup)
+          matchDataToSubmit.away_age_group_id = matchData.value.awayAgeGroup;
+      }
+
       // Add division_id for League matches
       const leagueMatchType = matchTypes.value.find(gt => gt.name === 'League');
       if (selectedMatchType.value === leagueMatchType?.id) {
@@ -643,6 +695,8 @@ export default {
             kickoffTime: '',
             homeTeam: '',
             awayTeam: '',
+            homeAgeGroup: '',
+            awayAgeGroup: '',
             homeScore: 0,
             awayScore: 0,
           };
@@ -676,6 +730,8 @@ export default {
           console.log('Resetting team selections');
           matchData.value.homeTeam = '';
           matchData.value.awayTeam = '';
+          matchData.value.homeAgeGroup = '';
+          matchData.value.awayAgeGroup = '';
         } else {
           console.log('Match type or age group not set, skipping team fetch');
         }
@@ -707,6 +763,8 @@ export default {
       teams,
       otherTeams,
       registeredGroupLabel,
+      playingUp,
+      selectedAgeGroupName,
       matchData,
       message,
       error,

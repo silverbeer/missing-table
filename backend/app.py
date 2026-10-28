@@ -3048,6 +3048,8 @@ async def add_match(
             source=match.source,  # Track source (manual, match-scraper, etc.)
             external_match_id=match.external_match_id,  # Store external match identifier if provided
             scheduled_kickoff=match.scheduled_kickoff.isoformat() if match.scheduled_kickoff else None,
+            home_age_group_id=match.home_age_group_id,
+            away_age_group_id=match.away_age_group_id,
         )
         if success:
             return {"message": "Match added successfully"}
@@ -3101,6 +3103,13 @@ async def update_match(
             updated_by=current_user.get("user_id"),  # Track who updated the match
             external_match_id=match.external_match_id,  # Update external_match_id if provided
             scheduled_kickoff=match.scheduled_kickoff.isoformat() if match.scheduled_kickoff else None,
+            # Only when sent: a client that predates SB-1444 must not clear a
+            # playing-up side by leaving the field out of its full replace.
+            **{
+                field: getattr(match, field)
+                for field in ("home_age_group_id", "away_age_group_id")
+                if field in match.model_fields_set
+            },
         )
         if updated_match:
             # Notify followers if this write set/changed the final score (SB-77).
@@ -3213,6 +3222,8 @@ async def patch_match(
             # knockout tie on this path lost the shootout silently (SB-906).
             "home_penalty_score": patched_or_unset("home_penalty_score"),
             "away_penalty_score": patched_or_unset("away_penalty_score"),
+            "home_age_group_id": patched_or_unset("home_age_group_id"),
+            "away_age_group_id": patched_or_unset("away_age_group_id"),
             "updated_by": current_user.get("user_id"),
         }
 

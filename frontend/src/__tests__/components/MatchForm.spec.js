@@ -525,6 +525,54 @@ describe('MatchForm', () => {
         age_group_id: 3,
       });
     });
+
+    // SB-1444: each side's age group defaults to the match's. Nothing extra is
+    // sent unless someone picks a different one.
+    const submitFriendly = async awayAgeGroup => {
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve({ id: 1 }));
+      const wrapper = mountMatchForm();
+      await flushPromises();
+      wrapper.vm.selectedMatchType = 3;
+      await flushPromises();
+      wrapper.vm.matchData.date = '2026-10-28';
+      wrapper.vm.matchData.homeTeam = 1;
+      wrapper.vm.matchData.awayTeam = 50;
+      if (awayAgeGroup) wrapper.vm.matchData.awayAgeGroup = awayAgeGroup;
+      await wrapper.vm.$nextTick();
+      await wrapper.find('form').trigger('submit');
+      await flushPromises();
+      return {
+        wrapper,
+        body: JSON.parse(mockAuthStore.apiRequest.mock.calls.at(-1)[1].body),
+      };
+    };
+
+    it('defaults each side to the match age group and sends nothing extra', async () => {
+      const { wrapper, body } = await submitFriendly(null);
+
+      expect(
+        wrapper.find('[data-testid="away-age-group-select"]').element.value
+      ).toBe('');
+      expect(body).not.toHaveProperty('home_age_group_id');
+      expect(body).not.toHaveProperty('away_age_group_id');
+    });
+
+    it('sends the playing-up side when one is chosen', async () => {
+      const { body } = await submitFriendly(4);
+
+      expect(body.age_group_id).toBe(3);
+      expect(body.away_age_group_id).toBe(4);
+      expect(body).not.toHaveProperty('home_age_group_id');
+    });
+
+    it('offers no side age group for League', async () => {
+      const wrapper = mountMatchForm();
+      await flushPromises();
+
+      expect(
+        wrapper.find('[data-testid="away-age-group-select"]').exists()
+      ).toBe(false);
+    });
   });
 
   // ===========================================================================

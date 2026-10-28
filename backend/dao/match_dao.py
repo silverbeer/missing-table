@@ -21,6 +21,7 @@ from dao.base_dao import (
     invalidates_cache,
 )
 from dao.exceptions import DuplicateRecordError
+from dao.side_age_groups import side_age_group, team_age_group_filter
 from dao.standings import (
     calculate_standings_with_extras,
     count_outside_table_opponents,
@@ -234,6 +235,8 @@ class MatchDAO(BaseDAO):
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
                     "age_group_id": match["age_group_id"],
                     "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "home_age_group_id": match.get("home_age_group_id"),
+                    "away_age_group_id": match.get("away_age_group_id"),
                     "match_type_id": match["match_type_id"],
                     "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
@@ -317,6 +320,8 @@ class MatchDAO(BaseDAO):
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
                     "age_group_id": match["age_group_id"],
                     "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "home_age_group_id": match.get("home_age_group_id"),
+                    "away_age_group_id": match.get("away_age_group_id"),
                     "match_type_id": match["match_type_id"],
                     "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
@@ -519,7 +524,9 @@ class MatchDAO(BaseDAO):
                 query = query.eq("is_test", False)
             if season_id:
                 query = query.eq("season_id", season_id)
-            if age_group_id:
+            # A team's matches at an age group follow the age group that team
+            # fielded, which differs from the match's when it played up (SB-1444).
+            if age_group_id and not team_id:
                 query = query.eq("age_group_id", age_group_id)
             if division_id:
                 query = query.eq("division_id", division_id)
@@ -531,7 +538,9 @@ class MatchDAO(BaseDAO):
                 query = query.lte("match_date", end_date)
 
             # For team_id, we need to match either home_team_id OR away_team_id
-            if team_id:
+            if team_id and age_group_id:
+                query = query.or_(team_age_group_filter(team_id, age_group_id))
+            elif team_id:
                 query = query.or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
 
             response = query.order("match_date", desc=True).execute()
@@ -568,6 +577,8 @@ class MatchDAO(BaseDAO):
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
                     "age_group_id": match["age_group_id"],
                     "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "home_age_group_id": match.get("home_age_group_id"),
+                    "away_age_group_id": match.get("away_age_group_id"),
                     "match_type_id": match["match_type_id"],
                     "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
@@ -753,13 +764,15 @@ class MatchDAO(BaseDAO):
             if not include_test:
                 query = query.eq("is_test", False)
 
-            query = query.or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
+            # At an age group, follow the age group this team fielded — not the
+            # match's — so a side that played up still finds the match (SB-1444).
+            if age_group_id:
+                query = query.or_(team_age_group_filter(team_id, age_group_id))
+            else:
+                query = query.or_(f"home_team_id.eq.{team_id},away_team_id.eq.{team_id}")
 
             if season_id:
                 query = query.eq("season_id", season_id)
-
-            if age_group_id:
-                query = query.eq("age_group_id", age_group_id)
 
             response = query.order("match_date", desc=True).execute()
 
@@ -788,6 +801,8 @@ class MatchDAO(BaseDAO):
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
                     "age_group_id": match["age_group_id"],
                     "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "home_age_group_id": match.get("home_age_group_id"),
+                    "away_age_group_id": match.get("away_age_group_id"),
                     "match_type_id": match["match_type_id"],
                     "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
@@ -1053,8 +1068,14 @@ class MatchDAO(BaseDAO):
         source: str = "manual",
         external_match_id: str | None = None,
         scheduled_kickoff: str | None = None,
+        home_age_group_id: int | None = None,
+        away_age_group_id: int | None = None,
     ) -> bool:
-        """Add a new match with audit trail and optional external match_id."""
+        """Add a new match with audit trail and optional external match_id.
+
+        home_age_group_id / away_age_group_id are for a side that played up or
+        down (SB-1444); omitted or equal to age_group_id, they store as NULL.
+        """
         try:
             data = {
                 "match_date": match_date,
@@ -1079,6 +1100,9 @@ class MatchDAO(BaseDAO):
                 data["match_id"] = external_match_id
             if scheduled_kickoff:
                 data["scheduled_kickoff"] = scheduled_kickoff
+            for column, value in (("home_age_group_id", home_age_group_id), ("away_age_group_id", away_age_group_id)):
+                if side_age_group(value, age_group_id) is not None:
+                    data[column] = value
 
             response = self.client.table("matches").insert(data).execute()
 
@@ -1161,6 +1185,8 @@ class MatchDAO(BaseDAO):
         half_duration: int | None = None,
         home_penalty_score: int | None | _Unset = UNSET,
         away_penalty_score: int | None | _Unset = UNSET,
+        home_age_group_id: int | None | _Unset = UNSET,
+        away_age_group_id: int | None | _Unset = UNSET,
     ) -> dict | None:
         """Update an existing match with audit trail and optional external match_id.
 
@@ -1202,6 +1228,12 @@ class MatchDAO(BaseDAO):
                 data["home_penalty_score"] = home_penalty_score
             if away_penalty_score is not UNSET:
                 data["away_penalty_score"] = away_penalty_score
+            # Per-side age group (SB-1444): UNSET leaves a playing-up side as
+            # it is; a value equal to the match's age group, or None, clears it.
+            if home_age_group_id is not UNSET:
+                data["home_age_group_id"] = side_age_group(home_age_group_id, age_group_id)
+            if away_age_group_id is not UNSET:
+                data["away_age_group_id"] = side_age_group(away_age_group_id, age_group_id)
 
             # Execute update
             response = self.client.table("matches").update(data).eq("id", match_id).execute()
@@ -1313,6 +1345,8 @@ class MatchDAO(BaseDAO):
                     "season_start_date": match["season"].get("start_date") if match.get("season") else None,
                     "age_group_id": match["age_group_id"],
                     "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+                    "home_age_group_id": match.get("home_age_group_id"),
+                    "away_age_group_id": match.get("away_age_group_id"),
                     "match_type_id": match["match_type_id"],
                     "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
                     "division_id": match.get("division_id"),
