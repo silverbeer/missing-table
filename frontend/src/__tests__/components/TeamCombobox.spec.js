@@ -75,6 +75,39 @@ describe('TeamCombobox filtering', () => {
     expect(optionText(wrapper)).toEqual(['Oakwood SC']);
   });
 
+  it('searches other age groups when asked, after the in-group matches', async () => {
+    const wrapper = mountBox({
+      teams: [
+        ...TEAMS,
+        {
+          id: 4,
+          name: 'Oakwood Academy',
+          league_id: 2,
+          age_groups: [{ id: 3 }],
+        },
+      ],
+      ageGroupId: 3,
+      includeOtherAgeGroups: true,
+    });
+    await type(wrapper, 'oakwood');
+
+    expect(optionText(wrapper)).toEqual(['Oakwood Academy', 'Oakwood SC']);
+    const rows = wrapper.findAll('[data-testid="team-combobox-option"]');
+    expect(
+      rows[0].find('[data-testid="team-combobox-other-age-group"]').exists()
+    ).toBe(false);
+    expect(
+      rows[1].find('[data-testid="team-combobox-other-age-group"]').exists()
+    ).toBe(true);
+  });
+
+  it('keeps the unsearched list to the age group even when searching wider', async () => {
+    const wrapper = mountBox({ ageGroupId: 3, includeOtherAgeGroups: true });
+    await wrapper.find('[data-testid="team-combobox-input"]').trigger('focus');
+
+    expect(optionText(wrapper)).not.toContain('Oakwood SC');
+  });
+
   it('keeps teams whose age groups are unknown rather than hiding them', async () => {
     const wrapper = mountBox({
       teams: [{ id: 9, name: 'Mystery FC', league_id: null }],

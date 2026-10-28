@@ -485,6 +485,7 @@
                   v-model:create-name="mForm.home_team_name"
                   :teams="teamOptions"
                   :age-group-id="mForm.age_group_id"
+                  include-other-age-groups
                   required
                   placeholder="Search teams…"
                 />
@@ -498,6 +499,7 @@
                   v-model:create-name="mForm.away_team_name"
                   :teams="teamOptions"
                   :age-group-id="mForm.age_group_id"
+                  include-other-age-groups
                   required
                   placeholder="Search teams…"
                 />
