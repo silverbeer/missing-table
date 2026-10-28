@@ -301,6 +301,27 @@
                     {{ team.name }}
                   </option>
                 </select>
+                <!-- Age group this side fielded, for a side playing up
+                     (SB-1444). Blank = the match's age group. -->
+                <select
+                  v-if="showPlaysAt"
+                  v-model="editFormData.home_age_group_id"
+                  class="mt-1 w-full px-3 py-1.5 bg-card text-fg-muted text-sm border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  data-testid="edit-home-age-group-select"
+                >
+                  <option value="">
+                    Plays at {{ editAgeGroupName }} (same)
+                  </option>
+                  <option
+                    v-for="ag in ageGroups.filter(
+                      a => a.id !== editFormData.age_group_id
+                    )"
+                    :key="ag.id"
+                    :value="ag.id"
+                  >
+                    Plays at {{ ag.name }}
+                  </option>
+                </select>
               </div>
               <div>
                 <label class="block text-sm font-medium text-fg mb-2"
@@ -313,6 +334,27 @@
                 >
                   <option v-for="team in teams" :key="team.id" :value="team.id">
                     {{ team.name }}
+                  </option>
+                </select>
+                <!-- Age group this side fielded, for a side playing up
+                     (SB-1444). Blank = the match's age group. -->
+                <select
+                  v-if="showPlaysAt"
+                  v-model="editFormData.away_age_group_id"
+                  class="mt-1 w-full px-3 py-1.5 bg-card text-fg-muted text-sm border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  data-testid="edit-away-age-group-select"
+                >
+                  <option value="">
+                    Plays at {{ editAgeGroupName }} (same)
+                  </option>
+                  <option
+                    v-for="ag in ageGroups.filter(
+                      a => a.id !== editFormData.age_group_id
+                    )"
+                    :key="ag.id"
+                    :value="ag.id"
+                  >
+                    Plays at {{ ag.name }}
                   </option>
                 </select>
               </div>
@@ -423,9 +465,10 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { allowsPlayingUp } from '../../utils/playingUp';
 
 export default {
   name: 'AdminMatches',
@@ -457,6 +500,8 @@ export default {
       match_type_id: '',
       season_id: '',
       age_group_id: '',
+      home_age_group_id: '',
+      away_age_group_id: '',
       division_id: null,
       match_id: '',
     });
@@ -621,6 +666,25 @@ export default {
       return status.charAt(0).toUpperCase() + status.slice(1);
     };
 
+    // The "Plays at" pickers appear where teams play up — Friendly and
+    // Tournament — or wherever a side already records one, so it can be undone.
+    const showPlaysAt = computed(() => {
+      const matchType = matchTypes.value.find(
+        mt => mt.id == editFormData.value.match_type_id
+      );
+      return (
+        allowsPlayingUp(matchType?.name) ||
+        !!editFormData.value.home_age_group_id ||
+        !!editFormData.value.away_age_group_id
+      );
+    });
+
+    const editAgeGroupName = computed(
+      () =>
+        ageGroups.value.find(ag => ag.id == editFormData.value.age_group_id)
+          ?.name || 'match age group'
+    );
+
     const editMatch = match => {
       editingMatch.value = match;
       editFormData.value = {
@@ -633,6 +697,8 @@ export default {
         match_type_id: match.match_type_id,
         season_id: match.season_id,
         age_group_id: match.age_group_id,
+        home_age_group_id: match.home_age_group_id || '',
+        away_age_group_id: match.away_age_group_id || '',
         division_id: match.division_id,
         match_id: match.match_id || '',
       };
@@ -655,6 +721,18 @@ export default {
         };
         // Remove kickoff_time as it's not a valid API field
         delete matchData.kickoff_time;
+        // Per-side age groups (SB-1444): sent only when the picker is shown,
+        // and blank means "same as the match". When hidden they are left out
+        // entirely, and the API keeps whatever is stored.
+        if (showPlaysAt.value) {
+          matchData.home_age_group_id =
+            editFormData.value.home_age_group_id || null;
+          matchData.away_age_group_id =
+            editFormData.value.away_age_group_id || null;
+        } else {
+          delete matchData.home_age_group_id;
+          delete matchData.away_age_group_id;
+        }
 
         await authStore.apiRequest(
           `${getApiBaseUrl()}/api/matches/${editingMatch.value.id}`,
@@ -729,6 +807,8 @@ export default {
         match_type_id: '',
         season_id: '',
         age_group_id: '',
+        home_age_group_id: '',
+        away_age_group_id: '',
         division_id: null,
         match_id: '',
       };
@@ -750,6 +830,8 @@ export default {
       error,
       showEditModal,
       editFormData,
+      showPlaysAt,
+      editAgeGroupName,
       filterSeason,
       filterMatchType,
       filterLeague,

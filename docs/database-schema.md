@@ -352,7 +352,7 @@ finds them once you type. League and Flex stay strict — they feed standings.
 A playing-up match carries the younger side's age group as `age_group_id`.
 The side that played up records its own in `matches.home_age_group_id` /
 `away_age_group_id` (SB-1444) — the "Plays at" picker under each team on Add
-Match, which defaults to the match's age group. NULL means "same as the
+Match and on Admin → Matches → Edit, which defaults to the match's age group. NULL means "same as the
 match", so the scraper and every other writer never set them. A team's match
 list at an age group (My Club, `/api/matches/team/{id}`) follows the age group
 that team fielded. The columns carry no FK on purpose: a second FK from
