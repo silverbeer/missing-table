@@ -344,6 +344,14 @@ CREATE TABLE team_mappings (
 
 Defines which match types apply to each team.
 
+The match forms offer the teams registered here for the chosen match type and
+age group. **Friendly and Tournament also offer every other team**, because
+teams play up an age group in those competitions (SB-1443): Add Match lists
+them under "Other age groups (playing up)", and the tournament team search
+finds them once you type. League and Flex stay strict — they feed standings.
+A playing-up match still carries one age group: record it at the younger
+side's.
+
 ```sql
 CREATE TABLE team_match_types (
     id SERIAL PRIMARY KEY,

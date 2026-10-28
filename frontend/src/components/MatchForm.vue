@@ -187,9 +187,27 @@
             data-testid="home-team-select"
           >
             <option value="">Select Team</option>
-            <option v-for="team in teams" :key="team.id" :value="team.id">
-              {{ team.name }}
-            </option>
+            <template v-if="otherTeams.length">
+              <optgroup :label="registeredGroupLabel">
+                <option v-for="team in teams" :key="team.id" :value="team.id">
+                  {{ team.name }}
+                </option>
+              </optgroup>
+              <optgroup label="Other age groups (playing up)">
+                <option
+                  v-for="team in otherTeams"
+                  :key="team.id"
+                  :value="team.id"
+                >
+                  {{ team.name }}
+                </option>
+              </optgroup>
+            </template>
+            <template v-else>
+              <option v-for="team in teams" :key="team.id" :value="team.id">
+                {{ team.name }}
+              </option>
+            </template>
           </select>
         </div>
 
@@ -205,9 +223,27 @@
             data-testid="away-team-select"
           >
             <option value="">Select Team</option>
-            <option v-for="team in teams" :key="team.id" :value="team.id">
-              {{ team.name }}
-            </option>
+            <template v-if="otherTeams.length">
+              <optgroup :label="registeredGroupLabel">
+                <option v-for="team in teams" :key="team.id" :value="team.id">
+                  {{ team.name }}
+                </option>
+              </optgroup>
+              <optgroup label="Other age groups (playing up)">
+                <option
+                  v-for="team in otherTeams"
+                  :key="team.id"
+                  :value="team.id"
+                >
+                  {{ team.name }}
+                </option>
+              </optgroup>
+            </template>
+            <template v-else>
+              <option v-for="team in teams" :key="team.id" :value="team.id">
+                {{ team.name }}
+              </option>
+            </template>
           </select>
         </div>
       </div>
@@ -284,12 +320,16 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import { errorMessage } from '../utils/apiError';
+import { allowsPlayingUp, groupTeamsForMatch } from '../utils/playingUp';
 
 export default {
   name: 'MatchForm',
   setup() {
     const { apiRequest } = useAuthStore();
     const teams = ref([]);
+    // Teams outside the selected age group, offered only where playing up
+    // happens — Friendly and Tournament (SB-1443).
+    const otherTeams = ref([]);
     const error = ref(false);
     const message = ref('');
     const formType = ref('schedule');
@@ -316,6 +356,20 @@ export default {
     const isLeagueMatch = computed(() => {
       const leagueMatchType = matchTypes.value.find(gt => gt.name === 'League');
       return selectedMatchType.value === leagueMatchType?.id;
+    });
+
+    const playingUp = computed(() => {
+      const matchType = matchTypes.value.find(
+        mt => mt.id === selectedMatchType.value
+      );
+      return allowsPlayingUp(matchType?.name);
+    });
+
+    const registeredGroupLabel = computed(() => {
+      const ageGroup = ageGroups.value.find(
+        ag => ag.id === selectedAgeGroup.value
+      );
+      return ageGroup ? `${ageGroup.name} teams` : 'Registered teams';
     });
 
     const fetchTeams = async () => {
@@ -352,7 +406,23 @@ export default {
         console.log('Team names:', data.map(t => t.name).sort());
         console.log('Previous teams count:', teams.value.length);
 
-        teams.value = data;
+        let all = [];
+        if (playingUp.value && selectedAgeGroup.value) {
+          // for_match_edit returns every team for any role; without it a
+          // club manager's list is narrowed to their own club.
+          const allResponse = await fetch(
+            `${getApiBaseUrl()}/api/teams?for_match_edit=true`,
+            { headers: authHeaders }
+          );
+          if (allResponse.ok) all = await allResponse.json();
+        }
+        const grouped = groupTeamsForMatch({
+          registered: data,
+          all,
+          playingUp: playingUp.value,
+        });
+        teams.value = grouped.registered;
+        otherTeams.value = grouped.others;
         console.log('Teams updated, new count:', teams.value.length);
         console.log('=== END FETCHING TEAMS ===');
       } catch (err) {
@@ -635,6 +705,8 @@ export default {
 
     return {
       teams,
+      otherTeams,
+      registeredGroupLabel,
       matchData,
       message,
       error,

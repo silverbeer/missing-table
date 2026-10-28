@@ -424,6 +424,110 @@ describe('MatchForm', () => {
   });
 
   // ===========================================================================
+  // TESTS: PLAYING UP (SB-1443)
+  // ===========================================================================
+
+  describe('playing up', () => {
+    // The registered list answers the match_type/age_group query; the full
+    // list (for_match_edit) also holds an academy registered only a year up.
+    const registered = createMockTeams().slice(0, 2);
+    const academyU16 = {
+      id: 50,
+      name: 'Pro Academy',
+      age_groups: [{ id: 4, name: 'U16' }],
+    };
+
+    beforeEach(() => {
+      const base = createMockFetch();
+      global.fetch = vi.fn(url => {
+        if (url.includes('/api/teams?for_match_edit=true')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([...registered, academyU16]),
+          });
+        }
+        if (url.includes('/api/teams')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(registered),
+          });
+        }
+        return base(url);
+      });
+    });
+
+    const awayGroups = wrapper =>
+      wrapper
+        .find('[data-testid="away-team-select"]')
+        .findAll('optgroup')
+        .map(g => ({
+          label: g.attributes('label'),
+          teams: g.findAll('option').map(o => o.text()),
+        }));
+
+    it('offers teams from other age groups for a Friendly', async () => {
+      const wrapper = mountMatchForm();
+      await flushPromises();
+      wrapper.vm.selectedMatchType = 3;
+      await flushPromises();
+
+      expect(awayGroups(wrapper)).toEqual([
+        { label: 'U14 teams', teams: ['Blue Stars U14', 'Red Hawks U14'] },
+        { label: 'Other age groups (playing up)', teams: ['Pro Academy'] },
+      ]);
+    });
+
+    it('offers teams from other age groups for a Tournament', async () => {
+      const wrapper = mountMatchForm();
+      await flushPromises();
+      wrapper.vm.selectedMatchType = 2;
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="away-team-select"]').text()).toContain(
+        'Pro Academy'
+      );
+    });
+
+    it('keeps League strict: registered teams only, no full-list fetch', async () => {
+      const wrapper = mountMatchForm();
+      await flushPromises();
+
+      const away = wrapper.find('[data-testid="away-team-select"]');
+      expect(away.findAll('optgroup')).toHaveLength(0);
+      expect(away.text()).not.toContain('Pro Academy');
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        expect.stringContaining('for_match_edit'),
+        expect.anything()
+      );
+    });
+
+    it('submits a playing-up opponent with the selected age group', async () => {
+      mockAuthStore.apiRequest = vi.fn(() => Promise.resolve({ id: 1 }));
+      const wrapper = mountMatchForm();
+      await flushPromises();
+      wrapper.vm.selectedMatchType = 3;
+      await flushPromises();
+
+      wrapper.vm.matchData.date = '2026-10-28';
+      wrapper.vm.matchData.homeTeam = 1;
+      wrapper.vm.matchData.awayTeam = 50;
+      await wrapper.vm.$nextTick();
+      await wrapper.find('form').trigger('submit');
+      await flushPromises();
+
+      const body = JSON.parse(
+        mockAuthStore.apiRequest.mock.calls.at(-1)[1].body
+      );
+      expect(body).toMatchObject({
+        home_team_id: 1,
+        away_team_id: 50,
+        match_type_id: 3,
+        age_group_id: 3,
+      });
+    });
+  });
+
+  // ===========================================================================
   // TESTS: FORM VALIDATION
   // ===========================================================================
 

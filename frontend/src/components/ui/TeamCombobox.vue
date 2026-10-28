@@ -35,6 +35,13 @@
             teamLabel(option.team)
           }}</span>
           <span
+            v-if="otherAgeGroup(option.team)"
+            class="text-xs px-1.5 py-0.5 rounded shrink-0 bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+            data-testid="team-combobox-other-age-group"
+          >
+            other age group
+          </span>
+          <span
             v-if="!labelFormatter && badgeFor(option.team)"
             class="text-xs px-1.5 py-0.5 rounded shrink-0"
             :class="
@@ -83,6 +90,10 @@ const props = defineProps({
   teams: { type: Array, default: () => [] },
   // When set, only teams mapped to this age group are offered.
   ageGroupId: { type: Number, default: null },
+  // Search past the age group: once something is typed, teams from other age
+  // groups follow the in-group matches, flagged — for competitions where
+  // teams play up (SB-1443). The unsearched list stays in-group.
+  includeOtherAgeGroups: { type: Boolean, default: false },
   allowCreate: { type: Boolean, default: true },
   required: { type: Boolean, default: false },
   placeholder: { type: String, default: 'Search teams…' },
@@ -123,10 +134,15 @@ const matches = computed(() => {
   const q = query.value.trim().toLowerCase();
   const pool = props.teams.filter(inAgeGroup);
   if (!q) return pool.slice(0, props.maxOptions);
-  return pool
-    .filter(t => (t.name || '').toLowerCase().includes(q))
-    .slice(0, props.maxOptions);
+  const named = t => (t.name || '').toLowerCase().includes(q);
+  const found = pool.filter(named);
+  if (props.includeOtherAgeGroups) {
+    found.push(...props.teams.filter(t => !inAgeGroup(t) && named(t)));
+  }
+  return found.slice(0, props.maxOptions);
 });
+
+const otherAgeGroup = team => props.includeOtherAgeGroups && !inAgeGroup(team);
 
 // A pre-selected team (e.g. a club fan/manager's own team, SB-599) can sit
 // outside the first `maxOptions` once a club fields more teams than the cap,
