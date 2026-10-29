@@ -120,6 +120,14 @@
                 <span :class="roleBadgeClass(user.role)">{{
                   user.role || 'user'
                 }}</span>
+                <!-- SB-1460: gets the Android app link on the web. -->
+                <span
+                  v-if="user.android_user"
+                  class="ml-1"
+                  title="Android user: sees the Android app download link"
+                  data-testid="android-user-badge"
+                  >📱</span
+                >
               </td>
               <!-- SB-803: affiliation was in the payload all along but never
                    shown, so an account named for a club and attached to
@@ -275,6 +283,24 @@
                   {{ c.name }}
                 </option>
               </select>
+            </label>
+
+            <!-- SB-1460: who gets the Android app is an admin's call, made
+                 one family at a time, not the browser's. -->
+            <label class="flex items-start gap-3">
+              <input
+                v-model="form.android_user"
+                type="checkbox"
+                data-testid="edit-android-user"
+                class="mt-1 h-4 w-4"
+              />
+              <span>
+                <span class="text-fg font-medium">Android user</span>
+                <span class="block text-xs text-fg-muted"
+                  >Shows the "Install the Android app" link when they sign in on
+                  the web.</span
+                >
+              </span>
             </label>
 
             <p
@@ -580,7 +606,13 @@ export default {
     ];
 
     const editing = ref(null);
-    const form = ref({ role: null, team_id: null, club_id: null, email: '' });
+    const form = ref({
+      role: null,
+      team_id: null,
+      club_id: null,
+      email: '',
+      android_user: false,
+    });
     const saving = ref(false);
     const saveError = ref(null);
 
@@ -620,7 +652,8 @@ export default {
         form.value.role !== editing.value.role ||
         form.value.team_id !== (editing.value.team_id ?? null) ||
         form.value.club_id !== (editing.value.club_id ?? null) ||
-        form.value.email.trim() !== (editing.value.email ?? '')
+        form.value.email.trim() !== (editing.value.email ?? '') ||
+        form.value.android_user !== Boolean(editing.value.android_user)
       );
     });
 
@@ -688,6 +721,7 @@ export default {
         // address, so the field opens empty rather than pre-filled with
         // something nothing can be delivered to (SB-1125).
         email: contactEmail(user) ?? '',
+        android_user: Boolean(user.android_user),
       };
       await loadPickerData();
     };

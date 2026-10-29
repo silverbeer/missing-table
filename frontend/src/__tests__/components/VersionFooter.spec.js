@@ -26,13 +26,18 @@ const mountFooter = async () => {
   return wrapper;
 };
 
-// SB-346: the install link is UA-gated for non-admins. jsdom's default UA is
-// desktop, so Android must be opted into per test.
+// SB-1460: the install link follows an admin-set flag, not the browser.
 const setUserAgent = ua =>
   vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua);
 
 const ANDROID_UA =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/125 Mobile Safari/537.36';
+
+const androidUserStore = () => {
+  const store = createAuthenticatedUserStore();
+  store.state.profile = { ...store.state.profile, android_user: true };
+  return store;
+};
 
 describe('VersionFooter visibility gating', () => {
   beforeEach(() => {
@@ -98,9 +103,9 @@ describe('VersionFooter visibility gating', () => {
     );
   });
 
-  it('shows the Android install button to authenticated users on Android', async () => {
-    setUserAgent(ANDROID_UA);
-    mockAuthStore = createAuthenticatedUserStore();
+  it('shows the Android install button to users an admin marked as Android users (SB-1460)', async () => {
+    // Desktop browser: a parent can find the link on a laptop too.
+    mockAuthStore = androidUserStore();
     const wrapper = await mountFooter();
 
     const btn = wrapper.find('[data-testid="android-install-link"]');
@@ -109,8 +114,8 @@ describe('VersionFooter visibility gating', () => {
     expect(btn.attributes('href')).toBeUndefined();
   });
 
-  it('hides the Android install button from non-admins on other platforms (SB-346)', async () => {
-    // jsdom default UA = desktop
+  it('hides the Android install button from unmarked users, even on an Android browser (SB-1460)', async () => {
+    setUserAgent(ANDROID_UA);
     mockAuthStore = createAuthenticatedUserStore();
     const wrapper = await mountFooter();
 
@@ -130,8 +135,7 @@ describe('VersionFooter visibility gating', () => {
   });
 
   it('fetches a presigned URL from the backend when the install button is clicked', async () => {
-    setUserAgent(ANDROID_UA);
-    mockAuthStore = createAuthenticatedUserStore();
+    mockAuthStore = androidUserStore();
     mockAuthStore.apiRequest = vi.fn(() =>
       Promise.resolve({ download_url: 'https://r2.example/signed/app.apk' })
     );

@@ -193,3 +193,33 @@ describe('AdminUsers editing (SB-803)', () => {
     expect(wrapper.vm.ROLE_OPTIONS).not.toContain('team_manager');
   });
 });
+
+describe('AdminUsers Android user flag (SB-1460)', () => {
+  it('ticking Android user makes the form dirty and PATCHes android_user', async () => {
+    const wrapper = await mountUsers();
+    await openEditorFor(wrapper, 'tom_ifa_fan');
+
+    await wrapper.find('[data-testid="edit-android-user"]').setValue(true);
+    expect(
+      wrapper.find('[data-testid="save-user"]').attributes('disabled')
+    ).toBeUndefined();
+
+    await wrapper.find('[data-testid="save-user"]').trigger('click');
+    await flushPromises();
+
+    const patch = apiRequest.mock.calls.find(c => c[1]?.method === 'PATCH');
+    expect(JSON.parse(patch[1].body).android_user).toBe(true);
+  });
+
+  it('marks Android users in the list', async () => {
+    USERS[0].android_user = true;
+    try {
+      const wrapper = await mountUsers();
+      expect(
+        wrapper.findAll('[data-testid="android-user-badge"]')
+      ).toHaveLength(1);
+    } finally {
+      delete USERS[0].android_user;
+    }
+  });
+});

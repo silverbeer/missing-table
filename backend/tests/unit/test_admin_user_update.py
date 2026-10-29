@@ -182,3 +182,39 @@ class TestAdminUserUpdate:
             # The profile write already happened; failing the request would
             # report a false negative and invite a duplicate retry.
             assert response.status_code == 200
+
+
+@pytest.mark.unit
+class TestAndroidUserFlag:
+    """An admin decides who gets the Android app link on the web (SB-1460)."""
+
+    def teardown_method(self):
+        from app import app
+
+        app.dependency_overrides.clear()
+
+    def test_admin_marks_a_parent_as_an_android_user(self):
+        supabase = _supabase(target={**TARGET_FAN, "android_user": False})
+        with patch("app.auth_service_client", supabase):
+            response = _client().patch("/api/admin/users/u-9", json={"android_user": True})
+
+        assert response.status_code == 200
+        assert response.json()["changes"]["android_user"] == {"from": False, "to": True}
+        supabase._tables["user_profiles"].update.assert_called_once_with({"android_user": True})
+
+    def test_null_means_not_an_android_user(self):
+        # The column is NOT NULL; a null must not reach it.
+        supabase = _supabase(target={**TARGET_FAN, "android_user": True})
+        with patch("app.auth_service_client", supabase):
+            response = _client().patch("/api/admin/users/u-9", json={"android_user": None})
+
+        assert response.status_code == 200
+        supabase._tables["user_profiles"].update.assert_called_once_with({"android_user": False})
+
+    def test_setting_it_again_is_no_change(self):
+        supabase = _supabase(target={**TARGET_FAN, "android_user": True})
+        with patch("app.auth_service_client", supabase):
+            response = _client().patch("/api/admin/users/u-9", json={"android_user": True})
+
+        assert response.json()["changes"] == {}
+        supabase._tables["user_profiles"].update.assert_not_called()
