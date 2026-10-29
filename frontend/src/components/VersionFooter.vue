@@ -65,13 +65,15 @@
           />
         </div>
         <!-- Invite-only: the APK is private; only authenticated users can get a
-             short-lived download URL from the backend. Android-only UI: the
-             APK is useless on iOS/desktop, so hide the link elsewhere —
-             except for admins, who keep it everywhere for testing (SB-346). -->
+             short-lived download URL from the backend. Who sees the link is an
+             admin's decision (SB-1460): accounts marked Android users, on any
+             browser so a parent can find it on a laptop too, and admins. It
+             used to follow the browser, which offered the app to every
+             Android visitor. -->
         <div
           v-if="
             authStore.isAuthenticated.value &&
-            (isAndroidDevice || authStore.isAdmin.value)
+            (authStore.isAdmin.value || authStore.state.profile?.android_user)
           "
           class="android-line"
         >
@@ -130,11 +132,6 @@ export default {
     // the URL is never embedded in the shipped bundle.
     const androidLoading = ref(false);
     const androidError = ref('');
-    // UA sniffing is fine here: progressive disclosure of a download button,
-    // not a functional fork. A spoofed UA just sees a button it can't use.
-    const isAndroidDevice = computed(() =>
-      /Android/i.test(navigator.userAgent)
-    );
     const downloadAndroidApk = async () => {
       if (androidLoading.value) return;
       androidLoading.value = true;
@@ -249,7 +246,6 @@ export default {
       supportBody,
       androidLoading,
       androidError,
-      isAndroidDevice,
       downloadAndroidApk,
     };
   },

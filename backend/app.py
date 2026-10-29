@@ -2045,6 +2045,9 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     "telegram_handle": profile.get("telegram_handle"),
                     "discord_handle": profile.get("discord_handle"),
                     "preferences": read_preferences(profile.get("preferences")),
+                    # Admin-set; shows the web's Android download link (SB-1460).
+                    # Absent before the migration reaches an environment.
+                    "android_user": bool(profile.get("android_user")),
                     # Personal info
                     "first_name": profile.get("first_name"),
                     "last_name": profile.get("last_name"),
@@ -7687,7 +7690,7 @@ async def get_all_users(current_user: dict[str, Any] = Depends(require_admin)):
     try:
         profiles_resp = (
             auth_service_client.table("user_profiles")
-            .select("id, username, display_name, role, email, team_id, club_id, created_at")
+            .select("id, username, display_name, role, email, team_id, club_id, android_user, created_at")
             .order("username")
             .execute()
         )
@@ -7760,6 +7763,8 @@ class AdminUserUpdate(BaseModel):
     # A contact address, which most accounts do not have: MT keys on username
     # and synthesises one for Supabase. Sending "" clears it (SB-1128).
     email: str | None = None
+    # Gets the Android app download link on the web (SB-1460).
+    android_user: bool | None = None
 
 
 def _validated_admin_email(value: str | None, user_id: str) -> str | None:
@@ -7850,7 +7855,7 @@ async def update_user_profile_admin(
 
         target_resp = (
             auth_service_client.table("user_profiles")
-            .select("id, username, role, team_id, club_id, email")
+            .select("id, username, role, team_id, club_id, email, android_user")
             .eq("id", user_id)
             .limit(1)
             .execute()
@@ -7860,9 +7865,12 @@ async def update_user_profile_admin(
             raise HTTPException(status_code=404, detail="User not found")
 
         updates: dict[str, Any] = {}
-        for field in ("role", "team_id", "club_id", "email"):
+        for field in ("role", "team_id", "club_id", "email", "android_user"):
             if field in sent:
                 updates[field] = getattr(payload, field)
+        # The column is NOT NULL: an explicit null means "not an Android user".
+        if "android_user" in updates:
+            updates["android_user"] = bool(updates["android_user"])
 
         # An email an admin types is a contact address, and setting one is a
         # sharper act than it looks: whoever controls the address can take the

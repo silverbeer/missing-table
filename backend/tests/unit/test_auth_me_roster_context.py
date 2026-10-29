@@ -92,3 +92,14 @@ class TestCurrentTeamsRosterContext:
         admin = {**PLAYER_PROFILE, "role": "admin"}
 
         assert _call_me(admin, [CURRENT_ROW])["current_teams"] == []
+
+
+class TestAndroidUserFlag:
+    """The web shows the Android download link off this (SB-1460)."""
+
+    def test_flag_is_passed_through(self):
+        assert _call_me({**PLAYER_PROFILE, "android_user": True}, [])["android_user"] is True
+
+    def test_missing_column_reads_as_not_an_android_user(self):
+        # An environment the migration has not reached yet.
+        assert _call_me(PLAYER_PROFILE, [])["android_user"] is False
