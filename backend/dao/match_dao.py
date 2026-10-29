@@ -12,6 +12,7 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
+from supabase import create_client
 
 from dao.base_dao import (
     MATCHES_READ_RELATION,
@@ -32,7 +33,6 @@ from dao.standings import (
     shootout_competitions,
     teams_in_division,
 )
-from supabase import create_client
 
 logger = structlog.get_logger()
 
@@ -2003,7 +2003,8 @@ class MatchDAO(BaseDAO):
         Args:
             match_id: The match to update
             action: Clock action - 'start_first_half', 'start_halftime',
-                    'cancel_halftime', 'start_second_half', 'end_match'
+                    'cancel_halftime', 'start_second_half', 'cancel_second_half',
+                    'end_match'
             updated_by: UUID of user performing the action
             half_duration: Duration of each half in minutes (only for start_first_half)
             occurred_at: ISO timestamp to record instead of now (offline clients
@@ -2035,14 +2036,14 @@ class MatchDAO(BaseDAO):
                 # Mark halftime started
                 data["halftime_start"] = now
             elif action == "cancel_halftime":
-                # Roll back from halftime to first half. Clearing halftime_start
-                # lets the derived clock resume as (now - kickoff_time), which is
-                # the real game time since kickoff (including the seconds spent
-                # mistakenly in halftime). second_half_start must already be null
-                # for this state to be valid — guarded below.
+                # Roll back to the first half — from half time or, since
+                # SB-1449, from a second half started by mistake. Clearing
+                # both lets the derived clock resume as (now - kickoff_time),
+                # the real game time since kickoff, including the time spent
+                # mistakenly on the later clock.
                 current = (
                     self.client.table("matches")
-                    .select("halftime_start,second_half_start")
+                    .select("halftime_start")
                     .eq("id", match_id)
                     .single()
                     .execute()
@@ -2056,13 +2057,12 @@ class MatchDAO(BaseDAO):
                         match_id=match_id,
                     )
                     return None
-                if current.data.get("second_half_start"):
-                    logger.warning(
-                        "cancel_halftime rejected - second half already started",
-                        match_id=match_id,
-                    )
-                    return None
                 data["halftime_start"] = None
+                data["second_half_start"] = None
+            elif action == "cancel_second_half":
+                # Back to half time (SB-1449): the second half was started too
+                # early. The half-time countdown resumes from halftime_start.
+                data["second_half_start"] = None
             elif action == "start_second_half":
                 # Start second half
                 data["second_half_start"] = now
