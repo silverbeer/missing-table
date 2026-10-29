@@ -26,6 +26,7 @@ from api.push import router as push_router
 from api.webhooks_email import router as webhooks_email_router
 from auth import (
     AuthManager,
+    can_manage_match,
     get_current_user_optional,
     get_current_user_required,
     require_admin,
@@ -2798,6 +2799,21 @@ async def add_team(
 # === Enhanced Match Endpoints ===
 
 
+def _viewer_can_manage(current_user: dict[str, Any] | None, match: dict) -> bool:
+    """Whether the viewer may score or edit this match (SB-1454).
+
+    Clients route a tap on a match by this instead of guessing from the role:
+    a club manager only manages their own club's matches, and a fan none.
+    """
+    return can_manage_match(
+        current_user,
+        match.get("home_team_id"),
+        match.get("away_team_id"),
+        (match.get("home_team_club") or {}).get("id"),
+        (match.get("away_team_club") or {}).get("id"),
+    )
+
+
 @app.get("/api/matches")
 async def get_matches(
     request: Request,
@@ -2839,6 +2855,9 @@ async def get_matches(
                     for c in cards
                     if c["event_type"] == "yellow_card"
                 ]
+
+        for m in matches:
+            m["can_manage"] = _viewer_can_manage(current_user, m)
 
         return matches
     except Exception as e:
@@ -2986,6 +3005,7 @@ async def get_match(
         if not match:
             raise HTTPException(status_code=404, detail=f"Match with ID {match_id} not found")
 
+        match["can_manage"] = _viewer_can_manage(current_user, match)
         return match
     except HTTPException:
         raise

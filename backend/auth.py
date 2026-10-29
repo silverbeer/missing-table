@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
-
 from supabase import Client
 
 load_dotenv()
@@ -494,6 +493,33 @@ class AuthManager:
 
         logger.debug(f"can_edit_match: DENIED - {username} ({role}) lacks permission")
         return False
+
+
+def can_manage_match(
+    user_data: dict[str, Any] | None,
+    home_team_id: int | None,
+    away_team_id: int | None,
+    home_club_id: int | None,
+    away_club_id: int | None,
+) -> bool:
+    """Whether a user may manage (score, edit) a match — the same rules as
+    AuthManager.can_edit_match, for a match whose teams' clubs are known.
+
+    Pure and silent (SB-1454): the match list stamps every row with this, so
+    it must neither query a team's club per row nor log a denial for each of a
+    fan's hundreds of matches. can_edit_match stays the enforcement point.
+    """
+    if not user_data:
+        return False
+    role = user_data.get("role")
+    if role == "admin":
+        return True
+    if role == "service_account" and "manage_matches" in (user_data.get("permissions") or []):
+        return True
+    if role == "team-manager" and user_data.get("team_id") in (home_team_id, away_team_id):
+        return True
+    club_id = user_data.get("club_id")
+    return role == "club_manager" and bool(club_id) and club_id in (home_club_id, away_club_id)
 
 
 # Auth dependency functions for FastAPI
