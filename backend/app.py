@@ -147,6 +147,7 @@ def load_environment():
 load_environment()
 
 # Configure structured logging with JSON output for Loki
+from clock_correction import retime_events
 from logging_config import get_logger, setup_logging
 from match_minutes import compute_minutes_played
 from user_preferences import UnknownAgeGroupError, merge_preferences, read_preferences
@@ -3626,6 +3627,7 @@ async def update_match_clock(
             "start_halftime",
             "cancel_halftime",
             "start_second_half",
+            "cancel_second_half",
             "end_match",
         ]
         if clock.action not in valid_actions:
@@ -3651,8 +3653,15 @@ async def update_match_clock(
         already_applied_field = action_timestamp_field.get(clock.action)
         if already_applied_field and current_match.get(already_applied_field):
             return match_dao.get_live_match_state(match_id, include_test=True)
-        if clock.action == "cancel_halftime" and not current_match.get("halftime_start"):
+        # The undos (SB-1449): nothing to undo is a replay, so a no-op too.
+        undone_field = {
+            "cancel_halftime": "halftime_start",
+            "cancel_second_half": "second_half_start",
+        }.get(clock.action)
+        if undone_field and not current_match.get(undone_field):
             return match_dao.get_live_match_state(match_id, include_test=True)
+        if undone_field and current_match.get("match_end_time"):
+            raise HTTPException(status_code=409, detail="Match has ended. Reopen it before correcting the clock.")
 
         # Offline clients may report when the action actually happened;
         # accept it only within a sane window (not future, not ancient).
@@ -3687,6 +3696,7 @@ async def update_match_clock(
             "start_halftime": "Halftime",
             "cancel_halftime": "Returned to first half",
             "start_second_half": "Second half started",
+            "cancel_second_half": "Returned to half time",
             "end_match": "Full time",
         }
         match_event_dao.create_event(
@@ -3696,6 +3706,29 @@ async def update_match_clock(
             created_by=user_id,
             created_by_username=current_user.get("username"),
         )
+
+        # Events logged on the clock just undone carry its minutes — #10106's
+        # goal at ~41' read 71' (SB-1449). Re-time them on the corrected clock.
+        if undone_field:
+            try:
+                halftime_after = None if clock.action == "cancel_halftime" else current_match.get("halftime_start")
+                changes = retime_events(
+                    match_event_dao.get_events(match_id, limit=1000),
+                    since=current_match[undone_field],
+                    kickoff_time=current_match["kickoff_time"],
+                    halftime_start=halftime_after,
+                    second_half_start=None,
+                    half_duration=current_match.get("half_duration") or 45,
+                )
+                for event_id, minute, extra in changes:
+                    match_event_dao.update_event(event_id, match_minute=minute, extra_time=extra)
+                logger.info("clock_correction_retimed", match_id=match_id, action=clock.action, events=len(changes))
+                if changes:
+                    result = match_dao.get_live_match_state(match_id, include_test=True) or result
+            except Exception:
+                # The clock itself is corrected; stale minutes can be edited by
+                # hand, a failed undo at the pitch cannot.
+                logger.exception("Failed to re-time events after clock correction", match_id=match_id)
 
         # Kickoff is what makes a starter a starter (SB-671). The lineup is only
         # a plan until this point — recording appearances when it was saved meant

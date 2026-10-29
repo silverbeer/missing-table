@@ -34,6 +34,7 @@ class LiveMatchClock(BaseModel):
             "start_halftime",
             "cancel_halftime",
             "start_second_half",
+            "cancel_second_half",
             "end_match",
         ]
 
