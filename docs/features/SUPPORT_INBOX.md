@@ -150,7 +150,7 @@ Both tables have RLS enabled with one policy each: `*_admin_all` gated by `publi
 
 ### Frontend
 
-- **`frontend/src/components/SupportEmailLink.vue`** — single source of truth for the support address on the UI. Builds the `mailto:` href at runtime from JS constants (`SUPPORT_USER = "support"`, `SUPPORT_DOMAIN = "contact.missingtable.com"`) so the literal address never appears in template source. Accepts optional `subject` / `body` props for pre-filled mail clients.
+- **`frontend/src/components/SupportEmailLink.vue`** — single source of truth for the support address on the UI. Builds the `mailto:` href at runtime from JS constants (`SUPPORT_USER = "support"`, `SUPPORT_DOMAIN = "contact.missingtable.com"`) so the literal address never appears in template source. Accepts optional `subject` / `body` props for pre-filled mail clients. On desktop (non-touch pointers) it also renders a **Gmail** compose link and a **Copy address** button, because a bare `mailto:` does nothing in a browser with no mail client configured (SB-1461); if the clipboard is unavailable the address is shown for manual selection. Touch devices see only the `mailto:` link.
 - **`frontend/src/components/LoginForm.vue`** — uses `<SupportEmailLink />` in the invite-signup flow (footer + error states) with subject/body pre-filled from invite code + email.
 - **`frontend/src/components/AuthNav.vue`** — uses `<SupportEmailLink />` in the user dropdown ("Contact support") with subject pre-filled as `[Account: {email}] Help request`.
 - **`frontend/src/components/admin/AdminSupportInbox.vue`** (Phase 3) — parent. Owns the composable, swaps between list and thread view, shows the unread badge in the section header.
