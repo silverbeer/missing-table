@@ -11,7 +11,7 @@ Every conversation gets a sequential **`MT-{n}`** case number — embedded in ou
 **Inbound (SB-35 Phase 1):**
 
 1. A user emails `support@contact.missingtable.com` (or replies to any MT-sent transactional email — the Reply-To header routes their reply to the same address).
-2. Resend Inbound receives the mail (MX is on `contact.missingtable.com` pointing at Amazon SES inbound), parses it, and POSTs an `email.received` event to our webhook.
+2. Resend Inbound receives the mail (MX is on `contact.missingtable.com` pointing at Resend Forge, `receive.forge.rmta.net`), parses it, and POSTs an `email.received` event to our webhook.
 3. Our webhook verifies the Svix signature, fetches the full `ReceivedEmail` via the Resend API, runs the 4-tier threading resolver, sanitizes any HTML, drops attachments, and inserts a row into `email_messages` linked to an `email_threads` row.
 4. The thread's `status` auto-transitions (`new` → `awaiting_admin` on user reply; `awaiting_user` after admin reply; `spam` and `resolved` are manual).
 
@@ -23,7 +23,7 @@ Every conversation gets a sequential **`MT-{n}`** case number — embedded in ou
 
 ```
                            ┌─────────────┐
-   user@gmail.com  ────►   │ contact.... │  MX: inbound-smtp.us-east-1.amazonaws.com
+   user@gmail.com  ────►   │ contact.... │  MX: receive.forge.rmta.net
                            │  MX record  │  (Route 53, managed in
                            └──────┬──────┘   missingtable-platform-bootstrap)
                                   │
@@ -171,7 +171,7 @@ Both tables have RLS enabled with one policy each: `*_admin_all` gated by `publi
   - `RESEND_API_KEY` ← `resend-api-key` (optional). Pre-existing reference, but the K8s Secret key was only added during the SB-35 rollout — see Lessons learned.
 - **`helm/missing-table/templates/secrets.yaml`** — local-dev path; values come from `values.secrets.emailInboundWebhookSecret` / `.resendApiKey`.
 - **`helm/missing-table/values-prod.yaml`** — sets `RESEND_REPLY_TO: "support@contact.missingtable.com"` so user replies to MT-sent transactional emails route through the same inbound webhook.
-- **`missingtable-platform-bootstrap/clouds/aws/global/certificate-management/main.tf`** — Route 53 record `aws_route53_record.resend_inbound_mx` on `contact.missingtable.com` pointing at `inbound-smtp.us-east-1.amazonaws.com`. **Do NOT confuse** with the pre-existing `resend_mx` resource on `send.contact.missingtable.com` — that's the outbound bounce-return MX and must stay as-is.
+- **`missingtable-platform-bootstrap/clouds/aws/global/certificate-management/main.tf`** — Route 53 record `aws_route53_record.resend_inbound_mx` on `contact.missingtable.com` pointing at `receive.forge.rmta.net` (was `inbound-smtp.us-east-1.amazonaws.com` until SB-1462 — Resend moved receiving to Forge and the old host silently dropped mail). **Do NOT confuse** with the pre-existing `resend_mx` resource on `send.contact.missingtable.com` — that's the outbound bounce-return MX and must stay as-is.
 - **`missingtable-platform-bootstrap/clouds/linode/environments/dev/main.tf`** — the `missing-table-app-external-secret` ExternalSecret projects two additional properties from AWS Secrets Manager `missing-table-app-secrets`:
   - `email_inbound_webhook_secret` → K8s Secret key `email-inbound-webhook-secret`
   - `resend_api_key` → K8s Secret key `resend-api-key`
@@ -209,7 +209,8 @@ ORDER BY t.case_number DESC LIMIT 5;
 | `401 {"detail":"invalid webhook signature"}` | `EMAIL_INBOUND_WEBHOOK_SECRET` env var unset, wrong value, or Svix header names not remapped | `kubectl exec deploy/missing-table-backend -- printenv EMAIL_INBOUND_WEBHOOK_SECRET \| head -c 12`; compare with `whsec_` in Resend dashboard. |
 | `502 {"detail":"failed to fetch email <id>"}` with `ValidationError: API key is invalid` in logs | `RESEND_API_KEY` env var unset (or `resend.api_key` global not initialized) | `kubectl exec deploy/missing-table-backend -- printenv RESEND_API_KEY \| head -c 8`. Must be `re_...`. |
 | `500` with `relation "public.email_threads" does not exist` | Migration not applied to prod Supabase | Apply via Studio SQL editor; see SB-35 ticket for the SQL. |
-| Webhook never arrives at the pod | DNS / MX issue or Resend not configured | `dig MX contact.missingtable.com` → expect `10 inbound-smtp.us-east-1.amazonaws.com.`; Resend dashboard → Domains → Receiving status. |
+| Webhook never arrives at the pod | DNS / MX issue or Resend not configured | `dig MX contact.missingtable.com` → expect `10 receive.forge.rmta.net.`; Resend dashboard → Domains → contact → Enable receiving must be **on** and the MX row **Verified** (not Pending / Action needed). |
+| Sender's mail client shows *sent*, no bounce, nothing in Resend → Emails → Receiving | Receiving toggle off, or MX doesn't match the dashboard's *Expected value* (SB-1462) | Resend dashboard → Domains → contact. If the expected MX changed, update `resend_inbound_mx` in platform-bootstrap and `terraform apply`. |
 | Receives but thread number jumps unexpectedly | Tier-4 fallback firing when tier-1/2/3 should have matched | Check the `via:` field in the `email_thread_resolved` log line. |
 
 ### Sending a test from CLI
