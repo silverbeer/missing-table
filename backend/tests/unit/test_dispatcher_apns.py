@@ -51,6 +51,7 @@ def configured(monkeypatch):
     def _set(web=True, apns=True):
         monkeypatch.setattr("notifications.dispatcher.push_is_configured", lambda: web)
         monkeypatch.setattr("notifications.dispatcher.apns_is_configured", lambda: apns)
+        monkeypatch.setattr("notifications.dispatcher.fcm_is_configured", lambda: False)  # SB-1463
 
     _set()
     return _set

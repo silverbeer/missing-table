@@ -35,6 +35,7 @@ from urllib.parse import urlparse
 import httpx
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
+
 from supabase import Client, create_client
 
 try:
@@ -150,6 +151,7 @@ TABLES_TO_BACKUP = [
     "user_notification_preferences",
     "push_subscriptions",  # backed up for production recovery; never restored
     "apns_devices",  # SB-1236 iOS push devices; backed up for production recovery; never restored
+    "fcm_devices",  # SB-1463 Android push devices; backed up for production recovery; never restored
     # MT AI conversations (SB-1143) — backed up for production recovery; never restored
     "ai_conversations",
     "ai_messages",

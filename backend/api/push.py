@@ -12,25 +12,29 @@ Endpoints:
 - POST   /api/users/me/apns-devices                      — register an iOS device (SB-1236)
 - GET    /api/users/me/apns-devices                      — list user's iOS devices
 - DELETE /api/users/me/apns-devices/{id}                 — revoke an iOS device
+- POST   /api/users/me/fcm-devices                       — register an Android device (SB-1463)
+- GET    /api/users/me/fcm-devices                       — list user's Android devices
+- DELETE /api/users/me/fcm-devices/{id}                  — revoke an Android device
 - POST   /api/users/me/team-follows                      — follow {team_id}
 - GET    /api/users/me/team-follows                      — list follows + team/club
 - DELETE /api/users/me/team-follows/{team_id}            — unfollow
 - GET    /api/users/me/notification-preferences          — per-event opt-in flags (SB-57)
 - PUT    /api/users/me/notification-preferences          — update per-event opt-in flags (SB-57)
-- POST   /api/users/me/notifications/test                — send a test push (web + iOS)
+- POST   /api/users/me/notifications/test                — send a test push (web + iOS + Android)
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from auth import get_current_user_required
 from dao.apns_device_dao import ApnsDeviceDAO
 from dao.bracket_follow_dao import BracketFollowDAO
+from dao.fcm_device_dao import FcmDeviceDAO
 from dao.match_dao import SupabaseConnection
 from dao.notification_preferences_dao import NotificationPreferencesDAO
 from dao.push_send_log_dao import PushSendLogDAO
@@ -38,6 +42,8 @@ from dao.push_subscription_dao import PushSubscriptionDAO
 from dao.team_follow_dao import TeamFollowDAO
 from notifications.apns_sender import is_configured as apns_is_configured
 from notifications.apns_sender import send_apns
+from notifications.fcm_sender import is_configured as fcm_is_configured
+from notifications.fcm_sender import send_fcm
 from notifications.preferences import EVENT_TYPES
 from notifications.web_push_sender import (
     get_public_key as get_vapid_public_key,
@@ -74,6 +80,10 @@ def _sub_dao() -> PushSubscriptionDAO:
 
 def _apns_dao() -> ApnsDeviceDAO:
     return ApnsDeviceDAO(_conn())
+
+
+def _fcm_dao() -> FcmDeviceDAO:
+    return FcmDeviceDAO(_conn())
 
 
 def _follow_dao() -> TeamFollowDAO:
@@ -151,6 +161,23 @@ class ApnsDeviceIn(BaseModel):
     environment: Literal["sandbox", "production"]
     device_label: str | None = Field(None, max_length=100)
     app_version: str | None = Field(None, max_length=50)
+
+
+class FcmDeviceIn(BaseModel):
+    """Body of POST /api/users/me/fcm-devices (SB-1463).
+
+    fid is the Firebase Installation ID from FirebaseInstallations.getId()
+    (~22 chars of base64url today). FCM v1 addresses devices by it;
+    registration tokens are deprecated. Stripped, then capped well under the
+    unique index's btree row limit.
+    """
+
+    fid: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=255, pattern=r"^[A-Za-z0-9_:\-]+$"),
+    ]
+    app_version: str | None = Field(None, max_length=50)
+    device_label: str | None = Field(None, max_length=100)
 
 
 class TeamFollowIn(BaseModel):
@@ -328,6 +355,68 @@ def delete_apns_device(
 
 
 # ---------------------------------------------------------------------------
+# FCM devices (native Android, SB-1463)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/users/me/fcm-devices",
+    status_code=status.HTTP_201_CREATED,
+)
+def register_fcm_device(
+    payload: FcmDeviceIn,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, Any]:
+    """Register (or update) an Android device for the current user."""
+    user_id = _user_id(current_user)
+    row = _fcm_dao().upsert(
+        user_id=user_id,
+        fid=payload.fid,
+        device_label=payload.device_label,
+        app_version=payload.app_version,
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to register device.",
+        )
+    # Never echo the fid back — write-only from the API's view.
+    return {
+        "id": row.get("id"),
+        "device_label": row.get("device_label"),
+        "app_version": row.get("app_version"),
+        "created_at": row.get("created_at"),
+        "last_seen_at": row.get("last_seen_at"),
+    }
+
+
+@router.get("/users/me/fcm-devices")
+def list_fcm_devices(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, list[dict]]:
+    user_id = _user_id(current_user)
+    return {"devices": _fcm_dao().list_by_user(user_id)}
+
+
+@router.delete(
+    "/users/me/fcm-devices/{device_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_fcm_device(
+    device_id: str,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> Response:
+    user_id = _user_id(current_user)
+    deleted = _fcm_dao().delete_for_user(user_id, device_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found.",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
 # Team follows
 # ---------------------------------------------------------------------------
 
@@ -485,19 +574,20 @@ def update_notification_preferences(
 def send_test_notification(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ) -> dict[str, Any]:
-    """Fire a test push to all of the current user's subscriptions and
-    iOS devices.
+    """Fire a test push to all of the current user's subscriptions, iOS
+    devices and Android devices.
 
     Useful for verifying setup end-to-end after enabling notifications.
     Rate limited 10/min per user. Each platform is used only if configured;
-    503 only when neither is.
+    503 only when none is.
     """
     user_id = _user_id(current_user)
     _check_test_rate_limit(user_id)
 
     web_configured = push_is_configured()
     apns_configured = apns_is_configured()
-    if not web_configured and not apns_configured:
+    fcm_configured = fcm_is_configured()
+    if not web_configured and not apns_configured and not fcm_configured:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Push notifications are not configured on this server.",
@@ -529,8 +619,12 @@ def send_test_notification(
     apns_dao = _apns_dao()
     devices = apns_dao.list_for_user_ids([user_id]) if apns_configured else []
 
-    if not full_subs and not devices:
-        return {"sent": 0, "failed": 0, "subscriptions": 0, "apns_devices": 0}
+    # Built only when configured: nothing to send, so no connection needed.
+    fcm_dao = _fcm_dao() if fcm_configured else None
+    fcm_devices = fcm_dao.list_for_user_ids([user_id]) if fcm_dao is not None else []
+
+    if not full_subs and not devices and not fcm_devices:
+        return {"sent": 0, "failed": 0, "expired": 0, "subscriptions": 0, "apns_devices": 0, "fcm_devices": 0}
 
     payload = {
         "title": "✅ Missing Table — test notification",
@@ -586,6 +680,28 @@ def send_test_notification(
         else:
             failed += 1
 
+    if fcm_dao is not None:
+        for device in fcm_devices:
+            result = send_fcm(device, payload)
+            log_dao.log(
+                subscription_id=None,
+                user_id=user_id,
+                match_id=None,
+                event_type="test",
+                status=result.status,
+                http_status=result.http_status,
+                error=result.error,
+                fcm_device_id=device.get("id"),
+                platform="fcm",
+            )
+            if result.ok:
+                sent += 1
+            elif result.expired:
+                expired += 1
+                fcm_dao.delete_by_fid(device["fid"])
+            else:
+                failed += 1
+
     # subscription/device counts BEFORE we removed expired ones (for the UI summary)
     return {
         "sent": sent,
@@ -593,4 +709,5 @@ def send_test_notification(
         "expired": expired,
         "subscriptions": len(subs),
         "apns_devices": len(devices),
+        "fcm_devices": len(fcm_devices),
     }

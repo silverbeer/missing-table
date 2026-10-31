@@ -176,6 +176,7 @@ class TestTestNotification:
     def _configure(self, monkeypatch, push, web, apns):
         monkeypatch.setattr(push, "push_is_configured", lambda: web)
         monkeypatch.setattr(push, "apns_is_configured", lambda: apns)
+        monkeypatch.setattr(push, "fcm_is_configured", lambda: False)  # SB-1463
 
     def test_sends_to_ios_devices(self, api, monkeypatch):
         client, push, apns_dao, log_dao, _ = api
@@ -189,7 +190,14 @@ class TestTestNotification:
         resp = client.post("/api/users/me/notifications/test")
 
         assert resp.status_code == 200
-        assert resp.json() == {"sent": 1, "failed": 0, "expired": 0, "subscriptions": 0, "apns_devices": 1}
+        assert resp.json() == {
+            "sent": 1,
+            "failed": 0,
+            "expired": 0,
+            "subscriptions": 0,
+            "apns_devices": 1,
+            "fcm_devices": 0,
+        }
         apns_dao.list_for_user_ids.assert_called_once_with(["u-1"])
         assert send.call_args.args[1]["tag"] == "mt-test"
         log = log_dao.log.call_args.kwargs
@@ -228,7 +236,14 @@ class TestTestNotification:
 
         resp = client.post("/api/users/me/notifications/test")
 
-        assert resp.json() == {"sent": 1, "failed": 1, "expired": 0, "subscriptions": 1, "apns_devices": 1}
+        assert resp.json() == {
+            "sent": 1,
+            "failed": 1,
+            "expired": 0,
+            "subscriptions": 1,
+            "apns_devices": 1,
+            "fcm_devices": 0,
+        }
 
     def test_apns_unconfigured_skips_device_lookup(self, api, monkeypatch):
         client, push, apns_dao, _, sub_dao = api

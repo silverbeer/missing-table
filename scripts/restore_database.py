@@ -188,6 +188,7 @@ RESTORE_SKIPPED = {
         "production recovery only; restore by hand."
     ),
     "apns_devices": "iOS push device tokens (SB-1236); skipped for the same reason as push_subscriptions",
+    "fcm_devices": "Android push device tokens (SB-1463); skipped for the same reason as push_subscriptions",
     "auth_users": "identity snapshot from the Admin API; users are managed per environment",
     "ai_conversations": (
         "what users asked MT AI, some of them parents of minors. Backed up for "

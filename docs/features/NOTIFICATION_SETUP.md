@@ -135,6 +135,38 @@ fulltime), same per-event preferences, same payload, sent by `backend/notificati
 Dormant until `APNS_KEY_ID`, `APNS_TEAM_ID` and `APNS_PRIVATE_KEY` (PEM of the `.p8`; or
 `APNS_PRIVATE_KEY_PATH`) are set; `APNS_BUNDLE_ID` defaults to `com.missingtable`.
 
+## Native Android app (FCM, SB-1463)
+
+The native Android app registers its Firebase Installation ID (`FirebaseInstallations.getId()`) with
+`POST /api/users/me/fcm-devices` (`fid`, optional `app_version` and `device_label`); `GET` lists and
+`DELETE /{id}` revokes. FCM HTTP v1 addresses devices by `fid` — `Message.token` is deprecated, so the
+backend never stores registration tokens. Installations live in `fcm_devices` (backend-only: RLS on, no
+client grants), unique per `fid` — re-registering moves it to the signed-in user, and omitted metadata keeps
+its stored value.
+
+The dispatcher resolves followers (team follows, plus bracket follows at fulltime) and their per-event
+preferences once, and shares them between the APNs and FCM fan-outs. The FCM fan-out uses the same payload,
+sent by `backend/notifications/fcm_sender.py` over the FCM HTTP v1 API (`android.priority = high`,
+`android.ttl = 60s`, notification channel `live_scores`). `android.notification.tag` is per match/event, so
+a repeat replaces the earlier notification on the device; `collapse_key` is also set but FCM only collapses
+data messages by it, not these notification messages.
+
+The sender mints its own OAuth2 access token from the service account (RS256 JWT bearer grant) and caches
+it until 5 minutes before expiry; after a failed exchange it keeps using a still-valid cached token and
+waits 30 s before trying again. Installations FCM reports gone (`UNREGISTERED`, `UNREGISTERED_FID`, or
+`INVALID_ARGUMENT` naming the registration token / fid) are deleted. A bare 404 or `SENDER_ID_MISMATCH` is
+a project or credential problem and never prunes. If every send in a fan-out of 3 or more devices comes
+back expired, nothing is pruned and `notifications.fcm_mass_expiry_suspected` is logged instead. Sends are
+logged to `push_send_log` with `platform = 'fcm'`. `POST /api/users/me/notifications/test` includes Android
+devices.
+
+Dormant until `FCM_SERVICE_ACCOUNT_JSON` (the service-account key JSON; or `FCM_SERVICE_ACCOUNT_PATH`) is
+set; a value that is set but unusable logs `fcm.misconfigured` once. **In prod it stays dormant until
+SB-1465 lands**: that ticket's Terraform in `missingtable-platform-bootstrap` provisions the Firebase project
+and service account, stores the key in AWS Secrets Manager `missing-table-app-secrets` (property
+`fcm_service_account_json`), and adds the ESO mapping to secret key `fcm-service-account-json`. Until then
+nothing populates the variable.
+
 ## iPhone beta invites (TestFlight, SB-1314)
 
 Admins can tick **iPhone beta** when creating an invite (Admin → Invites). The backend then adds the
