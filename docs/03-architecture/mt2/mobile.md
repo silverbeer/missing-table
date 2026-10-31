@@ -27,7 +27,9 @@ anywhere.
   app-shell precache, read-API caching (`utils/swRoutes.js`), offline fallback, and Web
   Push `push`/`notificationclick` handlers.
 - Web Push works on Android Chrome and on iOS Safari as an installed PWA (verified
-  2026-05-27 for SB-44). This is the only push channel MT has.
+  2026-05-27 for SB-44). It was the only push channel until the native apps; APNs
+  (SB-1236) and FCM (SB-1463) now run alongside it — see
+  [NOTIFICATION_SETUP.md](../../features/NOTIFICATION_SETUP.md).
 - Install prompts: `useInstallPrompt`, `InstallBanner.vue`. iOS install instructions live
   in [NOTIFICATION_SETUP.md](../../features/NOTIFICATION_SETUP.md).
 
@@ -141,8 +143,9 @@ than expected. Option C remains the fallback for a fast store presence.
   backend task that also benefits MT AI tools.
 - **Auth.** Reuse `/api/auth/login` + `/api/auth/refresh`; store tokens in
   `expo-secure-store` (fixes the Android plaintext-token debt rather than porting it).
-- **Push.** Needs a native push path in the backend (`api/push.py` is Web Push/VAPID
-  only today): device-token registration plus an APNs/FCM sender alongside `pywebpush`.
+- **Push.** The backend's native push path exists: `api/push.py` registers APNs devices
+  (SB-1236) and FCM installations (SB-1463), and the dispatcher fans out to both
+  alongside `pywebpush`.
 - **Distribution.** Apple Developer Program and a Play Console account; move Android from
   sideloaded APK to Play (internal testing track first). The invite-only posture carries
   over: TestFlight and Play internal testing are both invitation-based.

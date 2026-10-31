@@ -33,6 +33,7 @@ class PushSendLogDAO(BaseDAO):
         error: str | None = None,
         apns_device_id: str | None = None,
         platform: str | None = None,
+        fcm_device_id: str | None = None,
     ) -> None:
         """Record a single send attempt. Never raises.
 
@@ -40,7 +41,8 @@ class PushSendLogDAO(BaseDAO):
         service returned 404/410 and the subscription has been cleaned up.
 
         APNs sends (SB-1236) pass platform='apns' and apns_device_id with
-        subscription_id=None. Web sends omit both; the column defaults to 'web'.
+        subscription_id=None. FCM sends (SB-1463) likewise pass platform='fcm'
+        and fcm_device_id. Web sends omit both; the column defaults to 'web'.
         """
         row = {
             "subscription_id": subscription_id,
@@ -55,6 +57,8 @@ class PushSendLogDAO(BaseDAO):
             row["platform"] = platform
         if apns_device_id:
             row["apns_device_id"] = apns_device_id
+        if fcm_device_id:
+            row["fcm_device_id"] = fcm_device_id
         try:
             self.client.table(TABLE).insert(row).execute()
         except Exception as exc:

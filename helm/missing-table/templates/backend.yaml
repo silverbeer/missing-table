@@ -159,6 +159,16 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: apns-private-key
               optional: true
+        # FCM service-account key JSON for native Android push (SB-1463).
+        # Optional: pod boots even if absent; fcm_sender.is_configured()
+        # returns False and the FCM fan-out is skipped. Dormant in prod until
+        # SB-1465 (Terraform + ESO mapping) lands; nothing populates it yet.
+        - name: FCM_SERVICE_ACCOUNT_JSON
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: fcm-service-account-json
+              optional: true
         # App Store Connect API key - TestFlight beta invites (SB-1314).
         # Optional: pod boots even if absent; testflight_client.is_configured()
         # returns False and an iPhone beta invite records a TestFlight failure

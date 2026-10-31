@@ -18,6 +18,7 @@ import structlog
 from dao.apns_device_dao import ApnsDeviceDAO
 from dao.bracket_follow_dao import BracketFollowDAO
 from dao.club_notifications_dao import ClubNotificationsDAO
+from dao.fcm_device_dao import FcmDeviceDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.push_send_log_dao import PushSendLogDAO
 from dao.push_subscription_dao import PushSubscriptionDAO
@@ -29,6 +30,8 @@ from notifications.channel_resolver import (
     resolve_destinations,
     resolve_user_push_subscriptions,
 )
+from notifications.fcm_sender import is_configured as fcm_is_configured
+from notifications.fcm_sender import send_fcm
 from notifications.formatters import format_event
 from notifications.preferences import DEFAULT_PREFERENCES
 from notifications.web_push_sender import is_configured as push_is_configured
@@ -39,6 +42,10 @@ from notifications.web_push_sender import send_push
 # → notifications/__init__ → dispatcher → notification_preferences_dao.py.
 
 logger = structlog.get_logger(__name__)
+
+# An FCM fan-out of at least this many sends that comes back entirely expired
+# is treated as a config problem, and nothing is pruned (SB-1463).
+FCM_MASS_EXPIRY_MIN_SENDS = 3
 
 
 def is_notifications_enabled() -> bool:
@@ -90,6 +97,7 @@ class Notifier:
         send_fn=None,
         push_send_fn=None,
         apns_send_fn=None,
+        fcm_send_fn=None,
     ):
         self._connection = connection
         self._match_dao: MatchDAO | None = None
@@ -99,6 +107,7 @@ class Notifier:
         self._push_sub_dao: PushSubscriptionDAO | None = None
         self._push_log_dao: PushSendLogDAO | None = None
         self._apns_device_dao: ApnsDeviceDAO | None = None
+        self._fcm_device_dao: FcmDeviceDAO | None = None
         # NotificationPreferencesDAO; typed via local import to avoid the cycle.
         self._prefs_dao = None
         # Lazy-imported default sender so tests can swap without importing httpx.
@@ -107,6 +116,8 @@ class Notifier:
         self._push_send_fn = push_send_fn or send_push
         # APNs sender override for tests (SB-1236).
         self._apns_send_fn = apns_send_fn or send_apns
+        # FCM sender override for tests (SB-1463).
+        self._fcm_send_fn = fcm_send_fn or send_fcm
 
     @property
     def connection(self) -> SupabaseConnection:
@@ -155,6 +166,12 @@ class Notifier:
         if self._apns_device_dao is None:
             self._apns_device_dao = ApnsDeviceDAO(self.connection)
         return self._apns_device_dao
+
+    @property
+    def fcm_device_dao(self) -> FcmDeviceDAO:
+        if self._fcm_device_dao is None:
+            self._fcm_device_dao = FcmDeviceDAO(self.connection)
+        return self._fcm_device_dao
 
     @property
     def prefs_dao(self):
@@ -271,15 +288,52 @@ class Notifier:
         # before the platform-bootstrap secrets land — see SB-50).
         self._send_push_fanout(event_type, match, content)
 
+        # --- Native audience (APNs + FCM) -------------------------------------
+        # Followers and their preferences are resolved once and shared by both
+        # native fan-outs; skipped entirely when neither is configured.
+        apns_on = apns_is_configured()
+        fcm_on = fcm_is_configured()
+        if not apns_on and not fcm_on:
+            return
+        try:
+            user_ids, prefs_by_user = self._native_audience(event_type, match)
+        except Exception as exc:
+            logger.warning(
+                "notifications.native_audience_failed",
+                match_id=match_id,
+                event_type=event_type,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+            return
+        if not user_ids:
+            return
+
         # --- APNs fan-out (native iOS, SB-1236) -------------------------------
         # Same followers, same preference gate, same bracket rule as Web Push
         # above, but its own device table and sender. Runs after — and
         # independently of — the web path; skipped if APNs isn't configured.
         try:
-            self._send_apns_fanout(event_type, match, content)
+            if apns_on:
+                self._send_apns_fanout(event_type, match, content, user_ids, prefs_by_user)
         except Exception as exc:
             logger.warning(
                 "notifications.apns_fanout_failed",
+                match_id=match_id,
+                event_type=event_type,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+
+        # --- FCM fan-out (native Android, SB-1463) ----------------------------
+        # Same followers, preferences and bracket rule as APNs; its own device
+        # table and sender. Skipped if FCM isn't configured.
+        try:
+            if fcm_on:
+                self._send_fcm_fanout(event_type, match, content, user_ids, prefs_by_user)
+        except Exception as exc:
+            logger.warning(
+                "notifications.fcm_fanout_failed",
                 match_id=match_id,
                 event_type=event_type,
                 error_type=type(exc).__name__,
@@ -380,21 +434,18 @@ class Notifier:
             skipped_pref=push_skipped_pref,
         )
 
-    def _send_apns_fanout(
-        self, event_type: str, match: dict, content: str
-    ) -> None:
-        """Push to the iOS devices of every user following either team.
+    def _native_audience(
+        self, event_type: str, match: dict
+    ) -> tuple[list[str], dict[str, dict[str, bool]]]:
+        """Users who should hear about this event on a native app, sorted,
+        plus their preferences — one follow lookup and one preferences batch
+        shared by the APNs and FCM fan-outs.
 
-        Follower resolution mirrors _send_push_fanout: team followers, plus
-        bracket followers at fulltime, deduped by user; then per-user
-        preferences decide each send.
+        Mirrors _send_push_fanout's resolution: followers of either team, plus
+        bracket followers at fulltime, deduped by user.
         """
-        if not apns_is_configured():
-            return  # APNS_* env unset — dormant
-
         home_team_id = match.get("home_team_id")
         away_team_id = match.get("away_team_id")
-        match_id = match.get("id")
 
         team_ids = [t for t in (home_team_id, away_team_id) if t is not None]
         user_ids: set[str] = set(
@@ -412,16 +463,34 @@ class Notifier:
                         tournament_id, tournament_group, age_group_id
                     )
                 )
+        if not user_ids:
+            return [], {}
+        sorted_ids = sorted(user_ids)
+        return sorted_ids, self.prefs_dao.get_preferences_batch(sorted_ids)
 
+    def _send_apns_fanout(
+        self,
+        event_type: str,
+        match: dict,
+        content: str,
+        user_ids: list[str],
+        prefs_by_user: dict[str, dict[str, bool]],
+    ) -> None:
+        """Push to the iOS devices of every user following either team.
+
+        Followers and preferences come from _native_audience; per-user
+        preferences decide each send.
+        """
+        if not apns_is_configured():
+            return  # APNS_* env unset — dormant
+
+        match_id = match.get("id")
         if not user_ids:
             return
 
-        devices = self.apns_device_dao.list_for_user_ids(sorted(user_ids))
+        devices = self.apns_device_dao.list_for_user_ids(user_ids)
         if not devices:
             return
-
-        device_user_ids = sorted({d["user_id"] for d in devices if d.get("user_id")})
-        prefs_by_user = self.prefs_dao.get_preferences_batch(device_user_ids)
 
         payload = _build_push_payload(event_type, match, content)
 
@@ -458,6 +527,88 @@ class Notifier:
 
         logger.info(
             "notifications.apns_dispatched",
+            match_id=match_id,
+            event_type=event_type,
+            sent=sent,
+            failed=failed,
+            expired=expired,
+            skipped_pref=skipped_pref,
+        )
+
+    def _send_fcm_fanout(
+        self,
+        event_type: str,
+        match: dict,
+        content: str,
+        user_ids: list[str],
+        prefs_by_user: dict[str, dict[str, bool]],
+    ) -> None:
+        """Push to the Android devices of every user following either team.
+
+        Same shape as _send_apns_fanout, with one extra guard: if every send
+        in a fan-out of FCM_MASS_EXPIRY_MIN_SENDS or more comes back expired,
+        nothing is pruned. That pattern means a project/credential problem,
+        not a crowd of uninstalls, and pruning would wipe every device.
+        """
+        if not fcm_is_configured():
+            return  # FCM_SERVICE_ACCOUNT_* env unset — dormant
+
+        match_id = match.get("id")
+        if not user_ids:
+            return
+
+        devices = self.fcm_device_dao.list_for_user_ids(user_ids)
+        if not devices:
+            return
+
+        payload = _build_push_payload(event_type, match, content)
+
+        sent = 0
+        failed = 0
+        expired = 0
+        skipped_pref = 0
+        expired_fids: list[str] = []
+        for device in devices:
+            user_id = device.get("user_id")
+            user_prefs = prefs_by_user.get(user_id, DEFAULT_PREFERENCES)
+            if not user_prefs.get(event_type, True):
+                skipped_pref += 1
+                continue
+            result = self._fcm_send_fn(device, payload)
+            self.push_log_dao.log(
+                subscription_id=None,
+                user_id=user_id,
+                match_id=match_id,
+                event_type=event_type,
+                status=result.status,
+                http_status=result.http_status,
+                error=result.error,
+                fcm_device_id=device.get("id"),
+                platform="fcm",
+            )
+            if result.ok:
+                sent += 1
+            elif result.expired:
+                expired += 1
+                expired_fids.append(device["fid"])
+            else:
+                failed += 1
+
+        attempted = sent + failed + expired
+        if expired_fids and attempted >= FCM_MASS_EXPIRY_MIN_SENDS and expired == attempted:
+            logger.warning(
+                "notifications.fcm_mass_expiry_suspected",
+                match_id=match_id,
+                event_type=event_type,
+                expired=expired,
+            )
+        else:
+            # FCM says these installations are gone — drop them so we stop sending.
+            for fid in expired_fids:
+                self.fcm_device_dao.delete_by_fid(fid)
+
+        logger.info(
+            "notifications.fcm_dispatched",
             match_id=match_id,
             event_type=event_type,
             sent=sent,
