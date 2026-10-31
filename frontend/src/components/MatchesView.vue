@@ -732,6 +732,11 @@ import {
   knownId,
 } from '@/composables/useFilterMemory';
 import { withMonthDividers } from '@/utils/matchRow';
+import {
+  teamDivisionFor,
+  teamDivisions,
+  teamPlaysLeague,
+} from '@/utils/teamDivisions';
 
 export default {
   name: 'MatchesView',
@@ -992,11 +997,11 @@ export default {
     // real team is the worse error.
     const playsAnOfferedLeague = team => {
       if (!availableLeagueIds.value.size) return true;
-      const division =
-        team.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
-      const leagueId = division?.league_id;
-      if (leagueId === undefined || leagueId === null) return true;
-      return availableLeagueIds.value.has(Number(leagueId));
+      const leagueIds = teamDivisions(team, selectedAgeGroupId.value)
+        .map(d => d.league_id)
+        .filter(id => id !== undefined && id !== null);
+      if (!leagueIds.length) return true;
+      return leagueIds.some(id => availableLeagueIds.value.has(Number(id)));
     };
 
     // Compute visible divisions from loaded matches (only shows divisions with matches in current view)
@@ -1166,10 +1171,10 @@ export default {
                 ag => ag.id === selectedAgeGroupId.value
               );
               if (teamAgeGroup) {
-                const division =
-                  playerTeam.divisions_by_age_group[
-                    String(selectedAgeGroupId.value)
-                  ];
+                const division = teamDivisionFor(
+                  playerTeam,
+                  selectedAgeGroupId.value
+                );
                 if (division && division.league_id) {
                   selectedLeagueId.value = division.league_id;
                 }
@@ -1515,8 +1520,9 @@ export default {
 
     // Get rich team display with context (Division - Conference)
     const getTeamDisplayWithContext = team => {
-      const ageGroupId = selectedAgeGroupId.value;
-      const division = team.divisions_by_age_group?.[String(ageGroupId)];
+      const division = teamDivisionFor(team, selectedAgeGroupId.value, {
+        leagueId: selectedLeagueId.value,
+      });
 
       if (division) {
         return `${team.name} (${division.league_name || 'Unknown'} - ${division.name})`;
@@ -1527,10 +1533,9 @@ export default {
     // Sort teams by league name, then by team name
     const sortTeamsByLeague = teams => {
       return [...teams].sort((a, b) => {
-        const divA =
-          a.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
-        const divB =
-          b.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
+        const opts = { leagueId: selectedLeagueId.value };
+        const divA = teamDivisionFor(a, selectedAgeGroupId.value, opts);
+        const divB = teamDivisionFor(b, selectedAgeGroupId.value, opts);
         const leagueA = divA?.league_name || 'ZZZ'; // Put teams without league at end
         const leagueB = divB?.league_name || 'ZZZ';
 
@@ -1552,11 +1557,10 @@ export default {
         // Optionally filter by league if selected (for admins)
         if (authStore.canBrowseAll.value && selectedLeagueId.value) {
           filtered = filtered.filter(team => {
-            const division =
-              team.divisions_by_age_group[String(selectedAgeGroupId.value)];
-            return (
-              division &&
-              Number(division.league_id) === Number(selectedLeagueId.value)
+            return teamPlaysLeague(
+              team,
+              selectedAgeGroupId.value,
+              selectedLeagueId.value
             );
           });
         }
@@ -1575,11 +1579,10 @@ export default {
       if (authStore.canBrowseAll.value && selectedLeagueId.value) {
         return sortTeamsByLeague(
           filteredTeams.value.filter(team => {
-            const division =
-              team.divisions_by_age_group[String(selectedAgeGroupId.value)];
-            return (
-              division &&
-              Number(division.league_id) === Number(selectedLeagueId.value)
+            return teamPlaysLeague(
+              team,
+              selectedAgeGroupId.value,
+              selectedLeagueId.value
             );
           })
         );
@@ -1598,8 +1601,9 @@ export default {
       );
       if (!userTeam) return null;
 
-      const division =
-        userTeam.divisions_by_age_group[String(selectedAgeGroupId.value)];
+      const division = teamDivisionFor(userTeam, selectedAgeGroupId.value, {
+        leagueId: selectedLeagueId.value,
+      });
       if (!division) return null;
 
       return {
@@ -1618,8 +1622,9 @@ export default {
       const ageGroup = team.age_groups.find(
         ag => ag.id === selectedAgeGroupId.value
       );
-      const division =
-        team.divisions_by_age_group[String(selectedAgeGroupId.value)];
+      const division = teamDivisionFor(team, selectedAgeGroupId.value, {
+        leagueId: selectedLeagueId.value,
+      });
 
       if (ageGroup && division) {
         return {
@@ -2306,15 +2311,12 @@ export default {
           resolvedTeam = teams.value.find(team => {
             if (Number(team.club_id) !== Number(selectedClubId.value))
               return false;
-            const division =
-              team.divisions_by_age_group?.[String(selectedAgeGroupId.value)];
-            if (!division) return false;
-            const leagueMatch =
-              Number(division.league_id) === Number(props.initialLeagueId);
-            const divisionMatch = props.initialDivisionId
-              ? Number(division.id) === Number(props.initialDivisionId)
-              : true;
-            return leagueMatch && divisionMatch;
+            return teamDivisions(team, selectedAgeGroupId.value).some(
+              division =>
+                Number(division.league_id) === Number(props.initialLeagueId) &&
+                (!props.initialDivisionId ||
+                  Number(division.id) === Number(props.initialDivisionId))
+            );
           });
         }
         if (resolvedTeam) {

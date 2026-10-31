@@ -216,8 +216,9 @@ Saving the preference clears both views' remembered filters in that browser, so
 the change shows on the next visit. jsonb carries no foreign key, so a
 preference naming a deleted age group falls through to the next rung. The roster
 row's `league`/`division` are applied only when the chosen age group *is* the
-roster row's; otherwise the division comes from the team's
-`divisions_by_age_group` for the chosen age group.
+roster row's; otherwise the division comes from the team's primary division
+for the chosen age group (`teamDivisionFor` in `utils/teamDivisions.js`, home
+league first — a team may play one age group in several divisions, SB-1468).
 
 ##### Backend auth clients must be stateless (SB-115)
 

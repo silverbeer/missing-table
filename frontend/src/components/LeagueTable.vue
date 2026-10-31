@@ -535,6 +535,7 @@ import { pickDefaultAgeGroupId } from '../utils/defaultAgeGroup';
 import { useFilterMemory, knownId } from '../composables/useFilterMemory';
 import PlayoffBracket from './PlayoffBracket.vue';
 import ClubLogo from './shared/ClubLogo.vue';
+import { teamDivisionFor } from '../utils/teamDivisions';
 
 export default {
   name: 'LeagueTable',
@@ -1286,12 +1287,12 @@ export default {
             );
 
             if (userTeam) {
-              // Get division for selected age group
-              // Ensure type-safe lookup: divisions_by_age_group uses string keys
-              const division =
-                userTeam.divisions_by_age_group[
-                  String(selectedAgeGroupId.value)
-                ];
+              // Primary division for this age group (home league first);
+              // the team may play several (SB-1468).
+              const division = teamDivisionFor(
+                userTeam,
+                selectedAgeGroupId.value
+              );
               if (division) {
                 selectLeague(division.league_id);
                 selectedDivisionId.value = division.id;

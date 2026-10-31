@@ -19,6 +19,51 @@ logger = structlog.get_logger()
 TEAMS_CACHE_PATTERN = "mt:dao:teams:*"
 
 
+def flatten_team_mappings(team: dict) -> None:
+    """Flatten a team's embedded ``team_mappings`` rows in place (SB-1468).
+
+    A team can be registered at one age group in several divisions — e.g.
+    Homegrown Northeast plus two Flex conferences. Sets:
+
+    - ``age_groups``: each age group once, in first-seen order.
+    - ``divisions_by_age_group_all``: ``{age_group_id: [division, ...]}`` —
+      every division, ordered home league first, then by division id.
+    - ``divisions_by_age_group``: ``{age_group_id: division}`` — the first of
+      the above. Kept for older clients; it cannot represent more than one
+      division, so league-aware callers must read the ``_all`` form.
+    """
+    home_league_id = team.get("league_id")
+    age_groups: list[dict] = []
+    seen: set = set()
+    all_divisions: dict = {}
+    for mapping in team.get("team_mappings") or []:
+        age_group = mapping.get("age_groups")
+        if not age_group:
+            continue
+        ag_id = age_group["id"]
+        if ag_id not in seen:
+            seen.add(ag_id)
+            age_groups.append(age_group)
+        division = mapping.get("divisions")
+        if division:
+            if division.get("leagues"):
+                division["league_name"] = division["leagues"]["name"]
+                division["sport_type"] = division["leagues"].get("sport_type", "soccer")
+            bucket = all_divisions.setdefault(ag_id, [])
+            if all(d.get("id") != division.get("id") for d in bucket):
+                bucket.append(division)
+
+    def rank(division: dict) -> tuple:
+        is_home = home_league_id is not None and division.get("league_id") == home_league_id
+        return (0 if is_home else 1, division.get("id") or 0)
+
+    for bucket in all_divisions.values():
+        bucket.sort(key=rank)
+    team["age_groups"] = age_groups
+    team["divisions_by_age_group_all"] = all_divisions
+    team["divisions_by_age_group"] = {ag_id: bucket[0] for ag_id, bucket in all_divisions.items()}
+
+
 class TeamDAO(BaseDAO):
     """Data access object for team operations."""
 
@@ -64,22 +109,7 @@ class TeamDAO(BaseDAO):
             if team.get("leagues"):
                 team["league_name"] = team["leagues"]["name"]
 
-            age_groups = []
-            divisions_by_age_group = {}
-            if "team_mappings" in team:
-                for tag in team["team_mappings"]:
-                    if tag.get("age_groups"):
-                        age_group = tag["age_groups"]
-                        age_groups.append(age_group)
-                        if tag.get("divisions"):
-                            division = tag["divisions"]
-                            # Add league_name and sport_type to division for easy access in frontend
-                            if division.get("leagues"):
-                                division["league_name"] = division["leagues"]["name"]
-                                division["sport_type"] = division["leagues"].get("sport_type", "soccer")
-                            divisions_by_age_group[age_group["id"]] = division
-            team["age_groups"] = age_groups
-            team["divisions_by_age_group"] = divisions_by_age_group
+            flatten_team_mappings(team)
             teams.append(team)
 
         return teams
@@ -153,17 +183,7 @@ class TeamDAO(BaseDAO):
         # Flatten the age groups and divisions for each team
         teams = []
         for team in response.data:
-            age_groups = []
-            divisions_by_age_group = {}
-            if "team_mappings" in team:
-                for tag in team["team_mappings"]:
-                    if tag.get("age_groups"):
-                        age_group = tag["age_groups"]
-                        age_groups.append(age_group)
-                        if tag.get("divisions"):
-                            divisions_by_age_group[age_group["id"]] = tag["divisions"]
-            team["age_groups"] = age_groups
-            team["divisions_by_age_group"] = divisions_by_age_group
+            flatten_team_mappings(team)
             teams.append(team)
 
         return teams
@@ -208,17 +228,7 @@ class TeamDAO(BaseDAO):
 
         teams = []
         for team in response.data:
-            age_groups = []
-            divisions_by_age_group = {}
-            if "team_mappings" in team:
-                for tag in team["team_mappings"]:
-                    if tag.get("age_groups"):
-                        age_group = tag["age_groups"]
-                        age_groups.append(age_group)
-                        if tag.get("divisions"):
-                            divisions_by_age_group[age_group["id"]] = tag["divisions"]
-            team["age_groups"] = age_groups
-            team["divisions_by_age_group"] = divisions_by_age_group
+            flatten_team_mappings(team)
             teams.append(team)
 
         return teams

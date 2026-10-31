@@ -513,9 +513,9 @@ Deliberately narrow:
 
 * **The team's own league only.** A Homegrown team's Flex matches carry the
   Flex bracket's `division_id`. Writing that would give the team two divisions
-  at one age group, and `divisions_by_age_group` is keyed by age group alone
-  and takes last-wins — so the team's division would start displaying as a Flex
-  bracket. Flex participation is already expressed by the matches, and Flex
+  at one age group. Teams *can* now hold several (SB-1468: the API returns
+  `divisions_by_age_group_all`, home league first), but ingest still should not
+  invent registrations. Flex participation is already expressed by the matches, and Flex
   standings read matches directly (SB-835).
 * **Nothing without a division.** Friendlies and tournament fixtures carry
   none, so there is no registration to express.
