@@ -462,6 +462,18 @@ kubectl exec deploy/missing-table-backend -n missing-table -- \
   > ~/.config/mt/ai_eval_real.prod.jwt
 ```
 
+**`sb_agents_public` (SB-1493)** is the third API account: a real viewer that sb-agents'
+mt-agent uses to read public MT data over mt-mcp for Slack and Telegram users, who have
+no MT identity. It sends `X-MT-Client: sb-agents`, which mt-mcp caps to the read tier
+whatever the account's role ([mcp.md](mcp.md)). Its token lives in 1Password
+(`op://agents/mt-agent/token`) and expires after at most 30 days:
+
+```bash
+kubectl exec deploy/missing-table-backend -n missing-table -- \
+  /app/.venv/bin/python scripts/manage_ai_users.py token sb_agents_public --days 30 --out - \
+  > ~/.config/mt/sb_agents_public.prod.jwt   # then store it in 1Password and delete the file
+```
+
 `token` refuses to run without `SERVICE_ACCOUNT_SECRET`: `AuthManager` would fall
 back to a random secret and mint a token no server accepts. `.env.local` does not
 set one, so local minting needs it exported for both the script and the backend.

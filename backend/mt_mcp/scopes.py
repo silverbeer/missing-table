@@ -29,15 +29,19 @@ DEFAULT_TIERS: frozenset[Tier] = frozenset({"read"})
 # Clients that ask for less than the caller's role allows. MT AI never gets
 # writes or admin, whatever the role (mt2/ai.md "Auth").
 MT_AI_CLIENT = "mt-ai"
+# sb-agents' mt-agent (SB-1493) answers Slack/Telegram users with no MT identity
+# through a public API account: public data only, whatever that account's role.
+SB_AGENTS_CLIENT = "sb-agents"
 CLIENT_CAPS: dict[str, frozenset[Tier]] = {
     MT_AI_CLIENT: frozenset({"read", "my", "self"}),
+    SB_AGENTS_CLIENT: frozenset({"read"}),
 }
 
 CLIENT_HEADER = "x-mt-client"
 
 # Clients named in metrics and logs. Naming one grants nothing; only CLIENT_CAPS
 # changes what a client may use.
-KNOWN_CLIENTS = frozenset({MT_AI_CLIENT, "claude-code"})
+KNOWN_CLIENTS = frozenset({MT_AI_CLIENT, SB_AGENTS_CLIENT, "claude-code"})
 
 
 def allowed_tiers(role: str | None, client: str | None) -> frozenset[Tier]:

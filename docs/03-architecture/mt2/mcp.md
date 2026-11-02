@@ -192,6 +192,7 @@ Three layers, each with one job:
 |--------|-------|-------|
 | MT AI | the end user's | read, my, self — **never** team-write or admin in v1, whatever the role ([ai.md](ai.md#auth)) |
 | mt-admin skills (Claude Code) | the admin's | all |
+| sb-agents mt-agent (`X-MT-Client: sb-agents`, SB-1493) | API account `sb_agents_public` (Slack/Telegram users have no MT identity) | read only, whatever the role |
 
 MT AI additionally passes a client-side `tool_filter`, so a server bug cannot widen it.
 

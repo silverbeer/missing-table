@@ -196,14 +196,19 @@ class TestScript:
         assert by_name["ai_eval_real"].is_test is False
         assert by_name["ai_eval_test"].is_test is True
 
-    @pytest.mark.parametrize("account", script.AI_EVAL_ACCOUNTS, ids=lambda a: a.username)
+    @pytest.mark.parametrize("account", script.API_ACCOUNTS, ids=lambda a: a.username)
     def test_usernames_pass_the_username_rule(self, account):
         """Prod's username_format_check enforces this; a hyphen failed `ensure` there (SB-1147)."""
         assert re.fullmatch(r"[a-zA-Z0-9_]{3,50}", account.username)
 
     def test_ensure_creates_only_what_is_missing(self):
-        assert [a.username for a in script.missing_accounts({"ai_eval_real"})] == ["ai_eval_test"]
-        assert script.missing_accounts({"ai_eval_real", "ai_eval_test"}) == []
+        assert [a.username for a in script.missing_accounts({"ai_eval_real", "sb_agents_public"})] == ["ai_eval_test"]
+        assert script.missing_accounts({"ai_eval_real", "ai_eval_test", "sb_agents_public"}) == []
+
+    def test_sb_agents_account_is_a_real_viewer(self):
+        """mt-agent answers real users; it must never see the TSC test world."""
+        assert script.SB_AGENTS_ACCOUNT in script.API_ACCOUNTS
+        assert script.SB_AGENTS_ACCOUNT.is_test is False
 
     def test_profile_row_is_a_non_admin_api_account(self):
         row = script.profile_row(script.AI_EVAL_ACCOUNTS[1], "uid-1")

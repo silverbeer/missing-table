@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""API-only AI users (SB-1145): create them and mint their /api/ai/* tokens.
+"""API-only users (SB-1145, SB-1493): create them and mint their /api/ai/* tokens.
 
 An API account is a user_profiles row with is_api_account=true. Prod requires
 an auth.users row behind every profile (SB-1150), so each account has one with
@@ -59,9 +59,16 @@ AI_EVAL_ACCOUNTS = (
     ApiAccount("ai_eval_test", is_test=True, display_name="MT AI eval (test viewer)"),
 )
 
+# sb-agents' mt-agent (SB-1493) reads public MT data over mt-mcp for channels with
+# no MT identity (Slack, Telegram). A real viewer, and mt-mcp caps its client
+# (`X-MT-Client: sb-agents`) to the read tier whatever this account's role becomes.
+SB_AGENTS_ACCOUNT = ApiAccount("sb_agents_public", is_test=False, display_name="sb-agents (public read-only)")
+
+API_ACCOUNTS = (*AI_EVAL_ACCOUNTS, SB_AGENTS_ACCOUNT)
+
 
 def missing_accounts(existing_usernames: set[str]) -> list[ApiAccount]:
-    return [a for a in AI_EVAL_ACCOUNTS if a.username not in existing_usernames]
+    return [a for a in API_ACCOUNTS if a.username not in existing_usernames]
 
 
 def auth_user_attributes(account: ApiAccount) -> dict:
@@ -144,12 +151,12 @@ def _err(message: str) -> None:
 
 @app.command()
 def ensure() -> None:
-    """Create the AI eval accounts that do not exist yet. Safe to re-run."""
+    """Create the API accounts that do not exist yet. Safe to re-run."""
     client = _client()
     taken = (
         client.table("user_profiles")
         .select("username, is_api_account")
-        .in_("username", [a.username for a in AI_EVAL_ACCOUNTS])
+        .in_("username", [a.username for a in API_ACCOUNTS])
         .execute()
         .data
     )
@@ -160,7 +167,7 @@ def ensure() -> None:
     for account in missing_accounts({r["username"] for r in taken}):
         user_id = create_api_account(client, account)
         _err(f"created {account.username} (is_test={account.is_test}) id={user_id}")
-    _err(f"{os.getenv('APP_ENV', 'local')}: {len(AI_EVAL_ACCOUNTS)} AI eval accounts present")
+    _err(f"{os.getenv('APP_ENV', 'local')}: {len(API_ACCOUNTS)} API accounts present")
 
 
 @app.command("list")
