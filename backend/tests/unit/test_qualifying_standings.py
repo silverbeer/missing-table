@@ -279,6 +279,18 @@ class TestGetStandings:
         rows = dao.get_standings(division_id=NORTHEAST, match_type="League")["standings"]
         assert MONTREAL["name"] in {row["team"] for row in rows}
 
+    def test_a_failure_is_an_empty_table_by_default(self, dao):
+        """/api/table's behaviour, unchanged."""
+        dao._fetch_matches_for_standings.side_effect = RuntimeError("PostgREST down")
+        result = dao.get_standings(division_id=NORTHEAST, match_type="League")
+        assert result["standings"] == []
+
+    def test_raise_on_error_reraises_so_a_failure_is_not_an_empty_table(self, dao):
+        """MT AI's get_standings passes it: "could not read" must not read as "none played" (SB-1496)."""
+        dao._fetch_matches_for_standings.side_effect = RuntimeError("PostgREST down")
+        with pytest.raises(RuntimeError):
+            dao.get_standings(division_id=NORTHEAST, match_type="League", raise_on_error=True)
+
     def test_get_league_table_still_returns_just_the_rows(self, dao):
         rows = dao.get_league_table(division_id=NORTHEAST, match_type="League")
         assert isinstance(rows, list)

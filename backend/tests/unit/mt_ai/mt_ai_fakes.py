@@ -13,6 +13,16 @@ U14, U15, U16 = 14, 15, 16
 
 LEAGUE_NAMES = {REAL_HOMEGROWN: "Homegrown", REAL_ACADEMY: "Academy", REAL_FLEX: "Flex", TEST_LEAGUE: "TSC Test League"}
 
+# divisions.id, as get_all_teams' team_mappings select returns it (SB-1496).
+NORTHEAST, NEW_ENGLAND, NE_FLEX, SOUTHWEST, TSC_DIVISION = 201, 202, 203, 204, 209
+DIVISION_IDS = {
+    ("Northeast", REAL_HOMEGROWN): NORTHEAST,
+    ("New England", REAL_ACADEMY): NEW_ENGLAND,
+    ("New England", REAL_FLEX): NE_FLEX,
+    ("Southwest", REAL_HOMEGROWN): SOUTHWEST,
+    ("TSC Division", TEST_LEAGUE): TSC_DIVISION,
+}
+
 
 def reg(age: int, division: str | None, league_id: int) -> dict:
     """One team_mappings row, in the shape TeamDAO.get_all_teams returns it."""
@@ -20,6 +30,7 @@ def reg(age: int, division: str | None, league_id: int) -> dict:
     if division:
         name = LEAGUE_NAMES[league_id]
         divisions = {
+            "id": DIVISION_IDS.get((division, league_id)),
             "name": division,
             "league_id": league_id,
             "league_name": name,
@@ -43,7 +54,8 @@ def team(team_id: int, name: str, club_id: int | None, league_id: int, *mappings
 LEAGUES = [
     {"id": REAL_HOMEGROWN, "name": "Homegrown", "is_test": False},
     {"id": REAL_ACADEMY, "name": "Academy", "is_test": False},
-    {"id": REAL_FLEX, "name": "Flex", "is_test": False},
+    # Flex is one of Homegrown's competitions, not a division of its own (SB-1039).
+    {"id": REAL_FLEX, "name": "Flex", "is_test": False, "parent_league_id": REAL_HOMEGROWN},
     {"id": TEST_LEAGUE, "name": "TSC Test League", "is_test": True},
 ]
 
@@ -139,18 +151,24 @@ class FakeLeagues:
 
 
 CURRENT_SEASON = {"id": 7, "name": "2026-2027", "is_current": True}
+PAST_SEASON = {"id": 6, "name": "2025-2026", "is_current": False}
 
 
 class FakeSeasons:
     """Like SeasonDAO.get_current_season: None when no season is current."""
 
-    def __init__(self, current: dict | None = CURRENT_SEASON) -> None:
+    def __init__(self, current: dict | None = CURRENT_SEASON, seasons: list[dict] | None = None) -> None:
         self.current = current
+        self.seasons = [CURRENT_SEASON, PAST_SEASON] if seasons is None else seasons
         self.reads = 0
 
     def get_current_season(self) -> dict | None:
         self.reads += 1
         return copy.deepcopy(self.current)
+
+    def get_all_seasons(self) -> list[dict]:
+        """Like SeasonDAO: newest first, and [] (not an exception) when the read fails."""
+        return copy.deepcopy(self.seasons)
 
 
 class FakeMatches:
@@ -160,10 +178,49 @@ class FakeMatches:
     means every team: the scraped world, where a team exists because it plays.
     """
 
-    def __init__(self, rows: list[dict] | None = None, fail: bool = False, active: set[int] | None = None) -> None:
+    def __init__(
+        self,
+        rows: list[dict] | None = None,
+        fail: bool = False,
+        active: set[int] | None = None,
+        standings: dict | None = None,
+    ) -> None:
         self.rows, self.fail, self.active = rows or [], fail, active
+        self.standings = standings
         self.calls: list[dict[str, Any]] = []
         self.activity_calls: list[tuple[int, int, bool]] = []
+        self.standings_calls: list[dict[str, Any]] = []
+
+    def get_standings(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+        match_type: str = "League",
+        include_test: bool = False,
+        *,
+        raise_on_error: bool = False,
+    ) -> dict:
+        """Like MatchDAO.get_standings, including its swallow-errors default.
+
+        Returns `standings` as given (see standings_result); the table logic is
+        dao/standings.py's, tested on its own.
+        """
+        self.standings_calls.append(
+            {
+                "season_id": season_id,
+                "age_group_id": age_group_id,
+                "division_id": division_id,
+                "match_type": match_type,
+                "include_test": include_test,
+                "raise_on_error": raise_on_error,
+            }
+        )
+        if self.fail:
+            if raise_on_error:
+                raise RuntimeError("PostgREST down")
+            return standings_result([], fixtures=0)
+        return copy.deepcopy(self.standings or standings_result([], fixtures=0))
 
     def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool:
         """Like the DAO, raises on a failed read rather than answering False."""
@@ -236,3 +293,44 @@ def match_row(match_id: int, match_date: str, **overrides: Any) -> dict:
     }
     row.update(overrides)
     return row
+
+
+def standings_row(team_id: int, name: str, club_id: int | None, points: int, **overrides: Any) -> dict:
+    """A calculate_standings_with_extras row, as MatchDAO.get_standings returns it."""
+    row = {
+        "team": name,
+        "team_id": team_id,
+        "club_id": club_id,
+        "logo_url": None,
+        "played": 2,
+        "wins": points // 3,
+        "draws": points % 3,
+        "losses": 2 - points // 3 - points % 3,
+        "shootout_wins": 0,
+        "shootout_losses": 0,
+        "goals_for": 3,
+        "goals_against": 2,
+        "goal_difference": 1,
+        "points": points,
+        "form": ["W", "D"],
+        "position_change": 0,
+    }
+    row.update(overrides)
+    return row
+
+
+def standings_result(rows: list[dict], fixtures: int = 4, match_type: str = "League", **coverage: Any) -> dict:
+    """{"standings", "coverage"} in MatchDAO.get_standings' shape."""
+    played = sum(r["played"] for r in rows) // 2
+    cov = {
+        "match_type": match_type,
+        "competitions": [match_type],
+        "matches_counted": played,
+        "fixtures": fixtures,
+        "counted_by_competition": {match_type: played},
+        "matches_vs_outside_table": 0,
+        "teams_outside_table": 0,
+        "shootout_points": [],
+    }
+    cov.update(coverage)
+    return {"standings": rows, "coverage": cov}

@@ -352,6 +352,12 @@ invalidation is needed.
 `include_test` is part of the key on purpose: a test match must not move a real
 team's points, so the two audiences never share a computed table (SB-591).
 
+By default a failed computation returns an empty table — and `dao_cache` stores
+that like any other result. `raise_on_error=True` re-raises instead, so nothing is
+cached; MT AI's `get_standings` tool passes it so "could not read" is never
+answered as "no matches played" (SB-1496, [mt2/ai.md](mt2/ai.md#standings-sb-1496)).
+It cannot see past an empty table already cached by a default caller.
+
 ## What MT is supposed to be tracking
 
 Everything above answers *what is here*. `get_competitions_present`,

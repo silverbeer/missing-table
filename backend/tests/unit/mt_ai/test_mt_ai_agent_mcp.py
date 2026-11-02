@@ -29,7 +29,7 @@ class TestOverMcp:
             await run_over_mcp(s, model, real_viewer, message="hi")
 
         tools = model.declared_tools()
-        assert sorted(tools) == ["get_upcoming_matches", "search_teams"]
+        assert sorted(tools) == ["get_standings", "get_upcoming_matches", "search_teams"]
         assert tools["search_teams"]["required"] == ["query"]
         assert set(tools["search_teams"]["properties"]) == {"query", "age_group"}
 

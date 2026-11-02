@@ -1,4 +1,4 @@
-"""The MT assistant: one ADK agent with two tools (SB-1143, SB-1152).
+"""The MT assistant: one ADK agent with three tools (SB-1143, SB-1152, SB-1496).
 
 With `mcp` given (SB-1302, SB-1303), every tool comes from mt-mcp over MCP,
 called with the end user's own token, so the server — not this module —
@@ -33,7 +33,7 @@ from google.adk.tools.mcp_tool import McpToolset, StreamableHTTPConnectionParams
 from google.genai import types
 
 from mt_ai.budget import Budget, BudgetExhaustedError, BudgetLimit, ToolCallGuard
-from mt_ai.tools import ToolDeps, Viewer, get_upcoming_matches, search_teams
+from mt_ai.tools import ToolDeps, Viewer, get_standings, get_upcoming_matches, search_teams
 from mt_ai.trace import ToolCallRecord, TurnRecorder
 
 logger = structlog.get_logger()
@@ -46,12 +46,12 @@ os.environ.setdefault("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
 
 APP_NAME = "mt_ai"
 AGENT_NAME = "mt_assistant"
-AGENT_VERSION = "mt-assistant/0.2.1"
+AGENT_VERSION = "mt-assistant/0.3.0"
 
 INSTRUCTION = """\
 You are MT, the assistant for MissingTable, a youth soccer site for players,
-parents and fans. Answer questions about MT teams and their upcoming matches
-using your tools.
+parents and fans. Answer questions about MT teams, their upcoming matches and
+standings using your tools.
 
 - To find a team, use search_teams.
 - To say when a team plays next, first resolve the team with search_teams, then
@@ -61,6 +61,16 @@ using your tools.
 - If get_upcoming_matches returns "matches": [], say nothing is scheduled yet
   as of that "today". Only say match data is unavailable when the result has
   an "error". A postponed match is still listed: say it was postponed.
+- For standings, resolve the team with search_teams, then call get_standings
+  with its team_id and age_group id (competition "League" unless the user asks
+  for Flex, or "qualifying" for the combined League + Flex record). If it says
+  "ambiguous", pick from "options" when the question decides it (a Flex table
+  is the option whose division league is Flex) and call again with that
+  age_group id and division id; otherwise ask. Always say how many matches the
+  table counts of how many are scheduled (coverage), and for "qualifying" that
+  it is a record that includes matches against teams outside the table. "rows"
+  [] with fixtures above 0 means no match has been played yet. Never claim who
+  qualifies: MT has no qualification cutoff.
 - Never guess a team. If search_teams says "ambiguous", ask which one the user
   means and list the candidates (name, age group, league). If it says
   "not_found" with "other_ages", the team exists but not at that age: say so,
@@ -116,7 +126,7 @@ class McpAccess:
 
     url: str
     bearer: str
-    tools: tuple[str, ...] = ("search_teams", "get_upcoming_matches")
+    tools: tuple[str, ...] = ("search_teams", "get_upcoming_matches", "get_standings")
     timeout_s: float = 10.0
     httpx_client_factory: Any = None  # tests inject an in-process transport
 
@@ -176,6 +186,42 @@ def make_upcoming_matches_tool(deps: ToolDeps, viewer: Viewer) -> Callable[..., 
     return get_upcoming_matches_tool
 
 
+def make_standings_tool(deps: ToolDeps, viewer: Viewer) -> Callable[..., dict[str, Any]]:
+    """Bind get_standings like the others: the viewer is the server's; the model
+    picks only which table."""
+
+    def get_standings_tool(
+        team_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+        competition: str = "League",
+        season_id: int | None = None,
+    ) -> dict[str, Any]:
+        """One standings table and its coverage. Give team_id (from search_teams or
+        get_my_team, plus age_group.id when known) for that team's table, or
+        division_id with age_group_id. competition: a name ("League", "Flex"),
+        "qualifying" (every competition that qualifies for the cup, League + Flex,
+        combined: a record, not a standing) or "all". Season defaults to the
+        current one. "ambiguous" lists "options": pick one (a Flex table is the
+        option whose division league is Flex) and call again with its
+        age_group.id and division.id, or ask. "rows" [] with coverage.fixtures > 0
+        means no match played yet; fixtures 0 means nothing scheduled there;
+        null means it could not be checked (see "error"). Always state the
+        coverage. A team with no row has not played a counted match yet."""
+        return get_standings(
+            deps,
+            viewer,
+            team_id=team_id,
+            age_group_id=age_group_id,
+            division_id=division_id,
+            competition=competition,
+            season_id=season_id,
+        ).model_dump(mode="json")
+
+    get_standings_tool.__name__ = "get_standings"
+    return get_standings_tool
+
+
 def make_search_teams_tool(deps: ToolDeps, viewer: Viewer) -> Callable[..., dict[str, Any]]:
     """Bind the tool to this request's data sources and viewer.
 
@@ -214,7 +260,13 @@ async def run_turn(
 
     toolset = mcp.toolset() if mcp else None
     tools: list[Any] = (
-        [toolset] if toolset else [make_search_teams_tool(deps, viewer), make_upcoming_matches_tool(deps, viewer)]
+        [toolset]
+        if toolset
+        else [
+            make_search_teams_tool(deps, viewer),
+            make_upcoming_matches_tool(deps, viewer),
+            make_standings_tool(deps, viewer),
+        ]
     )
 
     def count_llm_call(callback_context: Any, llm_request: Any) -> None:

@@ -14,7 +14,7 @@ from mt_mcp.server import TOOL_TIERS, UNAVAILABLE
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
-READ_TOOLS = {"search_teams", "get_upcoming_matches"}
+READ_TOOLS = {"search_teams", "get_upcoming_matches", "get_standings"}
 MY_TOOLS = {"get_my_team"}
 ADMIN_TOOLS = {"list_ingest_failures", "resolve_ingest_failure"}
 
@@ -67,8 +67,8 @@ class TestTierGate:
 
     async def test_a_tool_outside_the_callers_tiers_is_neither_listed_nor_callable(self, make_deps, monkeypatch):
         """Gate check with a tool from a tier a fan does not have; reads as an unknown tool."""
-        monkeypatch.setitem(TOOL_TIERS, "search_teams", "admin")
-        monkeypatch.setitem(TOOL_TIERS, "get_upcoming_matches", "admin")
+        for name in READ_TOOLS:
+            monkeypatch.setitem(TOOL_TIERS, name, "admin")
         for name in ADMIN_TOOLS | MY_TOOLS:
             monkeypatch.delitem(TOOL_TIERS, name)
 

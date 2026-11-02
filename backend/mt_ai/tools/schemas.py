@@ -115,3 +115,79 @@ class UpcomingMatchesResult(BaseModel):
     matches: list[UpcomingMatch] | None = None
     error: ToolError | None = None
     meta: ToolMeta = Field(default_factory=ToolMeta)
+
+
+class SeasonRef(BaseModel):
+    id: int
+    name: str
+
+
+class DivisionRef(BaseModel):
+    """A division (conference or Flex bracket) and the league it belongs to."""
+
+    id: int
+    name: str
+    league: str | None = None
+
+
+class StandingsOption(BaseModel):
+    """One table a team plays in: pass its ids back to get_standings to pick it."""
+
+    age_group: AgeGroupRef
+    division: DivisionRef
+
+
+class StandingsRow(BaseModel):
+    position: int  # 1-based, in table order (points, goal difference, goals for)
+    team: TeamRef
+    played: int
+    wins: int
+    draws: int  # level after regulation, shootout or not
+    losses: int
+    shootout_wins: int  # of the draws, won on penalties — worth 2 where the competition scores shootouts
+    shootout_losses: int
+    goals_for: int  # regulation only; shootout kicks are not goals
+    goals_against: int
+    goal_difference: int
+    points: int
+    form: list[str] = Field(default_factory=list)  # last five results, oldest first ("W", "D", "L")
+    position_change: int = 0  # places moved since the previous match day; positive is up
+    is_requested_team: bool = False
+
+
+class StandingsCoverage(BaseModel):
+    """What the table is made of, as MatchDAO.get_standings reports it.
+
+    `fixtures` counts every match scheduled for the selection, played or not;
+    `matches_counted` only the played ones in the table. So `rows: []` with
+    `fixtures > 0` is "none played yet", and `fixtures == 0` is "nothing
+    scheduled here". `matches_vs_outside_table` > 0 means a combined view
+    (qualifying, all) counts results against teams not in the table: a record,
+    not a standing.
+    """
+
+    match_type: str | None = None
+    competitions: list[str] | None = None  # None = every competition ("all")
+    matches_counted: int = 0
+    fixtures: int = 0
+    counted_by_competition: dict[str, int] = Field(default_factory=dict)
+    matches_vs_outside_table: int = 0
+    teams_outside_table: int = 0
+    shootout_points: list[str] = Field(default_factory=list)  # competitions scoring a shootout 2/1
+
+
+class StandingsResult(BaseModel):
+    team_id: int | None = None
+    competition: str
+    season: SeasonRef | None = None
+    age_group: AgeGroupRef | None = None
+    division: DivisionRef | None = None
+    # None = could not build the table (see "error"); [] = no match played yet
+    # (read coverage.fixtures to tell "none played" from "nothing scheduled").
+    rows: list[StandingsRow] | None = None
+    coverage: StandingsCoverage | None = None
+    # ambiguous: every table the team plays in. not_found with a team: the
+    # tables it does play in, when none matched the ids given.
+    options: list[StandingsOption] = Field(default_factory=list)
+    error: ToolError | None = None
+    meta: ToolMeta = Field(default_factory=ToolMeta)

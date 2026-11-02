@@ -29,8 +29,8 @@ from mcp.types import CallToolResult, ListToolsResult, TextContent
 from pydantic import Field
 from starlette.applications import Starlette
 
-from mt_ai.tools import ToolDeps, Viewer, get_upcoming_matches, search_teams
-from mt_ai.tools.schemas import ResolveResult, UpcomingMatchesResult
+from mt_ai.tools import ToolDeps, Viewer, get_standings, get_upcoming_matches, search_teams
+from mt_ai.tools.schemas import ResolveResult, StandingsResult, UpcomingMatchesResult
 from mt_mcp.auth import MTTokenVerifier, Principal, current_principal
 from mt_mcp.observe import ToolCallObserver
 from mt_mcp.scopes import CLIENT_HEADER, Tier, allowed_tiers
@@ -50,7 +50,9 @@ SERVER_VERSION = "0.1.0"
 
 INSTRUCTIONS = """\
 MissingTable (MT) data for youth soccer: teams, matches and standings.
-Resolve a team with search_teams before using its id elsewhere.
+Resolve a team with search_teams (or get_my_team) before using its id elsewhere.
+Standings ship with their coverage: say how many matches were played of how many
+scheduled, and for a combined view how many were against teams outside the table.
 Results distinguish "not tracked" (null) from "none" ([]); never report an absent
 value as zero.
 """
@@ -62,6 +64,7 @@ UNAVAILABLE = "MT could not answer that right now."
 TOOL_TIERS: dict[str, Tier] = {
     "search_teams": "read",
     "get_upcoming_matches": "read",
+    "get_standings": "read",
     "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
@@ -108,6 +111,39 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
         return await _run(
             lambda: get_upcoming_matches(deps(), team_id, viewer, age_group_id=age_group_id, limit=limit),
             "get_upcoming_matches",
+        )
+
+    @server.tool(name="get_standings")
+    async def get_standings_tool(
+        team_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+        competition: str = "League",
+        season_id: int | None = None,
+    ) -> StandingsResult:
+        """One standings table and its coverage. Give team_id (from search_teams or
+        get_my_team, plus age_group.id when known) for that team's table, or
+        division_id with age_group_id. competition: a name ("League", "Flex"),
+        "qualifying" (every competition that qualifies for the cup, League + Flex,
+        combined: a record, not a standing) or "all". Season defaults to the
+        current one. "ambiguous" lists "options": pick one (a Flex table is the
+        option whose division league is Flex) and call again with its
+        age_group.id and division.id, or ask. "rows" [] with coverage.fixtures > 0
+        means no match played yet; fixtures 0 means nothing scheduled there;
+        null means it could not be checked (see "error"). Always state the
+        coverage. A team with no row has not played a counted match yet."""
+        viewer = Viewer.from_user(_caller().as_user())
+        return await _run(
+            lambda: get_standings(
+                deps(),
+                viewer,
+                team_id=team_id,
+                age_group_id=age_group_id,
+                division_id=division_id,
+                competition=competition,
+                season_id=season_id,
+            ),
+            "get_standings",
         )
 
     # --- my tier --------------------------------------------------------------
