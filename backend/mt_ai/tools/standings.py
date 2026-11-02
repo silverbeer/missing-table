@@ -61,7 +61,7 @@ class _NotFoundError(Exception):
 
 
 @dataclass(frozen=True)
-class _Table:
+class Table:
     age_group: AgeGroupRef
     division: DivisionRef
     home: bool  # the division is in a top-level league (not a Flex bracket)
@@ -100,7 +100,7 @@ def get_standings(
             team = index.teams.get(team_id)
             if team is None:
                 return fail("not_found", f"No team with id {team_id}.")
-            every = _tables_of(index, team)
+            every = tables_of(index, team)
             tables = [
                 t
                 for t in every
@@ -158,9 +158,9 @@ def _competition(value: str | None) -> str:
     return value.casefold() if value.casefold() in COMBINED else value
 
 
-def _tables_of(index: TeamIndex, team: dict) -> list[_Table]:
+def tables_of(index: TeamIndex, team: dict) -> list[Table]:
     """Every (age group, division) the team is registered in that this viewer may see."""
-    out: list[_Table] = []
+    out: list[Table] = []
     for mapping in team.get("team_mappings") or []:
         age, division = mapping.get("age_groups"), mapping.get("divisions")
         if not age or not division or division.get("id") is None:
@@ -169,7 +169,7 @@ def _tables_of(index: TeamIndex, team: dict) -> list[_Table]:
         if not index.include_test and league_id in index.test_league_ids:
             continue
         league = index.leagues.get(league_id or 0) or {}
-        table = _Table(
+        table = Table(
             age_group=AgeGroupRef(id=age["id"], name=age["name"]),
             division=DivisionRef(
                 id=division["id"],
@@ -180,10 +180,10 @@ def _tables_of(index: TeamIndex, team: dict) -> list[_Table]:
         )
         if table not in out:
             out.append(table)
-    return sorted(out, key=lambda t: (_age_number(t.age_group.name), not t.home, t.division.name))
+    return sorted(out, key=lambda t: (age_number(t.age_group.name), not t.home, t.division.name))
 
 
-def _pick(tables: list[_Table], competition: str) -> _Table | None:
+def _pick(tables: list[Table], competition: str) -> Table | None:
     if len(tables) == 1:
         return tables[0]
     if competition == LEAGUE or competition in COMBINED:
@@ -193,10 +193,10 @@ def _pick(tables: list[_Table], competition: str) -> _Table | None:
     return None
 
 
-def _division_table(index: TeamIndex, division_id: int, age_group_id: int) -> _Table:
+def _division_table(index: TeamIndex, division_id: int, age_group_id: int) -> Table:
     """The division at that age, if any team the viewer can see is registered there."""
     for team in index.teams.values():
-        for table in _tables_of(index, team):
+        for table in tables_of(index, team):
             if table.division.id == division_id and table.age_group.id == age_group_id:
                 return table
     raise _NotFoundError(f"No division with id {division_id} at age group id {age_group_id}.")
@@ -258,6 +258,6 @@ def _caption(coverage: StandingsCoverage) -> str:
     return text
 
 
-def _age_number(name: str) -> int:
+def age_number(name: str) -> int:
     digits = "".join(ch for ch in name if ch.isdigit())
     return int(digits) if digits else 999

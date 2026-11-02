@@ -191,3 +191,30 @@ class StandingsResult(BaseModel):
     options: list[StandingsOption] = Field(default_factory=list)
     error: ToolError | None = None
     meta: ToolMeta = Field(default_factory=ToolMeta)
+
+
+class DivisionAgeGroup(BaseModel):
+    """One age group a division runs, as far as MT's registrations show."""
+
+    id: int
+    name: str
+    teams: int  # visible teams registered in the division at this age
+
+
+class DivisionSummary(BaseModel):
+    """A division and its age groups: division.id and an age_groups[].id pick a table."""
+
+    division: DivisionRef
+    age_groups: list[DivisionAgeGroup] = Field(default_factory=list)
+
+
+class DivisionsResult(BaseModel):
+    age_group: str | None = None
+    league: str | None = None
+    query: str | None = None
+    # None = could not check (see "error"). Never [] — no match is not_found.
+    divisions: list[DivisionSummary] | None = None
+    # not_found only: what does exist with fewer filters, so the agent can recover.
+    alternatives: list[DivisionSummary] = Field(default_factory=list)
+    error: ToolError | None = None
+    meta: ToolMeta = Field(default_factory=ToolMeta)

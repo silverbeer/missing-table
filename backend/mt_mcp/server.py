@@ -29,8 +29,8 @@ from mcp.types import CallToolResult, ListToolsResult, TextContent
 from pydantic import Field
 from starlette.applications import Starlette
 
-from mt_ai.tools import ToolDeps, Viewer, get_standings, get_upcoming_matches, search_teams
-from mt_ai.tools.schemas import ResolveResult, StandingsResult, UpcomingMatchesResult
+from mt_ai.tools import ToolDeps, Viewer, get_standings, get_upcoming_matches, list_divisions, search_teams
+from mt_ai.tools.schemas import DivisionsResult, ResolveResult, StandingsResult, UpcomingMatchesResult
 from mt_mcp.auth import MTTokenVerifier, Principal, current_principal
 from mt_mcp.observe import ToolCallObserver
 from mt_mcp.scopes import CLIENT_HEADER, Tier, allowed_tiers
@@ -51,6 +51,8 @@ SERVER_VERSION = "0.1.0"
 INSTRUCTIONS = """\
 MissingTable (MT) data for youth soccer: teams, matches and standings.
 Resolve a team with search_teams (or get_my_team) before using its id elsewhere.
+Resolve a division by name ("U15 Northeast") with list_divisions before calling
+get_standings by division: pass its division.id and the age_groups[].id.
 Standings ship with their coverage: say how many matches were played of how many
 scheduled, and for a combined view how many were against teams outside the table.
 Results distinguish "not tracked" (null) from "none" ([]); never report an absent
@@ -65,6 +67,7 @@ TOOL_TIERS: dict[str, Tier] = {
     "search_teams": "read",
     "get_upcoming_matches": "read",
     "get_standings": "read",
+    "list_divisions": "read",
     "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
@@ -144,6 +147,23 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
                 season_id=season_id,
             ),
             "get_standings",
+        )
+
+    @server.tool(name="list_divisions")
+    async def list_divisions_tool(
+        age_group: str | None = None, league: str | None = None, query: str | None = None
+    ) -> DivisionsResult:
+        """Divisions (conferences and Flex brackets) with teams, each with its
+        league and the age groups it runs (id, name, number of teams). Use it to
+        resolve a division by name, then call get_standings with division.id and
+        the age group's id. Filters are optional and combine: age_group like
+        "U15", league like "Homegrown" or "Flex", query part of a division or
+        league name ("Northeast"). "not_found" lists "alternatives" that exist
+        with fewer filters: pick one or ask."""
+        viewer = Viewer.from_user(_caller().as_user())
+        return await _run(
+            lambda: list_divisions(deps(), viewer, age_group=age_group, league=league, query=query),
+            "list_divisions",
         )
 
     # --- my tier --------------------------------------------------------------
