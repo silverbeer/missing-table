@@ -2,7 +2,7 @@
 
 import pytest
 
-from mt_mcp.scopes import ALL_TIERS, MT_AI_CLIENT, allowed_tiers
+from mt_mcp.scopes import ALL_TIERS, MT_AI_CLIENT, SB_AGENTS_CLIENT, allowed_tiers
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
@@ -56,3 +56,9 @@ def test_client_name_is_normalised(client):
 def test_an_unknown_client_neither_narrows_nor_widens(client):
     assert allowed_tiers("admin", client) == ALL_TIERS
     assert allowed_tiers("team-fan", client) == frozenset({"read", "my"})
+
+
+@pytest.mark.parametrize("role", ["admin", "club_manager", "team-manager", "team-player", "team-fan", None])
+def test_sb_agents_gets_the_read_tier_only_whatever_the_role(role):
+    """sb-agents speaks for users with no MT identity: public data, never "my" or writes."""
+    assert allowed_tiers(role, SB_AGENTS_CLIENT) == frozenset({"read"})
