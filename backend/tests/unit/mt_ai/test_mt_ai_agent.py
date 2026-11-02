@@ -20,12 +20,12 @@ async def run(model, deps, viewer, message="Find IFA", history=(), budget=None):
 
 
 class TestToolWiring:
-    async def test_both_tools_are_declared_to_the_model(self, make_deps, real_viewer):
+    async def test_every_tool_is_declared_to_the_model(self, make_deps, real_viewer):
         model = scripted(says("Hello"))
         await run(model, make_deps(), real_viewer, message="hi")
 
         tools = model.declared_tools()
-        assert list(tools) == ["search_teams", "get_upcoming_matches"]
+        assert list(tools) == ["search_teams", "get_upcoming_matches", "get_standings"]
         assert tools["search_teams"]["required"] == ["query"]
         assert set(tools["search_teams"]["properties"]) == {"query", "age_group"}
         # The viewer and the clock are the server's, never the model's.
@@ -86,11 +86,12 @@ class TestToolWiring:
         assert result["status"] == "not_found"
         assert result["other_ages"] == ["U15"]
 
-    def test_the_instruction_says_how_to_use_both_tools(self):
+    def test_the_instruction_says_how_to_use_every_tool(self):
         assert "get_upcoming_matches" in INSTRUCTION
         assert "search_teams" in INSTRUCTION
         assert "other_ages" in INSTRUCTION
-        assert AGENT_VERSION == "mt-assistant/0.2.1"
+        assert "get_standings" in INSTRUCTION
+        assert AGENT_VERSION == "mt-assistant/0.3.0"
 
     async def test_model_calls_tool_and_typed_result_reaches_it(self, make_deps, real_viewer):
         model = scripted(calls_tool("search_teams", query="IFA"), says("IFA plays U15 in the Northeast."))

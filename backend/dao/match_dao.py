@@ -1423,6 +1423,8 @@ class MatchDAO(BaseDAO):
         division_id: int | None = None,
         match_type: str = "League",
         include_test: bool = False,
+        *,
+        raise_on_error: bool = False,
     ) -> dict:
         """
         Standings plus the coverage needed to read them honestly.
@@ -1436,6 +1438,10 @@ class MatchDAO(BaseDAO):
             include_test: SB-591 test partition. A test match must not move a
                 real team's points, so this is part of the cache key — the two
                 audiences never share a computed table.
+            raise_on_error: Re-raise failures instead of returning an empty
+                table. The default keeps /api/table's behaviour; the MT AI
+                get_standings tool passes True so a failed read is not
+                mistaken for "no matches played" (SB-1496).
 
         Returns:
             {"standings": [...], "coverage": {...}}
@@ -1506,6 +1512,8 @@ class MatchDAO(BaseDAO):
 
         except Exception:
             logger.exception("Error generating league table")
+            if raise_on_error:
+                raise
             return {"standings": [], "coverage": self._coverage(match_type, None, [], None)}
 
     @staticmethod

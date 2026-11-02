@@ -39,9 +39,22 @@ class MatchSource(Protocol):
 
     def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool: ...
 
+    def get_standings(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+        match_type: str = "League",
+        include_test: bool = False,
+        *,
+        raise_on_error: bool = False,
+    ) -> dict: ...
+
 
 class SeasonSource(Protocol):
     def get_current_season(self) -> dict | None: ...
+
+    def get_all_seasons(self) -> list[dict]: ...
 
 
 @dataclass(frozen=True)

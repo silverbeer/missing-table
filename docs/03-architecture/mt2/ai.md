@@ -188,13 +188,60 @@ conversations; ADK's session is rebuilt from them per request (see below).
 | `get_match` | `GET /api/matches/{id}`, live state, events | Supported |
 | `get_upcoming_matches` | `mt_ai/tools/matches.py` over `MatchDAO.get_all_matches(start_date=…, raise_on_error=True)` | **Built (SB-1142)**, registered with the agent (SB-1152) |
 | `get_recent_matches` | same | **Build**, same basis |
-| `get_standings` | `GET /api/table` → `MatchDAO.get_standings` (cached) → pure `dao/standings.py` | Supported; League/Flex need `division_id` |
+| `get_standings` | `mt_ai/tools/standings.py` over `MatchDAO.get_standings(raise_on_error=True)` (cached, the same table as `/api/table`) → pure `dao/standings.py` | **Built (SB-1496)**, registered with the agent and served by mt-mcp. See [Standings](#standings-sb-1496) |
 | `get_league` | `GET /api/leagues/{id}` | Supported |
 | `get_team_stats` | `GET /api/teams/{id}/stats` (Golden Boot) | Supported — **user data; must carry coverage** |
 | `get_tournament` | `/api/tournaments/{id}` | Supported |
 | `get_qop_rankings` | `/api/qop-rankings` | Supported |
 | `search_players` | admin-only `?search=`; profiles are of **minors** | **Not in v1** (see below) |
 | `search_mt` | nothing | **Not built** — the agent composes specific tools; a catch-all tool hides which data was used |
+
+### Standings (SB-1496)
+
+`get_standings(team_id | division_id + age_group_id, competition="League", season_id)`
+returns one table: `rows` (position, team, W/D/L, shootout W/L, GF/GA/GD, points,
+form, `position_change`, `is_requested_team`), the `season`, `age_group` and
+`division` it is, and `coverage` — MatchDAO's coverage block, typed, because a
+cross-team statistic ships with its denominator (root CLAUDE.md). `meta.coverage`
+is that denominator in one line ("40 played of 96 scheduled; 3 against 2 teams
+outside this table").
+
+*"My team's standings"* is `get_my_team` → `get_standings(team_id, age_group_id)`
+over mt-mcp; in-process, `search_teams` → `get_standings`.
+
+**Which table, given a team.** A table is one age group in one division; the tool
+takes the team's visible registrations (`team_mappings`), narrowed by
+`age_group_id` / `division_id`:
+
+- exactly one → that one;
+- several, for `League`, `qualifying` or `all` → the **home** division: the one in a
+  top-level league (`leagues.parent_league_id` null). A team in League and Flex at
+  one age has one Homegrown conference and one Flex bracket (Flex is a child of
+  Homegrown, SB-1039), and the combined qualifying table is keyed by the home
+  division ([standings.md](../standings.md#how-the-combined-table-is-built));
+- otherwise — several ages with no age given, two home divisions, or a named
+  competition other than League (Flex) with several registrations — `ambiguous`,
+  with every table in `options` (age group, division, league). The agent picks the
+  option the question decides (Flex → the option whose league is Flex) and calls
+  again with its ids, or asks. The tool never guesses.
+
+A `division_id` needs an `age_group_id` (`invalid_args` otherwise): divisions span
+ages, and one team row plays several, so an age-less table would merge a team's
+U15 and U16 results. A division is found only through a visible team's
+registration, so a test league's division is `not_found` for a real viewer.
+
+**Empty is not failed.** `rows: []` with `coverage.fixtures > 0` is "none played
+yet"; `fixtures: 0` is "nothing scheduled for that selection" (or a competition
+name MT does not know). `rows: null` with an `error` is "could not check":
+`MatchDAO.get_standings` returns an empty table on failure for `/api/table`, so the
+tool passes `raise_on_error=True` and a failure is `unavailable`. A team with no
+row has not played a counted match yet.
+
+**Season** defaults as `/api/table` does: the current season, else the newest.
+
+**No qualification cutoff.** MT holds no "top N qualify" data; `qualifying` is the
+combined record across the competitions flagged `counts_for_qualification`, with
+its coverage, and the agent is told never to claim who qualifies.
 
 **Players are out of v1.** Player records are user-generated, cover a minority of
 teams, and describe children. A free-text player search reachable by any logged-in
@@ -303,7 +350,7 @@ The first end-to-end path. It proves the plumbing, not the assistant.
 POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors to status codes
   → ChatService.chat       mt_ai/service.py   load/create conversation, rebuild history, persist the turn
     → run_turn             mt_ai/agent.py     the only module that imports ADK
-      → ADK Runner + LlmAgent(tools=[search_teams, get_upcoming_matches]), RunConfig(max_llm_calls)
+      → ADK Runner + LlmAgent(tools=[search_teams, get_upcoming_matches, get_standings]), RunConfig(max_llm_calls)
         → the tools        mt_ai/tools/       unchanged from SB-1142; no ADK, no HTTP
 ```
 
