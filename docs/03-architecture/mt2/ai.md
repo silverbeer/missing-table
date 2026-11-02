@@ -189,6 +189,7 @@ conversations; ADK's session is rebuilt from them per request (see below).
 | `get_upcoming_matches` | `mt_ai/tools/matches.py` over `MatchDAO.get_all_matches(start_date=…, raise_on_error=True)` | **Built (SB-1142)**, registered with the agent (SB-1152) |
 | `get_recent_matches` | same | **Build**, same basis |
 | `get_standings` | `mt_ai/tools/standings.py` over `MatchDAO.get_standings(raise_on_error=True)` (cached, the same table as `/api/table`) → pure `dao/standings.py` | **Built (SB-1496)**, registered with the agent and served by mt-mcp. See [Standings](#standings-sb-1496) |
+| `list_divisions` | `mt_ai/tools/divisions.py`: the divisions of visible teams' registrations, from the same cached team index as `search_teams` | **Built (SB-1503)**, registered with the agent and served by mt-mcp. See [Divisions](#divisions-sb-1503) |
 | `get_league` | `GET /api/leagues/{id}` | Supported |
 | `get_team_stats` | `GET /api/teams/{id}/stats` (Golden Boot) | Supported — **user data; must carry coverage** |
 | `get_tournament` | `/api/tournaments/{id}` | Supported |
@@ -242,6 +243,30 @@ row has not played a counted match yet.
 **No qualification cutoff.** MT holds no "top N qualify" data; `qualifying` is the
 combined record across the competitions flagged `counts_for_qualification`, with
 its coverage, and the agent is told never to claim who qualifies.
+
+### Divisions (SB-1503)
+
+*"Who's top of the U15 Northeast table?"* names a division, not a team, and
+`get_standings` by division needs ids. `list_divisions(age_group, league, query)`
+resolves the name: each item is a `division` (id, name, league) and its
+`age_groups` (id, name, `teams` — visible teams registered there), ordered by
+league then division name, ages numerically. The agent passes `division.id` and an
+`age_groups[].id` straight to `get_standings`.
+
+- **What is listed.** A division appears only through a visible team's registration
+  (`team_mappings`, via standings' `tables_of`), so it carries the same visibility as
+  `search_teams` and `get_standings`: a test league's division never reaches a real
+  viewer, and a division nobody is registered in is not listed — it has no table.
+- **Filters** are optional and combine (AND). `age_group` matches the name in any
+  spelling ("U15", "u-15", "15"); `league` matches a league name exactly,
+  case-insensitively ("Flex"); `query` matches part of a division or league name
+  ("Northeast", "new england"). With an age given, only that age is listed.
+- **No match is `not_found`, never `[]`**, with `alternatives`: what exists once the
+  fewest filters are dropped (the age first, then the league, then the query), also
+  named in the error message. "U14 Northeast" lists Northeast's ages; a misspelt
+  query at U15 lists the U15 divisions. Blank or over-long filters are
+  `invalid_args`; a failed read is `unavailable` with `divisions: null`.
+- **Bounded**: at most 50 divisions, `meta.truncated` when there were more.
 
 **Players are out of v1.** Player records are user-generated, cover a minority of
 teams, and describe children. A free-text player search reachable by any logged-in
@@ -350,7 +375,7 @@ The first end-to-end path. It proves the plumbing, not the assistant.
 POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors to status codes
   → ChatService.chat       mt_ai/service.py   load/create conversation, rebuild history, persist the turn
     → run_turn             mt_ai/agent.py     the only module that imports ADK
-      → ADK Runner + LlmAgent(tools=[search_teams, get_upcoming_matches, get_standings]), RunConfig(max_llm_calls)
+      → ADK Runner + LlmAgent(tools=[search_teams, get_upcoming_matches, get_standings, list_divisions]), RunConfig(max_llm_calls)
         → the tools        mt_ai/tools/       unchanged from SB-1142; no ADK, no HTTP
 ```
 

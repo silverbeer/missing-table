@@ -14,7 +14,7 @@ from mt_mcp.server import TOOL_TIERS, UNAVAILABLE
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
-READ_TOOLS = {"search_teams", "get_upcoming_matches", "get_standings"}
+READ_TOOLS = {"search_teams", "get_upcoming_matches", "get_standings", "list_divisions"}
 MY_TOOLS = {"get_my_team"}
 ADMIN_TOOLS = {"list_ingest_failures", "resolve_ingest_failure"}
 

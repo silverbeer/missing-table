@@ -162,7 +162,7 @@ off-topic questions — a model-profile finding for evals, not an MCP one.
 
 | Tier | Who | Examples |
 |------|-----|----------|
-| **read** | every role | `search_teams`, `get_upcoming_matches`, `get_standings` (built, SB-1496 — with its coverage; see [ai.md](ai.md#standings-sb-1496)), `get_match`, `get_team_stats` (with coverage) |
+| **read** | every role | `search_teams`, `get_upcoming_matches`, `get_standings` (built, SB-1496 — with its coverage; see [ai.md](ai.md#standings-sb-1496)), `list_divisions` (built, SB-1503 — resolves a division by name for `get_standings`; see [ai.md](ai.md#divisions-sb-1503)), `get_match`, `get_team_stats` (with coverage) |
 | **my** | fans, players, managers | `get_my_team` (built, SB-1317) — "when do we play" without naming the team; `no_team` when none is set |
 | **self** | `team-player` | `get_my_stats`, `get_my_profile` — own records only |
 | **team-write** | `team-manager` (own team), `club_manager` (club's teams) | roster add/edit, live scoring |
