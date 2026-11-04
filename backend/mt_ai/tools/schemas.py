@@ -117,6 +117,55 @@ class UpcomingMatchesResult(BaseModel):
     meta: ToolMeta = Field(default_factory=ToolMeta)
 
 
+class RecentResult(BaseModel):
+    """One played match, scored from the requested team's side."""
+
+    match_id: int
+    match_date: date
+    status: str  # "completed" or "forfeit"
+    home_team: TeamRef
+    away_team: TeamRef
+    is_home: bool
+    home_score: int
+    away_score: int
+    # A level match decided on penalties (Flex): the shootout, else None. Still a draw:
+    # "result" is the result after regulation, as in the standings.
+    home_penalty_score: int | None = None
+    away_penalty_score: int | None = None
+    result: Literal["W", "D", "L"]
+    goals_for: int
+    goals_against: int
+    age_group: str | None = None
+    division: str | None = None
+    competition: str | None = None
+    league: str | None = None
+    season: str | None = None
+
+
+class ResultsSummary(BaseModel):
+    """Totals over the matches returned (not the whole season: see meta.truncated)."""
+
+    played: int
+    wins: int
+    draws: int
+    losses: int
+    goals_for: int
+    goals_against: int
+
+
+class RecentResultsResult(BaseModel):
+    team_id: int
+    age_group_id: int | None = None
+    opponent_id: int | None = None  # set: head-to-head against this team only
+    today: date | None = None
+    timezone: str | None = None
+    # None = could not check (see "error"); [] = no played match found.
+    matches: list[RecentResult] | None = None
+    summary: ResultsSummary | None = None
+    error: ToolError | None = None
+    meta: ToolMeta = Field(default_factory=ToolMeta)
+
+
 class SeasonRef(BaseModel):
     id: int
     name: str
