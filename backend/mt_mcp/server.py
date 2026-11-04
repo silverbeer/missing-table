@@ -29,8 +29,22 @@ from mcp.types import CallToolResult, ListToolsResult, TextContent
 from pydantic import Field
 from starlette.applications import Starlette
 
-from mt_ai.tools import ToolDeps, Viewer, get_standings, get_upcoming_matches, list_divisions, search_teams
-from mt_ai.tools.schemas import DivisionsResult, ResolveResult, StandingsResult, UpcomingMatchesResult
+from mt_ai.tools import (
+    ToolDeps,
+    Viewer,
+    get_recent_results,
+    get_standings,
+    get_upcoming_matches,
+    list_divisions,
+    search_teams,
+)
+from mt_ai.tools.schemas import (
+    DivisionsResult,
+    RecentResultsResult,
+    ResolveResult,
+    StandingsResult,
+    UpcomingMatchesResult,
+)
 from mt_mcp.auth import MTTokenVerifier, Principal, current_principal
 from mt_mcp.observe import ToolCallObserver
 from mt_mcp.scopes import CLIENT_HEADER, Tier, allowed_tiers
@@ -51,6 +65,7 @@ SERVER_VERSION = "0.1.0"
 INSTRUCTIONS = """\
 MissingTable (MT) data for youth soccer: teams, matches and standings.
 Resolve a team with search_teams (or get_my_team) before using its id elsewhere.
+Past results ("last weekend", "last 5 games", head-to-head): get_recent_results.
 Resolve a division by name ("U15 Northeast") with list_divisions before calling
 get_standings by division: pass its division.id and the age_groups[].id.
 Standings ship with their coverage: say how many matches were played of how many
@@ -66,6 +81,7 @@ UNAVAILABLE = "MT could not answer that right now."
 TOOL_TIERS: dict[str, Tier] = {
     "search_teams": "read",
     "get_upcoming_matches": "read",
+    "get_recent_results": "read",
     "get_standings": "read",
     "list_divisions": "read",
     "get_my_team": "my",
@@ -114,6 +130,28 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
         return await _run(
             lambda: get_upcoming_matches(deps(), team_id, viewer, age_group_id=age_group_id, limit=limit),
             "get_upcoming_matches",
+        )
+
+    @server.tool(name="get_recent_results")
+    async def get_recent_results_tool(
+        team_id: int,
+        age_group_id: int | None = None,
+        limit: int = 5,
+        opponent_id: int | None = None,
+    ) -> RecentResultsResult:
+        """A team's last played matches, newest first, scored from its side:
+        "result" W/D/L, goals_for, goals_against, plus a "summary" over the
+        matches returned. Use team_id and age_group.id from search_teams. For
+        head-to-head, pass the other team's team_id as opponent_id (any season).
+        A level match decided on penalties is a draw with the shootout alongside.
+        "matches" is [] when none were played and null when it could not be
+        checked (see "error"); meta.truncated means there are older ones."""
+        viewer = Viewer.from_user(_caller().as_user())
+        return await _run(
+            lambda: get_recent_results(
+                deps(), team_id, viewer, age_group_id=age_group_id, limit=limit, opponent_id=opponent_id
+            ),
+            "get_recent_results",
         )
 
     @server.tool(name="get_standings")

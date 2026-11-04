@@ -247,6 +247,7 @@ class FakeMatches:
                 "team_id": team_id,
                 "age_group_id": age_group_id,
                 "start_date": start_date,
+                "end_date": end_date,
                 "raise_on_error": raise_on_error,
             }
         )

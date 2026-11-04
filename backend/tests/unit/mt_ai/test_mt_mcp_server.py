@@ -14,7 +14,7 @@ from mt_mcp.server import TOOL_TIERS, UNAVAILABLE
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
-READ_TOOLS = {"search_teams", "get_upcoming_matches", "get_standings", "list_divisions"}
+READ_TOOLS = {"search_teams", "get_upcoming_matches", "get_recent_results", "get_standings", "list_divisions"}
 MY_TOOLS = {"get_my_team"}
 ADMIN_TOOLS = {"list_ingest_failures", "resolve_ingest_failure"}
 
@@ -179,6 +179,26 @@ class TestUpcomingMatches:
 
         assert fan.structured_content["error"]["kind"] == "not_found"
         assert admin.structured_content["error"] is None
+
+
+class TestRecentResults:
+    async def test_schemas(self, make_deps):
+        async with served(make_deps()) as s, s.session("fan") as session:
+            tool = next(t for t in (await session.list_tools()).tools if t.name == "get_recent_results")
+
+        assert tool.input_schema["required"] == ["team_id"]
+        assert set(tool.input_schema["properties"]) == {"team_id", "age_group_id", "limit", "opponent_id"}
+        assert {"matches", "summary", "error", "today"} <= set(tool.output_schema["properties"])
+
+    async def test_an_unclaimed_teams_results_come_back(self, make_deps):
+        rows = [match_row(9, "2000-01-01", match_status="completed", home_score=2, away_score=0)]
+        async with served(make_deps(matches=FakeMatches(rows))) as s, s.session("fan") as session:
+            result = await session.call_tool("get_recent_results", {"team_id": 102})
+
+        data = result.structured_content
+        assert data["error"] is None
+        assert [(m["result"], m["goals_for"]) for m in data["matches"]] == [("W", 2)]
+        assert data["summary"]["wins"] == 1
 
 
 def _count(tool: str, client: str, role: str, outcome: str) -> float:

@@ -272,6 +272,23 @@ league then division name, ages numerically. The agent passes `division.id` and 
 teams, and describe children. A free-text player search reachable by any logged-in
 user is a privacy decision, not a tooling one; it needs its own ticket and review.
 
+### Recent results (SB-1526)
+
+`get_recent_results(team_id, age_group_id?, limit=5, opponent_id?)` (`mt_ai/tools/results.py`),
+on mt-mcp's read tier. It is the other half of `get_upcoming_matches`, with the same "today":
+the club's calendar day, so a game that ended at 9pm in Boston is already a result.
+
+- **Played** means `completed` or `forfeit` with both scores recorded. A completed match with
+  no score is left out, never reported as 0-0 (absent is not zero).
+- Each match is scored **from the requested team's side**: `result` W/D/L, `goals_for`,
+  `goals_against`. A level match decided on penalties is a draw, with the shootout alongside,
+  the same rule as the standings.
+- `summary` totals the matches returned, not the season; `meta.truncated` says there are older.
+- `opponent_id` narrows to head-to-head, across seasons.
+- `matches: []` is "checked, none played"; `null` with an `error` is "could not check".
+
+Not wired into the in-app assistant (`mt_ai/agent.py`) yet; sb-agents' mt-agent uses it over MCP.
+
 ### Multi-age teams make resolution the hard part
 
 One MT team spans several age groups (`team_mappings`), so "Boston United" alone does
