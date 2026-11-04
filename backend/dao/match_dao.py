@@ -12,7 +12,6 @@ import httpx
 import structlog
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
-from supabase import create_client
 
 from dao.base_dao import (
     MATCHES_READ_RELATION,
@@ -33,6 +32,7 @@ from dao.standings import (
     shootout_competitions,
     teams_in_division,
 )
+from supabase import create_client
 
 logger = structlog.get_logger()
 
@@ -1372,6 +1372,10 @@ class MatchDAO(BaseDAO):
                     "second_half_start": match.get("second_half_start"),
                     "match_end_time": match.get("match_end_time"),
                     "half_duration": match.get("half_duration", 45),
+                    # The dispatcher loads with include_test=True and narrows the
+                    # audience on this flag; dropping it made every rehearsal
+                    # look real (SB-1534).
+                    "is_test": bool(match.get("is_test", False)),
                 }
                 return flat_match
             else:

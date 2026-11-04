@@ -210,7 +210,10 @@ class Notifier:
             )
             return
 
-        match = self.match_dao.get_match_by_id(match_id)
+        # include_test: a TSC rehearsal is a match too. Without it every test
+        # match is "not found" and nothing is ever sent for one (SB-1534);
+        # who may hear about it is narrowed below instead.
+        match = self.match_dao.get_match_by_id(match_id, include_test=True)
         if not match:
             logger.warning(
                 "notifications.skipped",
@@ -247,7 +250,10 @@ class Notifier:
         # Push to team followers must not depend on the clubs having channels
         # (SB-77); previously a no-channels match returned here and followers
         # got nothing.
-        destinations = resolve_destinations(home_club_id, away_club_id, self.notif_dao)
+        # A test match never reaches a club channel: those are public rooms,
+        # and the SB-591 partition exists so a rehearsal stays out of them.
+        is_test = bool(match.get("is_test"))
+        destinations = [] if is_test else resolve_destinations(home_club_id, away_club_id, self.notif_dao)
         if destinations:
             sent = 0
             failed = 0
@@ -272,6 +278,12 @@ class Notifier:
                 event_type=event_type,
                 sent=sent,
                 failed=failed,
+            )
+        elif is_test:
+            logger.info(
+                "notifications.test_match_no_club_channels",
+                match_id=match_id,
+                event_type=event_type,
             )
         else:
             logger.info(
@@ -386,6 +398,13 @@ class Notifier:
             deduped.append(sub)
         subscriptions = deduped
 
+        # A test match reaches only those who can see it (SB-1534).
+        if subscriptions and match.get("is_test"):
+            allowed = self._test_content_viewers(
+                sorted({sub.get("user_id") for sub in subscriptions if sub.get("user_id")})
+            )
+            subscriptions = [sub for sub in subscriptions if sub.get("user_id") in allowed]
+
         if not subscriptions:
             return
 
@@ -463,10 +482,41 @@ class Notifier:
                         tournament_id, tournament_group, age_group_id
                     )
                 )
+        if user_ids and match.get("is_test"):
+            user_ids &= self._test_content_viewers(sorted(user_ids))
         if not user_ids:
             return [], {}
         sorted_ids = sorted(user_ids)
         return sorted_ids, self.prefs_dao.get_preferences_batch(sorted_ids)
+
+    def _test_content_viewers(self, user_ids: list[str]) -> set[str]:
+        """Which of these users may see the SB-591 test partition — admins and
+        flagged test users, the same rule as auth.viewer_sees_test_content.
+
+        Fails closed: if the lookup breaks, nobody hears about a test match.
+        """
+        if not user_ids:
+            return set()
+        try:
+            response = (
+                self.connection.get_client()
+                .table("user_profiles")
+                .select("id, role, is_test")
+                .in_("id", user_ids)
+                .execute()
+            )
+        except Exception as exc:
+            logger.warning(
+                "notifications.test_viewer_lookup_failed",
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
+            return set()
+        return {
+            row["id"]
+            for row in response.data or []
+            if row.get("role") == "admin" or row.get("is_test")
+        }
 
     def _send_apns_fanout(
         self,
