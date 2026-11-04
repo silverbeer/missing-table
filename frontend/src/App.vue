@@ -411,7 +411,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { lazyView } from './utils/lazyView';
-import { hasAnyRole, TEAM_PAGE_ROLES } from './utils/roles';
+import { hasAnyRole, TEAM_PAGE_ROLES, liveMatchesQuery } from './utils/roles';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { useBlockedUsers } from './composables/useBlockedUsers';
@@ -589,7 +589,7 @@ export default {
 
       try {
         const response = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/matches/live`
+          `${getApiBaseUrl()}/api/matches/live${liveMatchesQuery(authStore.userRole.value)}`
         );
         if (Array.isArray(response)) {
           liveMatches.value = response;

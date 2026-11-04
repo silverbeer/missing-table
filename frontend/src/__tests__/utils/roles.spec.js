@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { normalizeRole, hasAnyRole } from '@/utils/roles';
+import { normalizeRole, hasAnyRole, liveMatchesQuery } from '@/utils/roles';
 
 // Exactly the set user_profiles_role_check permits.
 const DB_ROLES = [
@@ -77,4 +77,26 @@ describe('hasAnyRole', () => {
     expect(hasAnyRole(['team-manager'], 'team')).toBe(false);
     expect(hasAnyRole(['club-fan'], 'fan')).toBe(false);
   });
+});
+
+describe('liveMatchesQuery (SB-1532)', () => {
+  // The LIVE tab is the web's only way to Start Match, so scorers must see a
+  // match marked in progress before its clock runs.
+  it.each([
+    'admin',
+    'club_manager',
+    'club-manager',
+    'team-manager',
+    'team_manager',
+  ])('asks %s for every match under way', role => {
+    expect(liveMatchesQuery(role)).toBe('?include_manual=true');
+  });
+
+  // Everyone else keeps SB-910: only matches someone is live-scoring.
+  it.each(['club-fan', 'team-player', 'team_fan', '', null, undefined])(
+    'keeps %s on live-scored matches only',
+    role => {
+      expect(liveMatchesQuery(role)).toBe('');
+    }
+  );
 });

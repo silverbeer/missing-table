@@ -42,3 +42,23 @@ export const TEAM_PAGE_ROLES = [
   'team-player',
   'team-fan',
 ];
+
+/**
+ * Who may start live scoring a match. Kept in step with the Add Match tab and
+ * with useLiveMatch's canManage, which gates the clock controls themselves.
+ */
+export const LIVE_SCORER_ROLES = ['admin', 'club_manager', 'team-manager'];
+
+/**
+ * Query string for the LIVE tab's `/api/matches/live` poll.
+ *
+ * SB-910 narrowed that endpoint to matches with a running live-scoring clock.
+ * But the clock is started from the live view, and the LIVE tab is the web's
+ * only way into it — so a match merely marked in progress could never be
+ * live-scored from the web (SB-1532). Scorers get every match under way, so
+ * they can reach Start Match; everyone else keeps the narrowed list, where the
+ * tab promises a feed someone is driving.
+ */
+export function liveMatchesQuery(role) {
+  return hasAnyRole(LIVE_SCORER_ROLES, role) ? '?include_manual=true' : '';
+}
