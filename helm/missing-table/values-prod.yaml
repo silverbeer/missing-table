@@ -36,6 +36,11 @@ backend:
       # never code: mt2/ai.md records why gemini-3.7-flash.
       MT_AI_ENABLED: "true"
       MT_AI_MODEL: "gemini-3.7-flash"
+      # MT AI via sb-agents (SB-1500). Stays in-app until LKE can reach the
+      # homelab sb-agents. MT_AI_SB_AGENTS_TOKEN is a secret: it would come from
+      # ESO, never from this file. Design: mt2/ai.md "Backend: sb-agents".
+      # MT_AI_BACKEND: "in-app"
+      # MT_AI_SB_AGENTS_URL: ""
       # mt-mcp (SB-1316): mounts /mcp on api.missingtable.com and serves every
       # MT AI tool through it. Rollback: set "false" and merge — /mcp unmounts
       # and MT AI registers the same tools in-process. Design: mt2/mcp.md.

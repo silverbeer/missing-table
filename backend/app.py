@@ -361,7 +361,7 @@ import contextlib
 from endpoints.version import router as version_router
 
 app.include_router(version_router)
-app.include_router(mt_ai_router)  # SB-1143; answers 503 unless MT_AI_ENABLED + MT_AI_MODEL
+app.include_router(mt_ai_router)  # SB-1143; 503 unless MT_AI_ENABLED + its backend is configured (SB-1500)
 
 
 def _mount_mt_mcp() -> None:
