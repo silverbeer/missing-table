@@ -47,6 +47,11 @@ SESSIONS = {
     "fan-of-gone-team": profile("u-gone", "team-fan", team_id=9999),
 }
 API_ACCOUNTS = {"api": profile("u-api", "team-fan", is_api_account=True)}
+# Delegated tokens (SB-1529): sb-agents acting for a person, capped to read/my/self.
+DELEGATED = {
+    "deleg-admin": profile("u-admin", "admin", delegated=True),
+    "deleg-fan": profile("u-fan", "team-fan", team_id=102, delegated=True),
+}
 
 
 class FakeAuth:
@@ -64,6 +69,9 @@ class FakeAuth:
 
     def verify_api_account(self, token: str) -> dict[str, Any] | None:
         return API_ACCOUNTS.get(token)
+
+    def verify_delegated(self, token: str) -> dict[str, Any] | None:
+        return DELEGATED.get(token)
 
 
 class FakeIngest:
@@ -122,7 +130,7 @@ class Served:
         # What the tools call for their data; a test may swap it to simulate a crash.
         self.provide: Callable[[], ToolDeps] = lambda: self.deps
         self.server: MCPServer = build_server(
-            MTTokenVerifier(self.auth.verify_session, self.auth.verify_api_account),
+            MTTokenVerifier(self.auth.verify_session, self.auth.verify_api_account, self.auth.verify_delegated),
             lambda: self.provide(),
             issuer_url="http://127.0.0.1:55321/auth/v1",
             ingest=lambda: self.ingest,

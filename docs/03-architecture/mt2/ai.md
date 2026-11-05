@@ -650,6 +650,12 @@ context is sent to sb-agents yet.
 so the web UI can hide the chat entry. It never `503`s: off or misconfigured is
 `enabled: false, backend: null`. `web_chat` is `enabled and MT_AI_WEB_CHAT=true`.
 
+**Identity (SB-1529).** For a signed-in person each request also carries
+`user_token`: a 5-minute delegated mt-mcp token minted per turn (`mint_delegated_token`;
+see [mcp.md](mcp.md), "Delegated tokens"). mt-agent calls mt-mcp with it, so "how is my
+team doing?" uses `get_my_team` for that person, capped to read/my/self. The token is never
+logged or stored.
+
 **Rollback.** `MT_AI_BACKEND=in-app` (or unset). Conversations started on
 sb-agents continue in-app from MT's own `ai_messages` history.
 

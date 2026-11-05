@@ -32,24 +32,33 @@ MT_AI_CLIENT = "mt-ai"
 # sb-agents' mt-agent (SB-1493) answers Slack/Telegram users with no MT identity
 # through a public API account: public data only, whatever that account's role.
 SB_AGENTS_CLIENT = "sb-agents"
+# The same mt-agent answering a signed-in MT user with a delegated token (SB-1529).
+SB_AGENTS_USER_CLIENT = "sb-agents-user"
 CLIENT_CAPS: dict[str, frozenset[Tier]] = {
     MT_AI_CLIENT: frozenset({"read", "my", "self"}),
     SB_AGENTS_CLIENT: frozenset({"read"}),
+    SB_AGENTS_USER_CLIENT: frozenset({"read", "my", "self"}),
 }
+
+# A delegated token's cap, whatever client header comes with it: the token itself
+# says "sb-agents acting for this person", so dropping the header gains nothing.
+DELEGATED_CAP: frozenset[Tier] = frozenset({"read", "my", "self"})
 
 CLIENT_HEADER = "x-mt-client"
 
 # Clients named in metrics and logs. Naming one grants nothing; only CLIENT_CAPS
 # changes what a client may use.
-KNOWN_CLIENTS = frozenset({MT_AI_CLIENT, SB_AGENTS_CLIENT, "claude-code"})
+KNOWN_CLIENTS = frozenset({MT_AI_CLIENT, SB_AGENTS_CLIENT, SB_AGENTS_USER_CLIENT, "claude-code"})
 
 
-def allowed_tiers(role: str | None, client: str | None) -> frozenset[Tier]:
+def allowed_tiers(role: str | None, client: str | None, delegated: bool = False) -> frozenset[Tier]:
     """The tiers a caller with this role, using this client, may use.
 
     An unknown client name is treated as no cap: the header only ever narrows,
     so a caller gains nothing by inventing one.
     """
     tiers = ROLE_TIERS.get(role or "", DEFAULT_TIERS)
+    if delegated:
+        tiers = tiers & DELEGATED_CAP
     cap = CLIENT_CAPS.get((client or "").strip().lower())
     return tiers & cap if cap is not None else tiers

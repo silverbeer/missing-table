@@ -95,6 +95,13 @@ def web_chat_enabled() -> bool:
     return os.getenv("MT_AI_WEB_CHAT", "false").lower() == "true"
 
 
+def mint_delegated_token(user_id: str) -> str:
+    """The user's 5-minute mt-mcp token for one sb-agents turn (SB-1529)."""
+    from app import auth_manager  # same late import as auth.get_ai_user
+
+    return auth_manager.create_delegated_token(user_id)
+
+
 def configured_backend() -> Backend | None:
     """The backend that answers chat, or None when MT AI is off or not configured.
     Logs which variable is missing — by name only, never a value."""
@@ -129,7 +136,7 @@ def get_chat_service() -> ChatService:
                 AIConversationDAO(SupabaseConnection()),
                 dao_tool_deps(),
                 SB_AGENTS_MODEL,
-                run=SbAgentsRunner(url, token),
+                run=SbAgentsRunner(url, token, mint=mint_delegated_token),
                 pass_user_id=True,
             )
             _service_key = key

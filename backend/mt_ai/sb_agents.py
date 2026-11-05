@@ -17,6 +17,7 @@ The backend has no OpenTelemetry tracer configured, so no trace context is
 propagated to sb-agents yet.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -71,6 +72,8 @@ class SbAgentsRunner:
     token: str = field(repr=False)
     timeout_s: float = TIMEOUT_S
     transport: httpx.AsyncBaseTransport | None = None  # tests inject httpx.MockTransport
+    # Mints the user's 5-minute delegated mt-mcp token (SB-1529); None sends no identity.
+    mint: Callable[[str], str] | None = field(default=None, repr=False)
 
     async def __call__(
         self,
@@ -85,6 +88,8 @@ class SbAgentsRunner:
         user_id: str | None = None,
     ) -> TurnOutcome:
         body = {"conversation_id": session_id, "user_id": user_id, "text": message}
+        if user_id and self.mint is not None:
+            body["user_token"] = self.mint(user_id)  # never logged
         headers = {"Authorization": f"Bearer {self.token}"}
         try:
             async with httpx.AsyncClient(timeout=self.timeout_s, transport=self.transport) as client:

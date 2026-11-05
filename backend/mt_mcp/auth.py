@@ -36,6 +36,7 @@ class Principal:
     assigned_age_group_id: int | None = None  # a fan's picked age group (SB-1543)
     is_test: bool = False
     is_api_account: bool = False
+    delegated: bool = False  # sb-agents acting for this person (SB-1529): tiers capped
 
     @classmethod
     def from_user(cls, user: dict[str, Any]) -> "Principal":
@@ -48,6 +49,7 @@ class Principal:
             assigned_age_group_id=user.get("assigned_age_group_id"),
             is_test=bool(user.get("is_test")),
             is_api_account=bool(user.get("is_api_account")),
+            delegated=bool(user.get("delegated")),
         )
 
     def as_user(self) -> dict[str, Any]:
@@ -58,8 +60,11 @@ class Principal:
 class MTTokenVerifier:
     """Bearer token → AccessToken carrying the caller's Principal, or None."""
 
-    def __init__(self, verify_session: VerifyFn, verify_api_account: VerifyFn) -> None:
-        self._verifiers = (verify_session, verify_api_account)
+    def __init__(
+        self, verify_session: VerifyFn, verify_api_account: VerifyFn, verify_delegated: VerifyFn | None = None
+    ) -> None:
+        # verify_delegated (SB-1529): a short-lived token MT minted for an sb-agents turn.
+        self._verifiers = tuple(v for v in (verify_session, verify_api_account, verify_delegated) if v)
 
     async def verify_token(self, token: str) -> AccessToken | None:
         # auth_manager's checks are synchronous and read user_profiles.

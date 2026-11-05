@@ -368,3 +368,34 @@ class TestStatus:
         response = TestClient(app).get("/api/ai/status")
 
         assert response.status_code in (401, 403)
+
+
+class TestDelegatedIdentity:
+    """SB-1529: each turn carries the user's freshly minted delegated token."""
+
+    def runner(self, fake, minted):
+        def mint(user_id):
+            minted.append(user_id)
+            return f"deleg-for-{user_id}"
+
+        return SbAgentsRunner(URL, TOKEN, transport=httpx.MockTransport(fake.handler), mint=mint)
+
+    async def test_a_turn_for_a_user_sends_their_token(self):
+        fake, minted = SbAgents(), []
+        await run(self.runner(fake, minted), user_id="user-1")
+        assert minted == ["user-1"]
+        assert json.loads(fake.requests[0].content)["user_token"] == "deleg-for-user-1"
+
+    async def test_no_user_or_no_minter_sends_no_token(self):
+        fake, minted = SbAgents(), []
+        await run(self.runner(fake, minted), user_id=None)
+        await run(fake.runner())
+        assert minted == []
+        assert all("user_token" not in json.loads(r.content) for r in fake.requests)
+
+    def test_the_minter_is_not_in_repr(self):
+        assert "mint" not in repr(SbAgentsRunner(URL, TOKEN, mint=lambda u: u))
+
+    def test_the_service_mints_with_auth_manager(self, env):
+        env(**SB_ENV)
+        assert api.get_chat_service().run.mint is api.mint_delegated_token
