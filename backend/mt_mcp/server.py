@@ -209,7 +209,9 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
     @server.tool(name="get_my_team")
     async def get_my_team_tool(include_inactive: bool = False) -> MyTeamResult:
         """The caller's own team: status "team" (their team, one entry per age
-        group), "club" (their club and its teams) or "no_team" when none is set —
+        group, or just the age group they picked as "my team" — then that one
+        entry is the squad they mean), "club" (their club and its teams) or
+        "no_team" when none is set —
         a normal answer, not an error. Each team carries "active": it has a match
         in the current "season". A club lists only its active teams; pass
         include_inactive=true when the user asks for all of them, including

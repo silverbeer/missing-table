@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import hashlib
 import os
 from collections import Counter
@@ -27,6 +28,7 @@ from api.webhooks_email import router as webhooks_email_router
 from auth import (
     AuthManager,
     can_manage_match,
+    fan_age_group_for_invite,
     get_current_user_optional,
     get_current_user_required,
     require_admin,
@@ -447,6 +449,7 @@ async def _update_existing_user_role(user_data, invite_info, audit_logger):
             "role": new_role,
             "team_id": invite_info.get("team_id"),
             "club_id": invite_info.get("club_id"),
+            "assigned_age_group_id": fan_age_group_for_invite(invite_info),
         }
         player_dao.update_user_profile(user_id, update_data)
 
@@ -555,6 +558,7 @@ async def signup(request: Request, user_data: UserSignup):
                 profile_data["role"] = role_for_invite_type(invite_info["invite_type"])
                 profile_data["team_id"] = invite_info.get("team_id")
                 profile_data["club_id"] = invite_info.get("club_id")
+                profile_data["assigned_age_group_id"] = fan_age_group_for_invite(invite_info)
 
             # Insert user profile
             player_dao.create_or_update_user_profile(profile_data)
@@ -614,6 +618,7 @@ async def signup(request: Request, user_data: UserSignup):
                         "role": new_role,
                         "team_id": invite_info.get("team_id"),
                         "club_id": invite_info.get("club_id"),
+                        "assigned_age_group_id": fan_age_group_for_invite(invite_info),
                     }
                     player_dao.update_user_profile(existing_user.id, update_data)
 
@@ -1125,6 +1130,7 @@ async def oauth_callback(callback_data: OAuthCallbackData, request: Request):
             "role": role,
             "team_id": invite_info.get("team_id"),
             "club_id": invite_info.get("club_id"),
+            "assigned_age_group_id": fan_age_group_for_invite(invite_info),
             "profile_photo_url": avatar_url,
             "auth_provider": callback_data.provider,
             "updated_at": datetime.utcnow().isoformat(),
@@ -1217,6 +1223,64 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
     except Exception as e:
         logger.error(f"Get profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get profile") from e
+
+
+class MyTeamPick(BaseModel):
+    """A fan's "my team": a team in their club and one age group it plays (SB-1543).
+    Both null clears the pick."""
+
+    team_id: int | None = None
+    age_group_id: int | None = None
+
+
+@functools.cache
+def _my_team_deps():
+    from mt_ai.tools.deps import dao_tool_deps
+
+    return dao_tool_deps()
+
+
+@app.get("/api/me/team-options")
+async def get_my_team_options(current_user: dict[str, Any] = Depends(get_current_user_required)):
+    """The teams a fan may pick: their club's teams, one entry per age group."""
+    from mt_ai.tools.schemas import Viewer
+    from mt_tools.my_team import PICK_ROLES, team_pick_options
+
+    if current_user.get("role") not in PICK_ROLES:
+        raise HTTPException(status_code=403, detail="Only fans pick a team; managers and players get theirs by invite")
+    options = await asyncio.to_thread(team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user))
+    return options.model_dump()
+
+
+@app.put("/api/me/team")
+async def set_my_team(pick: MyTeamPick, current_user: dict[str, Any] = Depends(get_current_user_required)):
+    """Save a fan's pick. Only a team in their own club, at an age group it plays:
+    team_id also feeds roster visibility (via its club), so a pick outside the club
+    would widen it. Managers and players keep the team their invite gave them."""
+    from mt_ai.tools.schemas import Viewer
+    from mt_tools.my_team import PICK_ROLES, is_valid_pick, team_pick_options
+
+    if current_user.get("role") not in PICK_ROLES:
+        raise HTTPException(status_code=403, detail="Only fans pick a team; managers and players get theirs by invite")
+    if (pick.team_id is None) != (pick.age_group_id is None):
+        raise HTTPException(status_code=400, detail="Send both team_id and age_group_id, or neither to clear")
+    if pick.team_id is not None:
+        options = await asyncio.to_thread(
+            team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user)
+        )
+        if not is_valid_pick(options, pick.team_id, pick.age_group_id):
+            raise HTTPException(status_code=400, detail="That team and age group aren't in your club")
+    update = {
+        "team_id": pick.team_id,
+        "assigned_age_group_id": pick.age_group_id,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    if pick.team_id is None and current_user.get("role") == "team-fan" and not current_user.get("club_id"):
+        # Clearing must not strand a team fan with no club: keep their team, drop the age.
+        update.pop("team_id")
+    player_dao.update_user_profile(current_user["user_id"], update)
+    logger.info("my_team_picked", user_id=current_user["user_id"], team_id=pick.team_id, age_group_id=pick.age_group_id)
+    return {"success": True, "team_id": pick.team_id, "age_group_id": pick.age_group_id}
 
 
 @app.put("/api/auth/profile")
@@ -7697,7 +7761,10 @@ async def get_all_users(current_user: dict[str, Any] = Depends(require_admin)):
     try:
         profiles_resp = (
             auth_service_client.table("user_profiles")
-            .select("id, username, display_name, role, email, team_id, club_id, android_user, created_at")
+            .select(
+                "id, username, display_name, role, email, team_id, club_id, assigned_age_group_id, "
+                "android_user, created_at"
+            )
             .order("username")
             .execute()
         )
@@ -7767,6 +7834,8 @@ class AdminUserUpdate(BaseModel):
     role: str | None = None
     team_id: int | None = None
     club_id: int | None = None
+    # A fan's "my team" age group (SB-1543); must be one the team plays.
+    assigned_age_group_id: int | None = None
     # A contact address, which most accounts do not have: MT keys on username
     # and synthesises one for Supabase. Sending "" clears it (SB-1128).
     email: str | None = None
@@ -7862,7 +7931,7 @@ async def update_user_profile_admin(
 
         target_resp = (
             auth_service_client.table("user_profiles")
-            .select("id, username, role, team_id, club_id, email, android_user")
+            .select("id, username, role, team_id, club_id, assigned_age_group_id, email, android_user")
             .eq("id", user_id)
             .limit(1)
             .execute()
@@ -7872,7 +7941,7 @@ async def update_user_profile_admin(
             raise HTTPException(status_code=404, detail="User not found")
 
         updates: dict[str, Any] = {}
-        for field in ("role", "team_id", "club_id", "email", "android_user"):
+        for field in ("role", "team_id", "club_id", "assigned_age_group_id", "email", "android_user"):
             if field in sent:
                 updates[field] = getattr(payload, field)
         # The column is NOT NULL: an explicit null means "not an Android user".
@@ -7907,6 +7976,23 @@ async def update_user_profile_admin(
         # refusing to save would make those unfixable here.
         if updates.get("team_id") is not None and not team_dao.get_team_by_id(updates["team_id"]):
             raise HTTPException(status_code=400, detail="Team not found")
+        # A new team makes the old age-group pick meaningless unless one is sent too.
+        if "team_id" in updates and "assigned_age_group_id" not in updates and updates["team_id"] != target["team_id"]:
+            updates["assigned_age_group_id"] = None
+        if updates.get("assigned_age_group_id") is not None:
+            team_id = updates.get("team_id", target.get("team_id"))
+            if team_id is None:
+                raise HTTPException(status_code=400, detail="An age group needs a team")
+            mapping = (
+                auth_service_client.table("team_mappings")
+                .select("team_id")
+                .eq("team_id", team_id)
+                .eq("age_group_id", updates["assigned_age_group_id"])
+                .limit(1)
+                .execute()
+            )
+            if not mapping.data:
+                raise HTTPException(status_code=400, detail="That team doesn't play that age group")
         if updates.get("club_id") is not None:
             # ClubDAO has no get-by-id; get_all_clubs is already cached and the
             # list is ~130 rows, so a membership test is cheaper than adding a

@@ -218,3 +218,43 @@ class TestAndroidUserFlag:
 
         assert response.json()["changes"] == {}
         supabase._tables["user_profiles"].update.assert_not_called()
+
+
+@pytest.mark.unit
+class TestAdminMyTeamAgeGroup:
+    """The age group half of a fan's "my team" (SB-1543)."""
+
+    def teardown_method(self):
+        from app import app
+
+        app.dependency_overrides.clear()
+
+    def _patch(self, sb, team_plays_age: bool):
+        sb.table("team_mappings").execute.return_value = MagicMock(data=[{"team_id": 19}] if team_plays_age else [])
+        return sb
+
+    def test_sets_an_age_group_the_team_plays(self):
+        sb = self._patch(_supabase({**TARGET_FAN, "team_id": 19, "assigned_age_group_id": None}), True)
+        with patch("app.auth_service_client", sb), patch("app.team_dao"):
+            response = _client().patch("/api/admin/users/u-9", json={"assigned_age_group_id": 3})
+        assert response.status_code == 200
+        assert response.json()["changes"]["assigned_age_group_id"] == {"from": None, "to": 3}
+
+    def test_rejects_an_age_group_the_team_does_not_play(self):
+        sb = self._patch(_supabase({**TARGET_FAN, "team_id": 19}), False)
+        with patch("app.auth_service_client", sb), patch("app.team_dao"):
+            response = _client().patch("/api/admin/users/u-9", json={"assigned_age_group_id": 3})
+        assert response.status_code == 400
+
+    def test_rejects_an_age_group_without_a_team(self):
+        with patch("app.auth_service_client", _supabase()), patch("app.team_dao"):
+            response = _client().patch("/api/admin/users/u-9", json={"assigned_age_group_id": 3})
+        assert response.status_code == 400
+
+    def test_changing_team_clears_a_stale_age_group(self):
+        sb = _supabase({**TARGET_FAN, "team_id": 19, "assigned_age_group_id": 3})
+        with patch("app.auth_service_client", sb), patch("app.team_dao") as team_dao:
+            team_dao.get_team_by_id.return_value = {"id": 123, "name": "IFA Academy"}
+            response = _client().patch("/api/admin/users/u-9", json={"team_id": 123})
+        assert response.status_code == 200
+        assert response.json()["changes"]["assigned_age_group_id"] == {"from": 3, "to": None}

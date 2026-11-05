@@ -33,6 +33,7 @@ class Principal:
     username: str | None = None
     team_id: int | None = None
     club_id: int | None = None
+    assigned_age_group_id: int | None = None  # a fan's picked age group (SB-1543)
     is_test: bool = False
     is_api_account: bool = False
 
@@ -44,6 +45,7 @@ class Principal:
             username=user.get("username"),
             team_id=user.get("team_id"),
             club_id=user.get("club_id"),
+            assigned_age_group_id=user.get("assigned_age_group_id"),
             is_test=bool(user.get("is_test")),
             is_api_account=bool(user.get("is_api_account")),
         )

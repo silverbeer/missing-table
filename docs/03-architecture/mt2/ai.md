@@ -208,7 +208,8 @@ is that denominator in one line ("40 played of 96 scheduled; 3 against 2 teams
 outside this table").
 
 *"My team's standings"* is `get_my_team` → `get_standings(team_id, age_group_id)`
-over mt-mcp; in-process, `search_teams` → `get_standings`.
+over mt-mcp; in-process, `search_teams` → `get_standings`. A fan who picked their team
+(SB-1543, see mcp.md) gets one entry back, so no "which age group?" turn.
 
 **Which table, given a team.** A table is one age group in one division; the tool
 takes the team's visible registrations (`team_mappings`), narrowed by

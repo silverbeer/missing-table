@@ -37,8 +37,15 @@ const USERS = [
 ];
 
 const TEAMS = [
-  { id: 19, name: 'IFA' },
-  { id: 30, name: 'New York City FC' },
+  {
+    id: 19,
+    name: 'IFA',
+    age_groups: [
+      { id: 2, name: 'U14' },
+      { id: 3, name: 'U15' },
+    ],
+  },
+  { id: 30, name: 'New York City FC', age_groups: [{ id: 3, name: 'U15' }] },
 ];
 const CLUBS = [{ id: 1, name: 'IFA' }];
 
@@ -221,5 +228,78 @@ describe('AdminUsers Android user flag (SB-1460)', () => {
     } finally {
       delete USERS[0].android_user;
     }
+  });
+});
+
+describe('AdminUsers age group (SB-1543)', () => {
+  const withPick = async fn => {
+    Object.assign(USERS[0], {
+      team_id: 19,
+      team_name: 'IFA',
+      assigned_age_group_id: 3,
+    });
+    try {
+      await fn();
+    } finally {
+      Object.assign(USERS[0], { team_id: null, team_name: null });
+      delete USERS[0].assigned_age_group_id;
+    }
+  };
+
+  it("offers the selected team's age groups and shows the current one", async () => {
+    await withPick(async () => {
+      const wrapper = await mountUsers();
+      await openEditorFor(wrapper, 'tom_ifa_fan');
+
+      const select = wrapper.find('[data-testid="edit-age-group"]');
+      expect(select.findAll('option').map(o => o.text())).toEqual([
+        '— none —',
+        'U14',
+        'U15',
+      ]);
+      expect(wrapper.vm.form.assigned_age_group_id).toBe(3);
+    });
+  });
+
+  it('resets the age group to none when the team changes', async () => {
+    await withPick(async () => {
+      const wrapper = await mountUsers();
+      await openEditorFor(wrapper, 'tom_ifa_fan');
+
+      await wrapper.find('[data-testid="edit-team"]').setValue('30');
+
+      expect(wrapper.vm.form.team_id).toBe(30);
+      expect(wrapper.vm.form.assigned_age_group_id).toBeNull();
+    });
+  });
+
+  it('sends assigned_age_group_id in the PATCH when it changes', async () => {
+    await withPick(async () => {
+      const wrapper = await mountUsers();
+      await openEditorFor(wrapper, 'tom_ifa_fan');
+
+      await wrapper.find('[data-testid="edit-age-group"]').setValue('2');
+      await wrapper.find('[data-testid="save-user"]').trigger('click');
+      await flushPromises();
+
+      const patch = apiRequest.mock.calls.find(c => c[1]?.method === 'PATCH');
+      expect(JSON.parse(patch[1].body).assigned_age_group_id).toBe(2);
+    });
+  });
+
+  it('leaves assigned_age_group_id out of the PATCH when unchanged', async () => {
+    await withPick(async () => {
+      const wrapper = await mountUsers();
+      await openEditorFor(wrapper, 'tom_ifa_fan');
+
+      await wrapper.find('[data-testid="edit-android-user"]').setValue(true);
+      await wrapper.find('[data-testid="save-user"]').trigger('click');
+      await flushPromises();
+
+      const patch = apiRequest.mock.calls.find(c => c[1]?.method === 'PATCH');
+      expect(JSON.parse(patch[1].body)).not.toHaveProperty(
+        'assigned_age_group_id'
+      );
+    });
   });
 });
