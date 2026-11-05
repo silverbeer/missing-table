@@ -64,6 +64,11 @@ security = HTTPBearer()
 # API-only accounts (SB-1145): the token audience accepted on /api/ai/* only,
 # and how long an admin may mint one for.
 AI_API_AUDIENCE = "mt-ai-api"
+# A short-lived token MT mints for one chat turn answered by sb-agents (SB-1529): it lets
+# mt-agent call mt-mcp as the signed-in user. Only mt-mcp accepts this audience, and caps
+# it to read/my/self whatever the role (mt_mcp.scopes.DELEGATED_CAP).
+DELEGATED_AUDIENCE = "mt-mcp-delegated"
+DELEGATED_TTL_SECONDS = 300
 AI_API_TOKEN_DEFAULT_DAYS = 7
 AI_API_TOKEN_MAX_DAYS = 30
 
@@ -264,6 +269,59 @@ class AuthManager:
         except Exception as e:
             logger.error(f"Error verifying service account token: {e}")
             return None
+
+    def create_delegated_token(self, user_id: str, ttl_seconds: int = DELEGATED_TTL_SECONDS) -> str:
+        """A token for mt-mcp, acting as `user_id`, for one sb-agents chat turn (SB-1529).
+
+        The audience confines it: every other endpoint decodes with another audience and
+        rejects it. Five minutes covers one turn; nothing refreshes it.
+        """
+        now = datetime.now(UTC)
+        payload = {
+            "sub": user_id,
+            "iss": "missing-table",
+            "aud": DELEGATED_AUDIENCE,
+            "azp": "sb-agents",
+            "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
+            "iat": int(now.timestamp()),
+            "jti": secrets.token_hex(8),
+        }
+        return jwt.encode(payload, self.service_account_secret, algorithm="HS256")
+
+    def verify_delegated_token(self, token: str) -> dict[str, Any] | None:
+        """A delegated token → the person's user data (marked `delegated`), or None.
+
+        The profile is re-read, so a deleted user or changed role takes effect at once.
+        API accounts are refused: delegation is for people.
+        """
+        try:
+            payload = jwt.decode(token, self.service_account_secret, algorithms=["HS256"], audience=DELEGATED_AUDIENCE)
+        except jwt.InvalidTokenError:  # expired, wrong audience or signature, malformed
+            return None
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        try:
+            response = self.supabase.table("user_profiles").select("*").eq("id", user_id).execute()
+        except Exception as e:
+            logger.error(f"Error verifying delegated token: {e}")
+            return None
+        profile = response.data[0] if response.data else None
+        if not profile or profile.get("is_api_account"):
+            return None
+        return {
+            "user_id": user_id,
+            "username": profile.get("username"),
+            "email": None,
+            "role": profile.get("role"),
+            "team_id": profile.get("team_id"),
+            "club_id": profile.get("club_id"),
+            "assigned_age_group_id": profile.get("assigned_age_group_id"),
+            "display_name": profile.get("display_name"),
+            "is_test": profile.get("is_test", False),
+            "is_api_account": False,
+            "delegated": True,
+        }
 
     def create_ai_api_token(self, user_id: str, expires_days: int = AI_API_TOKEN_DEFAULT_DAYS) -> str:
         """Create a short-lived token for an API-only account, valid on /api/ai/* only (SB-1145).

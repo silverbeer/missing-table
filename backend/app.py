@@ -375,7 +375,11 @@ def _mount_mt_mcp() -> None:
         return
     deps = dao_tool_deps()
     server = build_server(
-        MTTokenVerifier(auth_manager.verify_token, auth_manager.verify_ai_api_token),
+        MTTokenVerifier(
+            auth_manager.verify_token,
+            auth_manager.verify_ai_api_token,
+            auth_manager.verify_delegated_token,  # sb-agents acting for a user (SB-1529)
+        ),
         lambda: deps,
         issuer_url=mcp_config.issuer_url(),
         ingest=lambda: ingest_failures_dao,

@@ -193,8 +193,18 @@ Three layers, each with one job:
 | MT AI | the end user's | read, my, self — **never** team-write or admin in v1, whatever the role ([ai.md](ai.md#auth)) |
 | mt-admin skills (Claude Code) | the admin's | all |
 | sb-agents mt-agent (`X-MT-Client: sb-agents`, SB-1493) | API account `sb_agents_public` (Slack/Telegram users have no MT identity) | read only, whatever the role |
+| sb-agents mt-agent for a signed-in MT user (`X-MT-Client: sb-agents-user`, SB-1529) | a **delegated token** MT mints per chat turn (audience `mt-mcp-delegated`, 5 minutes, `auth.create_delegated_token`) | read, my, self — capped by the token itself (`DELEGATED_CAP`), with or without the header |
 
 MT AI additionally passes a client-side `tool_filter`, so a server bug cannot widen it.
+
+**Delegated tokens (SB-1529).** When MT AI answers through sb-agents, each turn mints a
+token for the signed-in person (`auth.create_delegated_token`, HS256 with the service
+secret, audience `mt-mcp-delegated`, 5-minute expiry, `azp: sb-agents`). Only mt-mcp
+accepts it (`MTTokenVerifier`'s third verifier); every other endpoint decodes with another
+audience and refuses it. Verification re-reads the profile (API accounts are refused) and
+marks the principal `delegated`, and `allowed_tiers` then caps it to read/my/self even for
+an admin. sb-agents forwards it only to mt-agent, which uses it for that request only
+(sb-agents `docs/notes/mt-agent.md`, "Phase 2").
 
 ### Rules for every tool
 

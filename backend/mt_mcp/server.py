@@ -268,7 +268,7 @@ class TierGate:
         principal = current_principal()
         if principal is None:
             return frozenset()
-        return allowed_tiers(principal.role, _client_of(ctx))
+        return allowed_tiers(principal.role, _client_of(ctx), principal.delegated)
 
     def _visible(self, name: str, tiers: frozenset[Tier]) -> bool:
         tier = self.tool_tiers.get(name)
