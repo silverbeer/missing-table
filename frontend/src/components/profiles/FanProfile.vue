@@ -41,6 +41,88 @@
     </div>
   </div>
 
+  <!-- My Team Picker Modal (SB-1543) -->
+  <div
+    v-if="showTeamPicker"
+    class="modal-overlay"
+    data-testid="team-picker"
+    @click.self="closeTeamPicker"
+  >
+    <div class="edit-modal">
+      <div class="modal-header">
+        <h3>Pick your team</h3>
+        <button class="close-btn" @click="closeTeamPicker">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="pick-league">League</label>
+          <select
+            id="pick-league"
+            v-model="pick.league"
+            data-testid="pick-league"
+            @change="onPickLeagueChange"
+          >
+            <option :value="null" disabled>Choose a league</option>
+            <option v-for="l in leagueChoices" :key="l" :value="l">
+              {{ l }}
+            </option>
+          </select>
+        </div>
+        <div v-if="pick.league" class="form-group">
+          <label for="pick-age-group">Age group</label>
+          <select
+            id="pick-age-group"
+            v-model="pick.ageGroupId"
+            data-testid="pick-age-group"
+            @change="pick.teamId = null"
+          >
+            <option :value="null" disabled>Choose an age group</option>
+            <option v-for="ag in ageGroupChoices" :key="ag.id" :value="ag.id">
+              {{ ag.name }}
+            </option>
+          </select>
+        </div>
+        <!-- Only when the club fields more than one squad at this league and
+             age, e.g. three futsal teams at U14. -->
+        <div v-if="squadChoices.length > 1" class="form-group">
+          <label for="pick-squad">Team</label>
+          <select
+            id="pick-squad"
+            v-model="pick.teamId"
+            data-testid="pick-squad"
+          >
+            <option :value="null" disabled>Choose a team</option>
+            <option
+              v-for="o in squadChoices"
+              :key="o.team_id"
+              :value="o.team_id"
+            >
+              {{ o.name }}
+            </option>
+          </select>
+        </div>
+        <p
+          v-if="teamSaveError"
+          class="team-error"
+          data-testid="team-save-error"
+        >
+          {{ teamSaveError }}
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="cancel-btn" @click="closeTeamPicker">Cancel</button>
+        <button
+          class="save-btn"
+          data-testid="save-team"
+          :disabled="teamSaving || !pickedOption"
+          @click="saveTeam"
+        >
+          {{ teamSaving ? 'Saving...' : 'Save' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="fan-dashboard">
     <!-- Hero Card with Club/League Info -->
     <div class="hero-card" :style="heroCardStyle">
@@ -96,6 +178,59 @@
         </div>
         <LiveUpdatesTeaser variant="hero" />
       </div>
+    </div>
+
+    <!-- My Team (SB-1543): a fan's club + league + age group. Not picking
+         one is a normal state, so the card prompts rather than warns. -->
+    <div v-if="teamOptions" class="my-team-section" data-testid="my-team-card">
+      <h3>My team</h3>
+      <p v-if="teamOptions.status === 'no_club'" data-testid="my-team-no-club">
+        Your account isn't linked to a club yet
+      </p>
+      <template v-else-if="currentOption">
+        <div class="my-team-row">
+          <span class="my-team-label" data-testid="my-team-label">
+            {{ optionLabel(currentOption) }}
+          </span>
+          <div class="my-team-actions">
+            <button
+              class="link-btn my-team-btn"
+              data-testid="change-team"
+              @click="openTeamPicker"
+            >
+              Change
+            </button>
+            <button
+              class="link-btn my-team-btn"
+              data-testid="clear-team"
+              :disabled="teamSaving"
+              @click="clearTeam"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <p class="my-team-hint" data-testid="my-team-prompt">
+          Pick your team to personalize the app, and so MT AI knows who you mean
+          when you ask about "my team".
+        </p>
+        <button
+          class="action-btn my-team-pick-btn"
+          data-testid="pick-team"
+          @click="openTeamPicker"
+        >
+          Pick your team
+        </button>
+      </template>
+      <p
+        v-if="teamSaveError && !showTeamPicker"
+        class="team-error"
+        data-testid="team-card-error"
+      >
+        {{ teamSaveError }}
+      </p>
     </div>
 
     <!-- Club Teams Section (for Club Fans) - Grouped by League > Division -->
@@ -263,6 +398,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
+import { hasAnyRole } from '../../utils/roles';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
 import LiveUpdatesSection from './LiveUpdatesSection.vue';
 
@@ -277,6 +413,14 @@ export default {
     const upcomingMatches = ref([]);
     const showEditProfile = ref(false);
     const saving = ref(false);
+
+    // --- My team (SB-1543) ---
+    // null until loaded; stays null for non-fans so the card does not render.
+    const teamOptions = ref(null);
+    const showTeamPicker = ref(false);
+    const teamSaving = ref(false);
+    const teamSaveError = ref(null);
+    const pick = reactive({ league: null, ageGroupId: null, teamId: null });
 
     const editForm = reactive({
       display_name: '',
@@ -293,6 +437,65 @@ export default {
 
     const followedTeam = computed(() => {
       return authStore.state.profile?.team || null;
+    });
+
+    const pickOptions = computed(() => teamOptions.value?.options || []);
+
+    const sameSlot = (a, b) =>
+      a.league_name === b.league_name && a.age_group?.id === b.age_group?.id;
+
+    // "IFA · Homegrown · U15"; the team name is added only when the club has
+    // more than one squad at that league and age (the futsal case).
+    const optionLabel = option => {
+      const parts = [
+        option.club_name || teamOptions.value?.club?.name,
+        option.league_name,
+        option.age_group?.name,
+      ];
+      if (pickOptions.value.filter(o => sameSlot(o, option)).length > 1) {
+        parts.push(option.name);
+      }
+      return parts.filter(Boolean).join(' · ');
+    };
+
+    const currentOption = computed(() => {
+      const opts = teamOptions.value;
+      if (!opts?.current_team_id || !opts?.current_age_group_id) return null;
+      return (
+        pickOptions.value.find(
+          o =>
+            o.team_id === opts.current_team_id &&
+            o.age_group?.id === opts.current_age_group_id
+        ) || null
+      );
+    });
+
+    const leagueChoices = computed(() => [
+      ...new Set(pickOptions.value.map(o => o.league_name)),
+    ]);
+
+    const ageGroupChoices = computed(() => {
+      const seen = new Map();
+      pickOptions.value
+        .filter(o => o.league_name === pick.league && o.age_group)
+        .forEach(o => {
+          if (!seen.has(o.age_group.id)) seen.set(o.age_group.id, o.age_group);
+        });
+      return [...seen.values()];
+    });
+
+    const squadChoices = computed(() =>
+      pickOptions.value.filter(
+        o =>
+          o.league_name === pick.league && o.age_group?.id === pick.ageGroupId
+      )
+    );
+
+    // A single squad at the chosen league and age is selected automatically.
+    const pickedOption = computed(() => {
+      const squads = squadChoices.value;
+      if (squads.length === 1) return squads[0];
+      return squads.find(o => o.team_id === pick.teamId) || null;
     });
 
     const upcomingMatchCount = computed(() => {
@@ -484,6 +687,77 @@ export default {
       }
     };
 
+    const fetchTeamOptions = async () => {
+      if (
+        !hasAnyRole(['team-fan', 'club-fan'], authStore.state.profile?.role)
+      ) {
+        return;
+      }
+      try {
+        teamOptions.value = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/me/team-options`
+        );
+      } catch (error) {
+        // A 403 means this account does not pick a team; leave the card out.
+        console.error('Error fetching team options:', error);
+        teamOptions.value = null;
+      }
+    };
+
+    const openTeamPicker = () => {
+      const current = currentOption.value;
+      pick.league = current?.league_name ?? null;
+      pick.ageGroupId = current?.age_group?.id ?? null;
+      pick.teamId = current?.team_id ?? null;
+      teamSaveError.value = null;
+      showTeamPicker.value = true;
+    };
+
+    const closeTeamPicker = () => {
+      showTeamPicker.value = false;
+      teamSaveError.value = null;
+    };
+
+    const onPickLeagueChange = () => {
+      pick.ageGroupId = null;
+      pick.teamId = null;
+    };
+
+    const putTeam = async body => {
+      teamSaving.value = true;
+      teamSaveError.value = null;
+      try {
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/me/team`, {
+          method: 'PUT',
+          body: JSON.stringify(body),
+        });
+        await Promise.all([authStore.fetchProfile(), fetchTeamOptions()]);
+        return true;
+      } catch (error) {
+        // The API's detail ("That team and age group aren't in your club")
+        // is the sentence the fan needs.
+        teamSaveError.value = error.message || 'Could not save your team';
+        return false;
+      } finally {
+        teamSaving.value = false;
+      }
+    };
+
+    const saveTeam = async () => {
+      const option = pickedOption.value;
+      if (!option || teamSaving.value) return;
+      const saved = await putTeam({
+        team_id: option.team_id,
+        age_group_id: option.age_group.id,
+      });
+      if (saved) showTeamPicker.value = false;
+    };
+
+    const clearTeam = async () => {
+      if (teamSaving.value) return;
+      await putTeam({});
+    };
+
     const initEditForm = () => {
       editForm.display_name = authStore.state.profile?.display_name || '';
       editForm.email = authStore.state.profile?.email || '';
@@ -573,6 +847,7 @@ export default {
     };
 
     onMounted(async () => {
+      fetchTeamOptions();
       await fetchClub();
       await fetchUpcomingMatches();
     });
@@ -588,6 +863,22 @@ export default {
       editForm,
       displayName,
       followedTeam,
+      teamOptions,
+      showTeamPicker,
+      teamSaving,
+      teamSaveError,
+      pick,
+      currentOption,
+      leagueChoices,
+      ageGroupChoices,
+      squadChoices,
+      pickedOption,
+      optionLabel,
+      openTeamPicker,
+      closeTeamPicker,
+      onPickLeagueChange,
+      saveTeam,
+      clearTeam,
       upcomingMatchCount,
       heroCardStyle,
       clubTeamsStyle,
@@ -761,6 +1052,66 @@ export default {
 
 .action-btn.secondary:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* My Team (SB-1543) */
+.my-team-section {
+  background: rgb(var(--color-card));
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  color: rgb(var(--color-fg));
+}
+
+.my-team-section h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+.my-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.my-team-label {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.my-team-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.my-team-btn {
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
+}
+
+.my-team-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.my-team-hint {
+  color: rgb(var(--color-fg-muted));
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.action-btn.my-team-pick-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.team-error {
+  margin-top: 10px;
+  color: #dc2626;
+  font-size: 14px;
 }
 
 /* Club Teams Section - Grouped Layout */
@@ -1132,7 +1483,8 @@ export default {
   color: rgb(var(--color-fg));
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
   width: 100%;
   padding: 12px;
   border: 1px solid rgb(var(--color-line));
@@ -1143,7 +1495,8 @@ export default {
   color: rgb(var(--color-fg));
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);

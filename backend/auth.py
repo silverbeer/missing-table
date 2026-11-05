@@ -52,6 +52,13 @@ def role_for_invite_type(invite_type: str | None) -> str:
     return INVITE_TYPE_TO_ROLE.get(invite_type or "", DEFAULT_ROLE)
 
 
+def fan_age_group_for_invite(invite: dict[str, Any]) -> int | None:
+    """The age group a team-fan invite names, which becomes the fan's "my team" pick
+    (SB-1543). Every other type: None, so re-signing into another role clears a stale
+    pick. Managers and players keep age groups in their own tables."""
+    return invite.get("age_group_id") if invite.get("invite_type") == "team_fan" else None
+
+
 security = HTTPBearer()
 
 # API-only accounts (SB-1145): the token audience accepted on /api/ai/* only,
@@ -197,6 +204,7 @@ class AuthManager:
                 "role": profile["role"],
                 "team_id": profile.get("team_id"),
                 "club_id": profile.get("club_id"),  # For club managers
+                "assigned_age_group_id": profile.get("assigned_age_group_id"),  # a fan's pick (SB-1543)
                 "display_name": profile.get("display_name"),
                 "is_test": profile.get("is_test", False),  # SB-85 test partition
             }
@@ -298,6 +306,7 @@ class AuthManager:
                 "role": profile["role"],
                 "team_id": profile.get("team_id"),
                 "club_id": profile.get("club_id"),
+                "assigned_age_group_id": profile.get("assigned_age_group_id"),  # a fan's pick (SB-1543)
                 "display_name": profile.get("display_name"),
                 "is_test": profile.get("is_test", False),
                 "is_api_account": True,

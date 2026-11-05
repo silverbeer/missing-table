@@ -1,10 +1,13 @@
 """Which team is "mine" (SB-1317): the one place a caller's team membership is read.
 
 Today membership is the caller's profile — `team_id`, or `club_id` alone for club
-managers and club fans. This is the one place my-tier and team-write tools read
-membership. auth.py's `can_manage_team` reads the profile itself, and must change
-together with this module when membership moves to its own table (SB-1319). A
-team-write tool still re-checks the resolved team with `can_manage_team` before it
+managers and club fans — plus, for fans, the age group they picked
+(`assigned_age_group_id`, SB-1543). A team row is a club in one league (IFA
+Homegrown, IFA Academy); the age group makes it the squad a fan means. This is
+the one place my-tier and team-write tools read membership. auth.py's
+`can_manage_team` reads the profile itself, and must change together with this
+module when membership moves to its own table (SB-1319). A team-write tool still
+re-checks the resolved team with `can_manage_team` before it
 writes: knowing your team is not permission to edit it.
 
 Most callers have no team, and that is a normal answer (`no_team`), not an error.
@@ -46,7 +49,8 @@ class MyTeamResult(BaseModel):
     """The caller's team, their club's teams, or neither.
 
     `teams` is one entry per age group a team plays in (as search_teams returns
-    them): the caller's team for `team`, the club's teams for `club`, and null
+    them): the caller's team for `team` (only the age group they picked, when
+    they picked one), the club's teams for `club`, and null
     for `no_team` or when the read failed. Each entry carries `active`.
 
     A club lists its active teams only, unless include_inactive; `inactive_hidden`
@@ -114,7 +118,7 @@ def _resolve(
                 status="team",
                 team_id=team_id,
                 club=_club_ref(index, team.get("club_id")),
-                teams=_marked(index, team, active),
+                teams=_picked(_marked(index, team, active), user),
                 season=season.get("name"),
                 inactive_hidden=0,
             )
@@ -140,6 +144,82 @@ def _resolve(
         elif entries:  # a team this viewer cannot see at all is not "hidden"
             hidden += 1
     return MyTeamResult(status="club", club=club, teams=shown, season=season.get("name"), inactive_hidden=hidden)
+
+
+def _picked(entries: list[TeamCandidate], user: dict[str, Any]) -> list[TeamCandidate]:
+    """Just the age group the user picked, when they picked one the team still plays.
+
+    A pick the team no longer plays (its registration was removed) is ignored, not
+    an empty answer: the team is still theirs, and the agent can ask which age.
+    """
+    age_group_id = user.get("assigned_age_group_id")
+    if age_group_id is None:
+        return entries
+    chosen = [e for e in entries if e.age_group and e.age_group.id == age_group_id]
+    if not chosen:
+        logger.warning("my_team_pick_stale", user_id=user.get("user_id"), age_group_id=age_group_id)
+        return entries
+    return chosen
+
+
+# --- picking a team (SB-1543) -------------------------------------------------
+
+# Both spellings: real accounts carry either (SB-668, frontend utils/roles.js).
+PICK_ROLES = frozenset({"team-fan", "club-fan", "team_fan", "club_fan"})
+
+
+class TeamPickOptions(BaseModel):
+    """What a fan may pick as "my team": their club's teams, one entry per age group.
+
+    `status` "no_club" means the profile has no club (or one this viewer can't see):
+    nothing to pick from. `current` is the stored pick, if any.
+    """
+
+    status: Literal["ok", "no_club"]
+    club: ClubRef | None = None
+    options: list[TeamCandidate] = []
+    current_team_id: int | None = None
+    current_age_group_id: int | None = None
+
+
+def club_of(user: dict[str, Any], index: TeamIndex) -> int | None:
+    """The fan's club: `club_id`, else their team's club."""
+    if user.get("club_id") is not None:
+        return user["club_id"]
+    team = index.teams.get(user.get("team_id") or 0)
+    return team.get("club_id") if team else None
+
+
+def team_pick_options(deps: ToolDeps, user: dict[str, Any], viewer: Viewer) -> TeamPickOptions:
+    """Every (team, age group) in the fan's club this viewer can see, by league then age."""
+    index = load_team_index(deps, viewer)
+    club_id = club_of(user, index)
+    club = _club_ref(index, club_id)
+    if club is None:
+        return TeamPickOptions(status="no_club")
+    teams = [t for t in index.teams.values() if t.get("club_id") == club_id]
+    options = [c for t in teams for c in index.candidates(t) if c.age_group is not None]
+    options.sort(key=lambda c: (c.league_name or "", age_number_of(c), c.name, c.team_id))
+    return TeamPickOptions(
+        status="ok",
+        club=club,
+        options=options,
+        current_team_id=user.get("team_id"),
+        current_age_group_id=user.get("assigned_age_group_id"),
+    )
+
+
+def age_number_of(candidate: TeamCandidate) -> int:
+    digits = "".join(ch for ch in (candidate.age_group.name if candidate.age_group else "") if ch.isdigit())
+    return int(digits) if digits else 999
+
+
+def is_valid_pick(options: TeamPickOptions, team_id: int, age_group_id: int) -> bool:
+    """Only a team in the fan's own club, at an age group it plays. Keeps a pick from
+    widening anything team_id feeds (roster visibility derives the club from it)."""
+    return options.status == "ok" and any(
+        c.team_id == team_id and c.age_group is not None and c.age_group.id == age_group_id for c in options.options
+    )
 
 
 def _current_season(deps: ToolDeps) -> dict:

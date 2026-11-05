@@ -260,10 +260,30 @@
                 size="5"
                 data-testid="edit-team"
                 class="px-3 py-2 rounded-lg border border-line bg-surface text-fg"
+                @change="onTeamChange"
               >
                 <option :value="null">— No team —</option>
                 <option v-for="t in filteredTeams" :key="t.id" :value="t.id">
                   {{ t.name }}
+                </option>
+              </select>
+            </label>
+
+            <!-- SB-1543: a fan's "my team" is a team at one age group. -->
+            <label class="flex flex-col gap-1">
+              <span
+                class="text-xs font-medium text-fg-muted uppercase tracking-wide"
+                >Age group</span
+              >
+              <select
+                v-model="form.assigned_age_group_id"
+                data-testid="edit-age-group"
+                :disabled="!form.team_id"
+                class="px-3 py-2.5 rounded-lg border border-line bg-surface text-fg disabled:opacity-50"
+              >
+                <option :value="null">— none —</option>
+                <option v-for="ag in teamAgeGroups" :key="ag.id" :value="ag.id">
+                  {{ ag.name }}
                 </option>
               </select>
             </label>
@@ -610,6 +630,7 @@ export default {
       role: null,
       team_id: null,
       club_id: null,
+      assigned_age_group_id: null,
       email: '',
       android_user: false,
     });
@@ -646,12 +667,32 @@ export default {
       return list.slice(0, 50);
     });
 
+    // The selected team's age groups come from its team_mappings, which
+    // /api/teams already flattens into age_groups.
+    const teamAgeGroups = computed(() => {
+      const team = teams.value.find(t => t.id === form.value.team_id);
+      return team?.age_groups || [];
+    });
+
+    const ageGroupChanged = computed(
+      () =>
+        !!editing.value &&
+        form.value.assigned_age_group_id !==
+          (editing.value.assigned_age_group_id ?? null)
+    );
+
+    // An age group belongs to a team; a new team starts with none picked.
+    const onTeamChange = () => {
+      form.value.assigned_age_group_id = null;
+    };
+
     const isDirty = computed(() => {
       if (!editing.value) return false;
       return (
         form.value.role !== editing.value.role ||
         form.value.team_id !== (editing.value.team_id ?? null) ||
         form.value.club_id !== (editing.value.club_id ?? null) ||
+        ageGroupChanged.value ||
         form.value.email.trim() !== (editing.value.email ?? '') ||
         form.value.android_user !== Boolean(editing.value.android_user)
       );
@@ -717,6 +758,7 @@ export default {
         role: user.role,
         team_id: user.team_id ?? null,
         club_id: user.club_id ?? null,
+        assigned_age_group_id: user.assigned_age_group_id ?? null,
         // The synthetic @missingtable.local identity is not a contact
         // address, so the field opens empty rather than pre-filled with
         // something nothing can be delivered to (SB-1125).
@@ -779,6 +821,18 @@ export default {
       saveError.value = null;
     };
 
+    // assigned_age_group_id goes only when changed: the API clears it on a
+    // team change it was not sent with, and re-sending the old value would
+    // be rejected by the new team.
+    const patchBody = () => {
+      const { assigned_age_group_id, ...rest } = form.value;
+      const body = { ...rest, email: form.value.email.trim() };
+      if (ageGroupChanged.value) {
+        body.assigned_age_group_id = assigned_age_group_id;
+      }
+      return body;
+    };
+
     const saveUser = async () => {
       if (!editing.value || !isDirty.value) return;
       saving.value = true;
@@ -791,10 +845,7 @@ export default {
             headers: { 'Content-Type': 'application/json' },
             // An empty string is how the address is cleared, and the API
             // distinguishes that from "not sent".
-            body: JSON.stringify({
-              ...form.value,
-              email: form.value.email.trim(),
-            }),
+            body: JSON.stringify(patchBody()),
           }
         );
         closeEditor();
@@ -892,6 +943,8 @@ export default {
       clubs,
       teamSearch,
       filteredTeams,
+      teamAgeGroups,
+      onTeamChange,
       isDirty,
       affiliationClass,
       contactEmail,
