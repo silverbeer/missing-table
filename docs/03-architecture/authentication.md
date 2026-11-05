@@ -199,6 +199,12 @@ preference is a field there plus a UI control — no migration. Absent key means
   age group (400 otherwise). Customisation fields (`overlay_style`, colours) are
   only written when the client sends them, so a preferences-only save does not
   reset them.
+- `role` and `team_id` are **admin-only** on `PUT /api/auth/profile` (403 for
+  anyone else, and nothing in that request is saved). `team_id` is an
+  authorization input — `can_manage_team` and `can_edit_match` grant a team
+  manager whatever team their profile names, re-read on every request — so a
+  self-service write would let a manager take over any team (SB-1542). Team
+  changes go through the audited admin edit (`PATCH /api/admin/users/{id}`).
 - The store exposes `preferredAgeGroupId` and `updatePreferences()`. The latter
   does not toggle `state.loading` — ProfileRouter swaps the page for a spinner on
   that flag.
