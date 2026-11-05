@@ -402,8 +402,11 @@ POST /api/ai/chat          mt_ai/api.py       validate, authenticate, map errors
 - Request: `{ "message": str (1–2000, not blank), "conversation_id": uuid | null }`.
   Login required (`get_ai_user`): a person's session, or an API account's token
   (below). A service account is refused with a 403.
-- `200`: `{ conversation_id, turn, status: "ok" | "budget_exhausted", answer, message }`.
-  `answer` is null and `message` explains when the budget stopped the turn.
+- `200`: `{ conversation_id, turn, status: "ok" | "budget_exhausted", answer, message,
+  outcome, escalation, routed_to, tables }`. `answer` is null and `message`
+  explains when the budget stopped the turn. The last four are set only by the
+  sb-agents backend; in-app answers return `null`, `null`, `[]`, `[]`
+  ([below](#backend-sb-agents-sb-1500)).
 - Errors use MT's usual `{"detail": str}`:
 
   | Status | When |
@@ -566,8 +569,9 @@ widen test-partition visibility. The typed result reaches the model as
 
 ### Configuration
 
-Off unless `MT_AI_ENABLED=true` **and** `MT_AI_MODEL` is set; otherwise `503`.
-No model id is hardcoded. A Gemini id also needs `GOOGLE_API_KEY` in the
+Off unless `MT_AI_ENABLED=true` **and** `MT_AI_MODEL` is set (for the default
+`in-app` backend; sb-agents needs other variables, see
+[below](#backend-sb-agents-sb-1500)); otherwise `503`. No model id is hardcoded. A Gemini id also needs `GOOGLE_API_KEY` in the
 backend's environment. Prod has all three since 2026-09-29; see
 [Production](#production-sb-1144).
 
@@ -602,6 +606,55 @@ path and no test calls a provider. Covered:
 - **Cost and control:** answer caching, token/cost accounting, per-user quotas,
   model profiles/`FallbackModel`.
 - **Agent design:** memory beyond replaying turns, multiple agents, A2A.
+
+## Backend: sb-agents (SB-1500)
+
+`POST /api/ai/chat` can be answered by the sb-agents core instead of the in-app
+ADK agent. MT still owns the user, the auth and the conversation record: the
+route, `ChatService` and `ai_messages` are unchanged; only the runner differs
+(`mt_ai/sb_agents.py`, `SbAgentsRunner`, called exactly like `run_turn`).
+
+| Variable | Value |
+|----------|-------|
+| `MT_AI_ENABLED` | `true`, as for in-app |
+| `MT_AI_BACKEND` | `in-app` (default) or `sb-agents`. Anything else is `503` |
+| `MT_AI_SB_AGENTS_URL` | sb-agents base URL. Required for `sb-agents` |
+| `MT_AI_SB_AGENTS_TOKEN` | bearer token sb-agents expects. Required for `sb-agents`; a secret |
+| `MT_AI_WEB_CHAT` | `true` shows the web **Ask** tab (any backend). Default off: prod already answers `/api/ai/chat` in-app, and the web screen is its own launch (minors' data review first) |
+
+With `sb-agents`, `MT_AI_MODEL` is not needed. A missing variable is `503 "MT
+AI is not enabled."`, and the log names the variable (never its value).
+Changing any of them takes effect on the next request; no restart.
+
+**Contract.** `POST {MT_AI_SB_AGENTS_URL}/v1/chat`, `Authorization: Bearer
+{MT_AI_SB_AGENTS_TOKEN}`, body `{conversation_id, user_id, text}` — MT's
+conversation uuid and user id. sb-agents keeps its own short memory per
+`conversation_id`, so MT sends no history. A `200` carries `{text, outcome,
+escalation, routed_to, tables}`; `text` becomes the answer, the rest pass
+through to `ChatResponse`. A table is `{title, columns, rows, notes,
+highlight}`; a malformed one (missing title, a row that doesn't match the
+columns, non-string cells) is dropped, never fails the turn. A network error
+(90 s timeout), a non-200 or a body with no `text` is an `AIRunError`: the turn
+is saved `ai_failed` and the client gets the usual `502`.
+
+**Recorded.** The assistant row's `model` is `sb-agents`; `llm_calls` and
+`tool_calls` are `0` (sb-agents does not report them) and there is no tool
+trace. Tables, outcome and routing are returned, not persisted, so a
+conversation read shows only the text.
+
+**Tracing.** The backend has no OpenTelemetry tracer configured, so no trace
+context is sent to sb-agents yet.
+
+**Status.** `GET /api/ai/status` (any logged-in user, `get_ai_user`) returns
+`{"enabled": bool, "backend": "in-app" | "sb-agents" | null, "web_chat": bool}`
+so the web UI can hide the chat entry. It never `503`s: off or misconfigured is
+`enabled: false, backend: null`. `web_chat` is `enabled and MT_AI_WEB_CHAT=true`.
+
+**Rollback.** `MT_AI_BACKEND=in-app` (or unset). Conversations started on
+sb-agents continue in-app from MT's own `ai_messages` history.
+
+**Prod stays on in-app** until LKE has a network path to the homelab sb-agents.
+`values-prod.yaml` carries the variables commented out only.
 
 ## Production (SB-1144)
 
@@ -785,3 +838,32 @@ def build_model(profile: str) -> BaseLlm: ...   # FallbackModel over the list
 - **[A2A](a2a.md)** — why not yet
 - **[Current state](current-state.md)** · **[MT 2.0 overview](README.md)**
 - **[CrewAI retrospective](../../04-testing/crewai-experiment-retrospective.md)** — the previous agent experiment
+
+---
+
+## Web chat (SB-1500)
+
+The MT web app has a chat screen over `POST /api/ai/chat`
+(`frontend/src/components/ai/AiChat.vue`, lazy-loaded).
+
+- **Entry point.** An **Ask** tab (Beta badge), listed only for a signed-in user
+  when `GET /api/ai/status` returns `enabled: true` and `web_chat: true`. A failed status check hides
+  it. `/chat` opens the tab directly once the status check passes. The app has
+  no router, so this is a one-time deep link, not a route.
+- **Conversation.** The first reply's `conversation_id` goes with every
+  follow-up. **New chat** clears it. **Recent** lists `GET /api/ai/conversations`
+  and reopens one through `GET /api/ai/conversations/{id}`. Stored turns hold
+  text only, so a reopened chat shows its answers without their tables.
+- **Rendering.** Answers are untrusted model output. `utils/aiChat.js` escapes
+  all HTML first, then adds back a fixed set of tags: bold, emphasis, code,
+  lists, paragraphs, and links (http(s)/mailto only). Only that output reaches
+  `v-html`. The project has no sanitizer, and `marked` passes raw HTML through,
+  so `marked` is not used here. Table cells are plain text. Numeric columns are
+  right-aligned, `highlight` rows are bold, and `notes` get the same inline
+  Markdown.
+- **States.** `escalated` adds a "someone may follow up" note. `limit`/`error`
+  and `status: budget_exhausted` show their text as a muted warning. HTTP
+  401/403/404/429/502/503 show a fixed friendly sentence (never the raw
+  `detail`) and put the question back in the input.
+- **Timeout.** A chat request may take up to 90s, compared with the auth store's
+  30s default for reads.

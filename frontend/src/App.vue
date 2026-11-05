@@ -343,6 +343,11 @@
             <TeamRosterRouter />
           </div>
 
+          <!-- MT AI chat (SB-1500): only listed when /api/ai/status is enabled -->
+          <div v-if="currentTab === 'chat'" class="p-4">
+            <AiChat />
+          </div>
+
           <!-- Admin Panel (admin only) -->
           <div v-if="currentTab === 'admin'" class="p-4">
             <AdminPanel />
@@ -493,6 +498,7 @@ const PrivacyPolicy = lazyView(
   () => import('./components/PrivacyPolicy.vue'),
   'PrivacyPolicy'
 );
+const AiChat = lazyView(() => import('./components/ai/AiChat.vue'), 'AiChat');
 const LiveMatchView = lazyView(
   () => import('./components/live').then(m => m.LiveMatchView),
   'LiveMatchView'
@@ -519,6 +525,7 @@ export default {
     VersionFooter,
     WhatsNewView,
     LiveMatchView,
+    AiChat,
     PrivacyPolicy,
     InstallBanner,
     NotificationSetupGuide,
@@ -535,6 +542,12 @@ export default {
     // it (SB-1328); the iOS app and App Store listing open it directly, so
     // reaching it is always a full page load.
     const isPrivacyPage = /^\/privacy\/?$/.test(window.location.pathname);
+    // /chat opens the MT AI chat tab once the status check says it is on
+    // (SB-1500). There is no router; this is a one-shot deep link.
+    let openChatOnLoad = /^\/chat\/?$/.test(window.location.pathname);
+    // MT AI chat (SB-1500): the tab is listed only when the backend says the
+    // feature is enabled for this deployment.
+    const aiChatEnabled = ref(false);
     // Deep link from a push notification: ?matchId=<id> opens MatchDetailView
     // as an overlay (SB-86). Works for any match status, incl. completed.
     const deepLinkMatchId = ref(null);
@@ -644,6 +657,13 @@ export default {
         requiresAuth: true,
         requiresRole: ['admin', 'club_manager'],
       },
+      {
+        id: 'chat',
+        name: 'Ask',
+        requiresAuth: true,
+        requiresAiChat: true,
+        isBeta: true,
+      },
       { id: 'profile', name: 'Profile', requiresAuth: true },
     ];
 
@@ -654,6 +674,7 @@ export default {
       let tabs = allTabs
         .filter(tab => {
           if (tab.hidden) return false;
+          if (tab.requiresAiChat && !aiChatEnabled.value) return false;
 
           // Always show public tabs
           if (!tab.requiresAuth) return true;
@@ -921,6 +942,34 @@ export default {
           adminAttention.startPolling();
         } else {
           adminAttention.stopPolling();
+        }
+      },
+      { immediate: true }
+    );
+
+    // MT AI chat (SB-1500): ask whether it is on whenever someone signs in.
+    // Any failure leaves it off — the tab is an extra, never a blocker.
+    const loadAiChatStatus = async () => {
+      try {
+        const status = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/ai/status`
+        );
+        aiChatEnabled.value =
+          status?.enabled === true && status?.web_chat === true;
+      } catch {
+        aiChatEnabled.value = false;
+      }
+      if (openChatOnLoad && aiChatEnabled.value) currentTab.value = 'chat';
+      openChatOnLoad = false;
+    };
+    watch(
+      () => authStore.isAuthenticated.value,
+      isAuth => {
+        if (isAuth) {
+          loadAiChatStatus();
+        } else {
+          aiChatEnabled.value = false;
+          if (currentTab.value === 'chat') currentTab.value = 'table';
         }
       },
       { immediate: true }

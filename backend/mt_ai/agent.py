@@ -107,6 +107,11 @@ class TurnOutcome:
     # What the turn did (SB-1197): every completed tool call, and model time.
     trace: tuple[ToolCallRecord, ...] = ()
     llm_ms: int | None = None
+    # Only the sb-agents backend sets these (SB-1500); the in-app agent leaves them empty.
+    outcome: str | None = None
+    escalation: str | None = None
+    routed_to: tuple[str, ...] = ()
+    tables: tuple[dict[str, Any], ...] = ()
 
 
 class AIRunError(Exception):
@@ -171,8 +176,8 @@ def unwrap_mcp_result(tool_response: Any) -> Any:
     return parsed if isinstance(parsed, dict) else {"value": parsed}
 
 
-def model_name(model: BaseLlm | str) -> str:
-    return model if isinstance(model, str) else model.model
+def model_name(model: BaseLlm | str | None) -> str | None:
+    return model if isinstance(model, str) or model is None else model.model
 
 
 def make_upcoming_matches_tool(deps: ToolDeps, viewer: Viewer) -> Callable[..., dict[str, Any]]:

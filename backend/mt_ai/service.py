@@ -94,6 +94,11 @@ class ChatResult:
     status: Literal["ok", "budget_exhausted"]
     answer: str | None
     message: str | None = None  # why there is no answer, when status is not ok
+    # What the sb-agents backend adds to an answer (SB-1500); empty for the in-app agent.
+    outcome: str | None = None
+    escalation: str | None = None
+    routed_to: tuple[str, ...] = ()
+    tables: tuple[dict[str, Any], ...] = ()
 
 
 RunTurn = Callable[..., Awaitable[TurnOutcome]]
@@ -108,12 +113,15 @@ class ChatService:
         budget: Budget | None = None,
         run: RunTurn = run_turn,
         mcp_url: str | None = None,
+        pass_user_id: bool = False,
     ) -> None:
         self.store, self.deps, self.model = store, deps, model
         self.budget = budget or Budget()
         self.run = run
         # Where mt-mcp is (SB-1302); None keeps every tool in-process.
         self.mcp_url = mcp_url
+        # The sb-agents runner (SB-1500) needs to know who is asking; run_turn does not.
+        self.pass_user_id = pass_user_id
 
     async def chat(
         self, user: dict[str, Any], message: str, conversation_id: str | None, bearer: str | None = None
@@ -128,6 +136,8 @@ class ChatService:
         extra: dict[str, Any] = {}
         if self.mcp_url and bearer:
             extra["mcp"] = McpAccess(url=self.mcp_url, bearer=bearer)
+        if self.pass_user_id:
+            extra["user_id"] = user_id
 
         started = time.monotonic()
         try:
@@ -154,7 +164,16 @@ class ChatService:
         if outcome.status == "budget_exhausted":
             logger.info("mt_ai budget exhausted", conversation_id=conversation_id, limit=outcome.exhausted)
             return ChatResult(conversation_id, turn, "budget_exhausted", None, BUDGET_MESSAGE)
-        return ChatResult(conversation_id, turn, "ok", outcome.answer)
+        return ChatResult(
+            conversation_id,
+            turn,
+            "ok",
+            outcome.answer,
+            outcome=outcome.outcome,
+            escalation=outcome.escalation,
+            routed_to=outcome.routed_to,
+            tables=outcome.tables,
+        )
 
     def _open(self, user_id: str, conversation_id: str | None) -> tuple[str, list[HistoryTurn], int]:
         try:

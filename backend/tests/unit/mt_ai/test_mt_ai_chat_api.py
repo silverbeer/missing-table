@@ -78,7 +78,17 @@ class TestHappyPath:
 
         body = harness.post(message="hello").json()
 
-        assert set(body) == {"conversation_id", "turn", "status", "answer", "message"}
+        assert set(body) == {
+            "conversation_id",
+            "turn",
+            "status",
+            "answer",
+            "message",
+            "outcome",
+            "escalation",
+            "routed_to",
+            "tables",
+        }
 
 
 class TestControlledOutcomes:
