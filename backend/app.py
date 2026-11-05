@@ -1250,7 +1250,13 @@ async def update_profile(profile_data: UserProfile, current_user: dict[str, Any]
 
             update_data["email"] = profile_data.email if profile_data.email.strip() else None
 
+        # team_id is an authorization input, not a preference: can_manage_team and
+        # can_edit_match grant a team manager whatever team their profile names, and
+        # the profile is re-read on every request. So, like role, only an admin may
+        # set it here (SB-1542); everyone else changes team through the admin edit.
         if profile_data.team_id is not None:
+            if current_user.get("role") != "admin":
+                raise HTTPException(status_code=403, detail="Only admins can change a team")
             update_data["team_id"] = profile_data.team_id
         if profile_data.player_number is not None:
             update_data["player_number"] = profile_data.player_number
