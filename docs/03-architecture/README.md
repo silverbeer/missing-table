@@ -18,7 +18,9 @@ This section documents the system architecture, design decisions, and technical 
 | **[Database Schema](database-schema.md)** | Tables, relationships, constraints | 🟡 Intermediate |
 | **[Clubs Architecture](../CLUBS_ARCHITECTURE.md)** | Clubs, teams, leagues separation | 🟡 Intermediate |
 | **[Standings](standings.md)** | League / qualifying / all views, and why a combined table states its coverage | 🟡 Intermediate |
-| **[MLS NEXT Qualification 2026–27](mls-next-qualification-2026-27.md)** | Research: Fest, Flex, MLS NEXT Cup routes, confirmed vs inferred rules, proposed data model (SB-1544; draft pending owner review) | 🟡 Intermediate |
+| **[MLS NEXT Qualification — facts](mls-next-qualification-facts.md)** | Short answers: Fest, Flex, MLS NEXT Cup routes, each fact CONFIRMED / INFERRED / UNKNOWN with source. Agents answer from this. | 🟢 Beginner |
+| **[MLS NEXT Qualification 2026–27](mls-next-qualification-2026-27.md)** | Full research analysis: qualification matrix, U15 Northeast, worked Flex group (SB-1544). Evidence: [sources.md](../research/notes/mls-next-qualification-2026-27/sources.md) | 🟡 Intermediate |
+| **[Qualification data model](mls-next-qualification-data-model.md)** | Proposed entities for versioned, sourced rules + feature priorities | 🟡 Intermediate |
 | **[Caching](caching.md)** | Redis DAO cache + service worker cache, and how writes invalidate both | 🟡 Intermediate |
 | **[MT 2.0](mt2/README.md)** | Current state (verified 2026-09), mobile, MT AI, mt-mcp, AI cost/quality, A2A | 🟡 Intermediate |
 | **[AI Agents](ai-agents.md)** | 2025 scraper-agent proposal — never built; see [MT 2.0 AI](mt2/ai.md) | 🔴 Advanced |
