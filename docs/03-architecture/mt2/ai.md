@@ -659,8 +659,16 @@ logged or stored.
 **Rollback.** `MT_AI_BACKEND=in-app` (or unset). Conversations started on
 sb-agents continue in-app from MT's own `ai_messages` history.
 
-**Prod stays on in-app** until LKE has a network path to the homelab sb-agents.
-`values-prod.yaml` carries the variables commented out only.
+**Where it runs (SB-1570).** In prod, sb-support-api, mt-agent and a docs-agent
+over public docs run on the same LKE cluster (namespace `sb-agents`, ArgoCD app
+`sb-agents`), so the backend calls
+`http://sb-support-api.sb-agents.svc.cluster.local:8103`; nothing is exposed
+publicly. `MT_AI_SB_AGENTS_TOKEN` comes from ESO
+(`missing-table-app-secrets#sb_agents_api_token`, the same value sb-support-api
+checks). Runbook: sb-agents `docs/notes/deploy-lke.md`.
+
+**Prod stays on in-app** until the minors'-data review. `values-prod.yaml` sets
+`MT_AI_BACKEND: "in-app"` and the URL; switching is one line.
 
 ## Production (SB-1144)
 
