@@ -117,6 +117,7 @@ from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
 from dao.moderation_dao import ModerationDAO
+from dao.motd_dao import MotdDAO, MotdPickError
 from dao.motw_dao import MotwDAO, week_start_for
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
@@ -274,6 +275,7 @@ audit_dao = AuditDAO(db_conn_holder_obj)
 tournament_dao = TournamentDAO(db_conn_holder_obj)
 ingest_failures_dao = IngestFailuresDAO(db_conn_holder_obj)
 motw_dao = MotwDAO(db_conn_holder_obj)
+motd_dao = MotdDAO(db_conn_holder_obj)
 coverage_dao = CoverageDAO(db_conn_holder_obj)
 ai_conversation_dao = AIConversationDAO(db_conn_holder_obj)
 
@@ -9148,6 +9150,118 @@ async def clear_match_of_the_week(
     except Exception as e:
         logger.error(f"Error clearing match of the week: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not clear match of the week") from e
+
+
+# =============================================================================
+# Tournament Match of the Day (SB-1559)
+# =============================================================================
+
+
+class MotdReason(BaseModel):
+    """One "Why this is the Match of the Day" line."""
+
+    text: str = Field(..., min_length=1, max_length=200)
+    kind: str | None = Field(None, max_length=40, description="Fact kind, e.g. stage, form, storyline.")
+
+
+class MotdPick(BaseModel):
+    """An admin's pick for one tournament day."""
+
+    match_id: int = Field(..., description="The match being featured; must belong to the tournament.")
+    match_date: str | None = Field(
+        None, description="Optional guard: the day being picked. Rejected if the match is on a different day."
+    )
+    blurb: str | None = Field(None, max_length=280, description="Optional one-line headline.")
+    reasons: list[MotdReason] | None = Field(
+        None,
+        max_length=6,
+        description="Why this match. Omitted = never provided (null); [] = provided, empty.",
+    )
+
+
+def _iso_date(value: str, label: str) -> str:
+    try:
+        return datetime.strptime(value[:10], "%Y-%m-%d").date().isoformat()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid {label}: {value}") from e
+
+
+@app.get("/api/tournaments/{tournament_id}/motd")
+async def get_tournament_match_of_the_day(
+    tournament_id: int,
+    date: str | None = None,
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+):
+    """Match of the Day for a tournament (SB-1559).
+
+    With `date`: that day's pick, `{"motd": null}` when nobody picked — **200**,
+    not 404 (CLAUDE.md rule 1). Without `date`: every pick in the tournament as
+    `picks`, so the page can choose "today" in the viewer's timezone rather
+    than the server guessing which day it is at the venue.
+    """
+    include_test = viewer_sees_test_content(current_user)
+    if date:
+        day = _iso_date(date, "date")
+        try:
+            motd = motd_dao.get_for_day(tournament_id, day, include_test=include_test)
+            return {"tournament_id": tournament_id, "match_date": day, "motd": motd}
+        except Exception as e:
+            logger.error(f"Error reading match of the day: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Could not read match of the day") from e
+    try:
+        picks = motd_dao.list_for_tournament(tournament_id, include_test=include_test)
+        return {"tournament_id": tournament_id, "picks": picks}
+    except Exception as e:
+        logger.error(f"Error listing matches of the day: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not read match of the day") from e
+
+
+@app.post("/api/admin/tournaments/{tournament_id}/motd")
+async def set_tournament_match_of_the_day(
+    tournament_id: int,
+    body: MotdPick,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Feature a match for its tournament day, replacing that day's pick (SB-1559).
+
+    The day comes from the match itself. A match from another tournament, or
+    on a different day than `match_date`, is a 400; an unknown match is a 404.
+    """
+    try:
+        result = motd_dao.set_for_match(
+            tournament_id,
+            body.match_id,
+            match_date=_iso_date(body.match_date, "match_date") if body.match_date else None,
+            blurb=body.blurb,
+            reasons=[r.model_dump() for r in body.reasons] if body.reasons is not None else None,
+            selected_by=current_user.get("user_id"),
+        )
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"No match with id {body.match_id}")
+        return result
+    except HTTPException:
+        raise
+    except MotdPickError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error setting match of the day: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not set match of the day") from e
+
+
+@app.delete("/api/admin/tournaments/{tournament_id}/motd/{match_date}")
+async def clear_tournament_match_of_the_day(
+    tournament_id: int,
+    match_date: str,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Unpick a tournament day (SB-1559). Idempotent, like the MOTW clear."""
+    day = _iso_date(match_date, "match_date")
+    try:
+        cleared = motd_dao.clear_day(tournament_id, day)
+        return {"tournament_id": tournament_id, "match_date": day, "cleared": cleared}
+    except Exception as e:
+        logger.error(f"Error clearing match of the day: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not clear match of the day") from e
 
 
 if __name__ == "__main__":

@@ -159,6 +159,7 @@ RESTORATION_ORDER = [
     "playoff_bracket_slots",
     # 9. Tables that depend on matches/teams/clubs/players
     "match_of_the_week",
+    "tournament_match_of_the_day",  # tournaments, matches
     "match_events",
     "match_lineups",
     "player_match_stats",
