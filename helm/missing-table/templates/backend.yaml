@@ -237,6 +237,15 @@ spec:
               name: {{ include "missing-table.fullname" . }}-secrets
               key: google-api-key
               optional: true
+        # Bearer for sb-support-api, sb-agents on this cluster (SB-1500, SB-1570).
+        # Optional: read only when MT_AI_BACKEND=sb-agents. ESO maps it from
+        # missing-table-app-secrets#sb_agents_api_token.
+        - name: MT_AI_SB_AGENTS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "missing-table.fullname" . }}-secrets
+              key: sb-agents-token
+              optional: true
         # Global kill switch for live-match notifications. Defaults to true.
         - name: NOTIFICATIONS_ENABLED
           value: {{ .Values.notifications.enabled | default true | quote }}
