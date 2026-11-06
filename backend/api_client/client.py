@@ -1493,6 +1493,36 @@ class MissingTableClient:
             return {"deleted": True, "match_id": match_id}
         return response.json()
 
+    # Tournament Match of the Day (SB-1559)
+
+    def get_tournament_motd(self, tournament_id: int, date: str | None = None) -> dict[str, Any]:
+        """One day's pick (``motd``, null when unpicked) or, without ``date``, every pick (``picks``)."""
+        params = {"date": date} if date else None
+        return self._request("GET", f"/api/tournaments/{tournament_id}/motd", params=params).json()
+
+    def set_tournament_motd(
+        self,
+        tournament_id: int,
+        match_id: int,
+        *,
+        match_date: str | None = None,
+        blurb: str | None = None,
+        reasons: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Feature a match for its tournament day (admin). ``reasons`` None = not provided."""
+        body: dict[str, Any] = {"match_id": match_id}
+        if match_date:
+            body["match_date"] = match_date
+        if blurb is not None:
+            body["blurb"] = blurb
+        if reasons is not None:
+            body["reasons"] = reasons
+        return self._request("POST", f"/api/admin/tournaments/{tournament_id}/motd", json_data=body).json()
+
+    def clear_tournament_motd(self, tournament_id: int, match_date: str) -> dict[str, Any]:
+        """Unpick a tournament day (admin). Idempotent."""
+        return self._request("DELETE", f"/api/admin/tournaments/{tournament_id}/motd/{match_date}").json()
+
     # Ingest failures
 
     def get_ingest_failures(self, since: str | None = None, limit: int = 200) -> dict[str, Any]:

@@ -269,6 +269,7 @@ mt ingest failures                     # what the scraper could not resolve
 mt ingest resolve 1 --note "fixed at the sender"
 mt ai gaps --days 30                   # what MT AI could not answer (not_found/ambiguous), admin
 mt mcp headers                         # auth headers for Claude Code's mt-mcp connection (never run visibly)
+mt tournament motd set -T 12 -m 501 -r "why"  # tournament Match of the Day (SB-1559), admin
 ```
 
 ### Login
@@ -450,10 +451,10 @@ Secrets are managed via Kubernetes Secrets - NEVER committed to git.
 - Styling: Tailwind CSS
 
 ### Database Tables
-`teams`, `matches`, `seasons`, `age_groups`, `divisions`, `match_types`, `team_match_types`, `user_profiles`, `match_of_the_week`, `division_age_groups`
+`teams`, `matches`, `seasons`, `age_groups`, `divisions`, `match_types`, `team_match_types`, `user_profiles`, `match_of_the_week`, `tournament_match_of_the_day`, `division_age_groups`
 
 ### API Routes
-`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/admin/*` (incl. `/api/admin/coverage`)
+`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/tournaments/{id}/motd`, `/api/admin/*` (incl. `/api/admin/coverage`)
 
 ### Authentication Flow
 ```

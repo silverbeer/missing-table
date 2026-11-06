@@ -1,0 +1,54 @@
+# Featured matches: Match of the Week and Match of the Day
+
+Two editorial picks, one table each. Both are admin-picked today; agent suggestions
+(SB-1545 for MOTW, SB-1562 for Match of the Day) post to Slack for approval and then
+call the same admin endpoints.
+
+| | Match of the Week (SB-1010) | Tournament Match of the Day (SB-1559) |
+|---|---|---|
+| Table | `match_of_the_week` | `tournament_match_of_the_day` |
+| One pick per | calendar week (Monday start), global | tournament **and** day |
+| Uniqueness | `UNIQUE(week_start)` | `UNIQUE(tournament_id, match_date)` |
+| Key derived from | the match's own date → its Monday | the match's own date |
+| Extra fields | `blurb` | `blurb`, `reasons` |
+| Read | `GET /api/motw?week_start=` | `GET /api/tournaments/{id}/motd?date=` |
+| Write | `POST /api/admin/motw` | `POST /api/admin/tournaments/{id}/motd` |
+| Clear | `DELETE /api/admin/motw/{week_start}` | `DELETE /api/admin/tournaments/{id}/motd/{date}` |
+
+They are separate tables on purpose: MOTW's global uniqueness and its pick ordinal
+("Week 6") would both have to loosen to admit tournament rows.
+
+## Rules both follow
+
+- **No pick is `200` with `null`, never `404`.** Most weeks and days start unpicked.
+- **The slot comes from the match, not from today.** Picking a future fixture fills its
+  own week or day instead of overwriting the current one.
+- **Re-picking is an upsert that replaces the whole pick.** Fields you omit on a re-pick
+  (blurb, reasons) are cleared, not kept.
+- **A pick whose match the viewer cannot see reads as no pick** (a test match picked by
+  an admin, read by a visitor).
+- **`selected_by` is provenance, not a foreign key**, so deleting an admin does not erase
+  editorial history.
+
+## Match of the Day specifics
+
+- The match must belong to the tournament (`matches.tournament_id`), else **400**. An
+  optional `match_date` in the body guards against picking a match from the wrong day.
+- `GET` without `date` returns every pick as `picks`, oldest first, so the tournament
+  page chooses "today" in the viewer's timezone. Tournaments have no timezone column,
+  and Fest (Mesa, `America/Phoenix`) is 2–3 hours behind most viewers.
+- `reasons` is the "Why this is the Match of the Day" list: up to 6 items of
+  `{text, kind}`. `null` means never provided; `[]` means provided and empty. The
+  frontend treats them differently (SB-1560).
+
+## Picking by hand
+
+```bash
+mt tournament motd show  -T 12                 # every pick in tournament 12
+mt tournament motd show  -T 12 -d 2026-12-04   # one day
+mt tournament motd set   -T 12 -m 501 -b "Northeast leaders meet in the desert" \
+                         -r "Both unbeaten in league play" -r "First ever meeting"
+mt tournament motd clear -T 12 -d 2026-12-04
+```
+
+`set` accepts `--date` as a guard: it refuses if the match is on a different day.

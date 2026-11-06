@@ -25,7 +25,7 @@ import sys
 from datetime import UTC, datetime
 from getpass import getpass
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import typer
 from pydantic import BaseModel
@@ -1245,6 +1245,92 @@ def tournament_remove_match(
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from None
     console.print(f"[green]Removed match #{match} from tournament #{tournament}[/green]")
+
+
+motd_app = typer.Typer(help="Tournament Match of the Day: one featured match per tournament per day (admin)")
+tournament_app.add_typer(motd_app, name="motd")
+
+
+def _motd_teams(match: dict[str, Any]) -> str:
+    home = match.get("home_team_name") or (match.get("home_team") or {}).get("name") or "?"
+    away = match.get("away_team_name") or (match.get("away_team") or {}).get("name") or "?"
+    return f"{home} vs {away}"
+
+
+def _print_motd(pick: dict[str, Any]) -> None:
+    match = pick.get("match") or {}
+    console.print(f"[bold]{pick.get('match_date')}[/bold]  #{match.get('id', '?')}  {_motd_teams(match)}")
+    if pick.get("blurb"):
+        console.print(f"  {pick['blurb']}")
+    reasons = pick.get("reasons")
+    if reasons:
+        for r in reasons:
+            console.print(f"  • {r.get('text')}")
+    elif reasons == []:
+        console.print("  [dim](reasons left empty)[/dim]")
+
+
+@motd_app.command("show")
+def tournament_motd_show(
+    tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
+    date: str = typer.Option(None, "--date", "-d", help="Day (YYYY-MM-DD); omit to list every pick"),
+):
+    """Show a day's Match of the Day, or every pick in the tournament."""
+    client, _ = get_client()
+    try:
+        result = client.get_tournament_motd(tournament, date)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+    if date:
+        if result.get("motd"):
+            _print_motd(result["motd"])
+        else:
+            console.print(f"[yellow]No Match of the Day picked for {result.get('match_date')}.[/yellow]")
+        return
+    picks = result.get("picks") or []
+    if not picks:
+        console.print(f"[yellow]No Match of the Day picked yet for tournament #{tournament}.[/yellow]")
+    for pick in picks:
+        _print_motd(pick)
+
+
+@motd_app.command("set")
+def tournament_motd_set(
+    tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
+    match: int = typer.Option(..., "--match", "-m", help="Match ID to feature (must be in the tournament)"),
+    date: str = typer.Option(None, "--date", "-d", help="Guard: refuse unless the match is on this day"),
+    blurb: str = typer.Option(None, "--blurb", "-b", help="One-line headline"),
+    reason: list[str] = typer.Option(None, "--reason", "-r", help="'Why this match' line; repeat for more (max 6)"),
+):
+    """Feature a match as its day's Match of the Day, replacing that day's pick."""
+    client, _ = get_client()
+    reasons = [{"text": r} for r in reason] if reason else None
+    try:
+        pick = client.set_tournament_motd(tournament, match, match_date=date, blurb=blurb, reasons=reasons)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+    console.print("[green]Match of the Day set[/green]")
+    _print_motd(pick)
+
+
+@motd_app.command("clear")
+def tournament_motd_clear(
+    tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
+    date: str = typer.Option(..., "--date", "-d", help="Day to unpick (YYYY-MM-DD)"),
+):
+    """Unpick a tournament day."""
+    client, _ = get_client()
+    try:
+        result = client.clear_tournament_motd(tournament, date)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+    if result.get("cleared"):
+        console.print(f"[green]Cleared Match of the Day for {result.get('match_date')}[/green]")
+    else:
+        console.print(f"[yellow]Nothing was picked for {result.get('match_date')}.[/yellow]")
 
 
 @tournament_app.command("score")

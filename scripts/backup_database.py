@@ -130,6 +130,7 @@ TABLES_TO_BACKUP = [
     "playoff_bracket_slots",
     # Match-related data
     "match_of_the_week",
+    "tournament_match_of_the_day",  # SB-1559; depends on tournaments, matches
     "match_events",
     "match_lineups",
     "player_match_stats",
