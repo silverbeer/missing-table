@@ -285,6 +285,7 @@
                 v-if="motw"
                 :match="motw.match"
                 :blurb="motw.blurb"
+                :reasons="motw.reasons ?? null"
                 :can-share="authStore.isAuthenticated.value"
                 :can-edit="authStore.isAdmin.value"
                 :saving="motwSaving"

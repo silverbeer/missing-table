@@ -27,6 +27,11 @@ logger = structlog.get_logger()
 
 TABLE = "match_of_the_week"
 
+# `reasons` omitted from a write (SB-1552). Distinct from None, which clears
+# them: the hero's blurb editor re-posts the pick without reasons, and that
+# must not wipe a "Why" list the agent or an admin wrote.
+KEEP = object()
+
 
 def week_start_for(match_date: str | date) -> str:
     """The Monday of the week a date falls in, as YYYY-MM-DD.
@@ -79,12 +84,7 @@ class MotwDAO(BaseDAO):
             # weeks later, and the first real matchday is a month after that
             # — so any date-derived "week 6" is arithmetic nobody recognises.
             # The first Match of the Week is Week 1.
-            ordinal = (
-                self.client.table(TABLE)
-                .select("id", count="exact")
-                .lte("week_start", week_start)
-                .execute()
-            )
+            ordinal = self.client.table(TABLE).select("id", count="exact").lte("week_start", week_start).execute()
             match = self.match_dao.get_match_by_id(row["match_id"], include_test=include_test)
             if match is None:
                 # The pick outlived its match's visibility — a test match seen
@@ -97,6 +97,8 @@ class MotwDAO(BaseDAO):
                 "week_start": row["week_start"],
                 "pick_number": ordinal.count or 1,
                 "blurb": row.get("blurb"),
+                # null = never provided, [] = provided and empty (SB-1552).
+                "reasons": row.get("reasons"),
                 "selected_by": row.get("selected_by"),
                 "created_at": row.get("created_at"),
                 "updated_at": row.get("updated_at"),
@@ -111,9 +113,15 @@ class MotwDAO(BaseDAO):
         match_id: int,
         *,
         blurb: str | None = None,
+        reasons: list[dict[str, Any]] | None | object = KEEP,
         selected_by: str | None = None,
     ) -> dict[str, Any] | None:
         """Pick a match, replacing whatever held its week.
+
+        `reasons` left as KEEP preserves the week's existing reasons when the
+        same match is re-picked (a blurb edit), and clears them when a
+        different match takes the week — another match's reasons are wrong
+        for this one.
 
         The week is derived from the match's own date rather than from "now",
         so picking next week's fixture ahead of time lands in next week's slot
@@ -135,6 +143,11 @@ class MotwDAO(BaseDAO):
             "selected_by": selected_by,
             "updated_at": "now()",
         }
+        if reasons is KEEP:
+            if not self._is_current_pick(week_start, match_id):
+                payload["reasons"] = None
+        else:
+            payload["reasons"] = reasons
 
         try:
             self.client.table(TABLE).upsert(payload, on_conflict="week_start").execute()
@@ -143,6 +156,21 @@ class MotwDAO(BaseDAO):
             return None
 
         return self.get_for_week(week_start, include_test=True)
+
+    def _is_current_pick(self, week_start: str, match_id: int) -> bool:
+        """Whether `match_id` already holds `week_start`.
+
+        On a failed read, answer False: the write then clears reasons, which
+        loses a list someone can rewrite, rather than attaching one match's
+        reasons to another.
+        """
+        try:
+            response = self.client.table(TABLE).select("match_id").eq("week_start", week_start).limit(1).execute()
+            rows = response.data or []
+            return bool(rows) and rows[0].get("match_id") == match_id
+        except Exception:
+            logger.exception("Could not read current match of the week", week_start=week_start)
+            return False
 
     def clear_week(self, week_start: str) -> bool:
         """Unpick a week. True when a row went away, False when none was there."""
