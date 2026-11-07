@@ -34,6 +34,7 @@ from auth import (
     require_admin,
     require_admin_or_service_account,
     require_match_management_permission,
+    require_motw_editor,
     require_team_manager_or_admin,
     role_for_invite_type,
     security,
@@ -9121,9 +9122,11 @@ async def get_competition_coverage(
 @app.post("/api/admin/motw")
 async def set_match_of_the_week(
     body: MotwPick,
-    current_user: dict[str, Any] = Depends(require_admin),
+    current_user: dict[str, Any] = Depends(require_motw_editor),
 ):
     """Feature a match, replacing whatever held its week (SB-1010).
+
+    Admins, and the MOTW agent's service account (`manage_motw`, SB-1553).
 
     The week comes from the match's own date, not from today, so picking next
     week's fixture in advance fills next week's slot instead of overwriting
@@ -9139,6 +9142,8 @@ async def set_match_of_the_week(
             blurb=body.blurb,
             reasons=reasons,
             selected_by=current_user.get("user_id"),
+            # A service account has no user row: record which one picked (SB-1553).
+            selected_by_service=current_user.get("service_name"),
         )
         if result is None:
             raise HTTPException(status_code=404, detail=f"No match with id {body.match_id}")

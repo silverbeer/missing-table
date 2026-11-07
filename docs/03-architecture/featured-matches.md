@@ -85,3 +85,30 @@ mt tournament motd clear -T 12 -d 2026-12-04
 ```
 
 `set` accepts `--date` as a guard: it refuses if the match is on a different day.
+
+## The MOTW agent's account (SB-1553)
+
+The automated Match of the Week flow (sb-agents: motw-agent suggests, sb-support writes
+the approved pick) authenticates as a **service account** with one permission,
+`manage_motw`:
+
+- `POST /api/admin/motw` accepts admins and service accounts holding `manage_motw`
+  (`auth.require_motw_editor`). Everything else stays admin-only: `DELETE
+  /api/admin/motw/{week}`, every other `/api/admin/*` route (they check
+  `role == "admin"`, which a service account never has), and match management (which
+  needs `manage_matches`).
+- Provenance: a service account has no user row, so its pick records
+  `selected_by_service` (e.g. `motw-agent`) with `selected_by` null. An admin pick sets
+  `selected_by` and clears `selected_by_service`.
+- The token is a service-account JWT, not revocable before it expires. Keep the expiry
+  short and rotate by minting a new one. Mint it in a human terminal with prod's
+  `SERVICE_ACCOUNT_SECRET` in the environment, straight into 1Password:
+
+```bash
+cd backend && uv run python scripts/utilities/create_service_account_token.py \
+  --service-name motw-agent --permissions manage_motw --expires-days 180 \
+  --output-file /dev/stdout | op item create --vault agents --category "API Credential" \
+  --title mt-motw-agent 'credential[password]=-'   # or paste into a new item by hand
+```
+
+  sb-agents reads it as `MT_MOTW_TOKEN` from `op://agents/mt-motw-agent/credential`.

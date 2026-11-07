@@ -641,6 +641,32 @@ def require_admin(
     return current_user
 
 
+MANAGE_MOTW = "manage_motw"
+
+
+def can_set_motw(user: dict[str, Any] | None) -> bool:
+    """Admins, and service accounts granted `manage_motw` (SB-1553).
+
+    The MOTW agent's account is a service-account JWT with only this permission:
+    it may pick the Match of the Week and nothing else. Every other admin route
+    checks `role == "admin"`, which a service account never has.
+    """
+    if not user:
+        return False
+    if user.get("role") == "admin":
+        return True
+    return user.get("role") == "service_account" and MANAGE_MOTW in (user.get("permissions") or [])
+
+
+def require_motw_editor(
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+) -> dict[str, Any]:
+    """Require admin, or a service account with the `manage_motw` permission."""
+    if not can_set_motw(current_user):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
 def require_team_manager_or_admin(
     current_user: dict[str, Any] = Depends(get_current_user_required),
 ) -> dict[str, Any]:
