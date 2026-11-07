@@ -51,6 +51,18 @@ class MatchSource(Protocol):
     ) -> dict: ...
 
 
+class LiveMatchSource(Protocol):
+    def get_live_match_state(self, match_id: int, include_test: bool = False) -> dict | None: ...
+
+
+class MatchEventSource(Protocol):
+    def get_key_events(self, match_id: int) -> list[dict] | None: ...
+
+
+class RosterSource(Protocol):
+    def get_player_by_id(self, player_id: int) -> dict | None: ...
+
+
 class SeasonSource(Protocol):
     def get_current_season(self) -> dict | None: ...
 
@@ -64,6 +76,11 @@ class ToolDeps:
     leagues: LeagueSource
     matches: MatchSource
     seasons: SeasonSource
+    # get_live_match only (SB-1584). Optional so callers that never ask about a live
+    # match don't need them; the tool reports "unavailable" without them.
+    live: LiveMatchSource | None = None
+    events: MatchEventSource | None = None
+    roster: RosterSource | None = None
 
 
 def dao_tool_deps() -> ToolDeps:
@@ -72,14 +89,20 @@ def dao_tool_deps() -> ToolDeps:
     from dao.club_dao import ClubDAO
     from dao.league_dao import LeagueDAO
     from dao.match_dao import MatchDAO, SupabaseConnection
+    from dao.match_event_dao import MatchEventDAO
+    from dao.roster_dao import RosterDAO
     from dao.season_dao import SeasonDAO
     from dao.team_dao import TeamDAO
 
     conn = SupabaseConnection()
+    matches = MatchDAO(conn)
     return ToolDeps(
         teams=TeamDAO(conn),
         clubs=ClubDAO(conn),
         leagues=LeagueDAO(conn),
-        matches=MatchDAO(conn),
+        matches=matches,
         seasons=SeasonDAO(conn),
+        live=matches,
+        events=MatchEventDAO(conn),
+        roster=RosterDAO(conn),
     )

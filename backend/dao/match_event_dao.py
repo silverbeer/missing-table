@@ -200,6 +200,37 @@ class MatchEventDAO(BaseDAO):
             logger.exception("Error getting match pitch events", match_id=match_id)
             return None
 
+    # Events that change the scoreline or the discipline record: what "what's the
+    # score?" and "who scored?" are answered from (SB-1584).
+    KEY_EVENT_TYPES = ("goal", "yellow_card", "red_card")
+
+    def get_key_events(self, match_id: int) -> list[dict] | None:
+        """Get every goal and card for a match, oldest first (SB-1584).
+
+        Unpaginated and chat-free, like get_pitch_events, so a chatty match
+        cannot push early goals out of a window.
+
+        Returns:
+            Non-deleted goal/card events (created_at, then id). None if the read
+            failed: an empty list means none were recorded.
+        """
+        try:
+            response = (
+                self.client.table("match_events")
+                .select("*")
+                .eq("match_id", match_id)
+                .eq("is_deleted", False)
+                .in_("event_type", list(self.KEY_EVENT_TYPES))
+                .order("created_at")
+                .order("id")
+                .execute()
+            )
+            return response.data or []
+
+        except Exception:
+            logger.exception("Error getting match key events", match_id=match_id)
+            return None
+
     def get_event_by_id(self, event_id: int) -> dict | None:
         """Get a single event by ID.
 

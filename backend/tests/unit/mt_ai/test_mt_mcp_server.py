@@ -14,7 +14,14 @@ from mt_mcp.server import TOOL_TIERS, UNAVAILABLE
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
-READ_TOOLS = {"search_teams", "get_upcoming_matches", "get_recent_results", "get_standings", "list_divisions"}
+READ_TOOLS = {
+    "search_teams",
+    "get_upcoming_matches",
+    "get_recent_results",
+    "get_live_match",
+    "get_standings",
+    "list_divisions",
+}
 MY_TOOLS = {"get_my_team"}
 ADMIN_TOOLS = {"list_ingest_failures", "resolve_ingest_failure"}
 
@@ -179,6 +186,29 @@ class TestUpcomingMatches:
 
         assert fan.structured_content["error"]["kind"] == "not_found"
         assert admin.structured_content["error"] is None
+
+
+class TestLiveMatch:
+    async def test_a_fan_gets_score_and_capped_names_over_mcp(self, make_deps):
+        from dataclasses import replace
+
+        from test_mt_ai_live_match import FakeEvents, FakeLive, FakeRoster, goal, state
+
+        deps = replace(
+            make_deps(),
+            live=FakeLive(state(match_status="live", home_score=1, kickoff_time="2026-11-07T18:15:00Z")),
+            events=FakeEvents([goal(12, 102, 9)]),
+            roster=FakeRoster({9: {"jersey_number": 9, "first_name": "Samuel", "last_name": "Kowalczyk"}}),
+        )
+        async with served(deps) as s, s.session("fan") as session:
+            tool = next(t for t in (await session.list_tools()).tools if t.name == "get_live_match")
+            result = await session.call_tool("get_live_match", {"match_id": 7})
+
+        assert tool.input_schema["required"] == ["match_id"]
+        data = result.structured_content
+        assert data["error"] is None and data["home_score"] == 1
+        assert data["events"][0]["player"] == "#9 Samuel K."
+        assert "Kowalczyk" not in str(data)
 
 
 class TestRecentResults:

@@ -290,6 +290,28 @@ the club's calendar day, so a game that ended at 9pm in Boston is already a resu
 
 Not wired into the in-app assistant (`mt_ai/agent.py`) yet; sb-agents' mt-agent uses it over MCP.
 
+### Live match (SB-1584)
+
+`get_live_match(match_id)` (`mt_ai/tools/live.py`), on mt-mcp's read tier: "what's the score
+of the IFA U15 match?", "who scored?". The match id comes from `get_upcoming_matches`
+(status `live`) or `get_recent_results`.
+
+- **Score and clock**: score and any shootout; `period` (`not_started`, `first_half`,
+  `halftime`, `second_half`, `full_time`) and the running `minute`/`extra_time`, counted like
+  the live view. A match nobody kicked off has **no score** (null), not 0-0.
+- **Events**: every goal and card, oldest first, with minute, stoppage, team, player and
+  assist. Read by `MatchEventDAO.get_key_events`, which, like `get_pitch_events`, is
+  unpaginated and chat-free, so a chatty match can't push early goals out of a window.
+  `events: []` is "none recorded"; `null` with an error is "could not check".
+- **Untracked matches are the default** (CLAUDE.md: most teams have no user data): events are
+  recorded live by a team manager, so most matches have a score and `[]`, and
+  `meta.coverage` says the match was not tracked live.
+- **Players are minors: at most `#7 Tom D.`** (jersey number, first name, last initial;
+  `#7` with no first name), enforced in the tool (`player_label`) whatever the roster or the
+  event's denormalised `player_name` holds (SB-1583 makes this the rule app-wide). Chat
+  and `match_events.message` (free text) are never read.
+- Visibility: `include_test` from the viewer, like the other tools.
+
 ### Multi-age teams make resolution the hard part
 
 One MT team spans several age groups (`team_mappings`), so "Boston United" alone does
