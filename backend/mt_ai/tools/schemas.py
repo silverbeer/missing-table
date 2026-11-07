@@ -267,3 +267,39 @@ class DivisionsResult(BaseModel):
     alternatives: list[DivisionSummary] = Field(default_factory=list)
     error: ToolError | None = None
     meta: ToolMeta = Field(default_factory=ToolMeta)
+
+
+LivePeriod = Literal["not_started", "first_half", "halftime", "second_half", "full_time"]
+
+
+class LiveEvent(BaseModel):
+    """A goal or card. Players are "#7 Tom D." at most (SB-1583): never a full surname."""
+
+    type: Literal["goal", "yellow_card", "red_card"]
+    minute: int | None = None
+    extra_time: int | None = None  # stoppage minutes: minute 45, extra_time 2 is 45+2
+    team_id: int | None = None
+    team: str | None = None
+    player: str | None = None  # None when no player was recorded
+    assist: str | None = None
+
+
+class LiveMatchResult(BaseModel):
+    match_id: int
+    status: str | None = None  # scheduled, live, completed, ...
+    period: LivePeriod | None = None
+    # Current minute while the clock runs (minute 90, extra_time 3 is 90+3); None otherwise.
+    minute: int | None = None
+    extra_time: int | None = None
+    home_team: TeamRef | None = None
+    away_team: TeamRef | None = None
+    home_score: int | None = None
+    away_score: int | None = None
+    home_penalty_score: int | None = None
+    away_penalty_score: int | None = None
+    age_group: str | None = None
+    competition: str | None = None
+    # Goals and cards, oldest first. None = could not check; [] = none recorded.
+    events: list[LiveEvent] | None = None
+    error: ToolError | None = None
+    meta: ToolMeta = Field(default_factory=ToolMeta)

@@ -187,3 +187,32 @@ def test_model_declares_pitch_events():
     from models.live_match import LiveMatchState
 
     assert LiveMatchState.model_fields["pitch_events"].default == []
+
+
+@pytest.mark.unit
+class TestGetKeyEvents:
+    """Goals and cards for get_live_match (SB-1584): same guarantees as pitch events."""
+
+    def test_only_goals_and_cards_oldest_first(self):
+        rows = [
+            _ev(5, "red_card", 50),
+            _ev(1, "goal", 1),
+            _ev(2, "message", 2),
+            _ev(3, "yellow_card", 3),
+            _ev(4, "substitution", 4),
+            _ev(6, "goal", 6, deleted=True),
+            _ev(7, "goal", 7, match_id=999),
+        ]
+        assert [e["id"] for e in _dao(rows).get_key_events(123)] == [1, 3, 5]
+
+    def test_chat_heavy_match_keeps_early_goals(self):
+        rows = [_ev(1, "goal", 1)] + [_ev(100 + i, "message", 5 + i // 60) for i in range(200)]
+        assert [e["id"] for e in _dao(rows).get_key_events(123)] == [1]
+
+    def test_query_failure_returns_none_not_empty(self):
+        from dao.match_event_dao import MatchEventDAO
+
+        dao = MatchEventDAO.__new__(MatchEventDAO)
+        dao.client = MagicMock()
+        dao.client.table.side_effect = RuntimeError("db down")
+        assert dao.get_key_events(123) is None

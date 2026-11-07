@@ -11,7 +11,14 @@ from mt_mcp.scopes import DELEGATED_CAP, SB_AGENTS_CLIENT, SB_AGENTS_USER_CLIENT
 
 pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
-READ_TOOLS = {"search_teams", "get_upcoming_matches", "get_recent_results", "get_standings", "list_divisions"}
+READ_TOOLS = {
+    "search_teams",
+    "get_upcoming_matches",
+    "get_recent_results",
+    "get_live_match",
+    "get_standings",
+    "list_divisions",
+}
 MY_TOOLS = {"get_my_team"}
 
 

@@ -32,6 +32,7 @@ from starlette.applications import Starlette
 from mt_ai.tools import (
     ToolDeps,
     Viewer,
+    get_live_match,
     get_recent_results,
     get_standings,
     get_upcoming_matches,
@@ -40,6 +41,7 @@ from mt_ai.tools import (
 )
 from mt_ai.tools.schemas import (
     DivisionsResult,
+    LiveMatchResult,
     RecentResultsResult,
     ResolveResult,
     StandingsResult,
@@ -66,6 +68,8 @@ INSTRUCTIONS = """\
 MissingTable (MT) data for youth soccer: teams, matches and standings.
 Resolve a team with search_teams (or get_my_team) before using its id elsewhere.
 Past results ("last weekend", "last 5 games", head-to-head): get_recent_results.
+A match in progress or just played ("what's the score?", "who scored?"): find its
+match_id with get_upcoming_matches or get_recent_results, then get_live_match.
 Resolve a division by name ("U15 Northeast") with list_divisions before calling
 get_standings by division: pass its division.id and the age_groups[].id.
 Standings ship with their coverage: say how many matches were played of how many
@@ -82,6 +86,7 @@ TOOL_TIERS: dict[str, Tier] = {
     "search_teams": "read",
     "get_upcoming_matches": "read",
     "get_recent_results": "read",
+    "get_live_match": "read",
     "get_standings": "read",
     "list_divisions": "read",
     "get_my_team": "my",
@@ -153,6 +158,17 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
             ),
             "get_recent_results",
         )
+
+    @server.tool(name="get_live_match")
+    async def get_live_match_tool(match_id: int) -> LiveMatchResult:
+        """One match's live state: score (and any shootout), period and running
+        minute, and every goal and card with its minute, team and player. Take
+        match_id from get_upcoming_matches (status "live") or get_recent_results.
+        Players are "#7 Tom D." at most. "events" is [] when none were recorded
+        and null when they could not be checked; meta.coverage says when a match
+        was not tracked live (score only)."""
+        viewer = Viewer.from_user(_caller().as_user())
+        return await _run(lambda: get_live_match(deps(), match_id, viewer), "get_live_match")
 
     @server.tool(name="get_standings")
     async def get_standings_tool(
