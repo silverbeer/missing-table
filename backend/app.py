@@ -118,6 +118,7 @@ from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
 from dao.moderation_dao import ModerationDAO
 from dao.motd_dao import MotdDAO, MotdPickError
+from dao.motw_dao import KEEP as MOTW_KEEP_REASONS
 from dao.motw_dao import MotwDAO, week_start_for
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
@@ -9027,6 +9028,13 @@ async def get_qop_rankings(
 # =============================================================================
 
 
+class FeaturedReason(BaseModel):
+    """One "Why this is the Match of the Week/Day" line (SB-1552, SB-1559)."""
+
+    text: str = Field(..., min_length=1, max_length=200)
+    kind: str | None = Field(None, max_length=40, description="Fact kind, e.g. stage, form, storyline.")
+
+
 class MotwPick(BaseModel):
     """An admin's pick for the week."""
 
@@ -9037,6 +9045,15 @@ class MotwPick(BaseModel):
         description=(
             "Optional editorial line for the hero card. Omitted and empty are "
             "different things: omitted leaves the blurb unset, empty clears it."
+        ),
+    )
+    reasons: list[FeaturedReason] | None = Field(
+        None,
+        max_length=6,
+        description=(
+            "'Why this is the Match of the Week' lines. Omitted keeps the week's "
+            "reasons if this match already holds it (a blurb edit) and clears "
+            "them otherwise; null clears; [] records 'provided, empty'."
         ),
     )
 
@@ -9114,9 +9131,13 @@ async def set_match_of_the_week(
     than by this handler checking first — two admin tabs would beat the check.
     """
     try:
+        reasons: Any = MOTW_KEEP_REASONS
+        if "reasons" in body.model_fields_set:
+            reasons = None if body.reasons is None else [r.model_dump() for r in body.reasons]
         result = motw_dao.set_for_match(
             body.match_id,
             blurb=body.blurb,
+            reasons=reasons,
             selected_by=current_user.get("user_id"),
         )
         if result is None:
@@ -9157,11 +9178,8 @@ async def clear_match_of_the_week(
 # =============================================================================
 
 
-class MotdReason(BaseModel):
-    """One "Why this is the Match of the Day" line."""
-
-    text: str = Field(..., min_length=1, max_length=200)
-    kind: str | None = Field(None, max_length=40, description="Fact kind, e.g. stage, form, storyline.")
+# Same shape as the weekly pick's reasons; one model so the two cannot drift.
+MotdReason = FeaturedReason
 
 
 class MotdPick(BaseModel):

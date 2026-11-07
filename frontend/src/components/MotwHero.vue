@@ -197,6 +197,25 @@
         </button>
       </template>
 
+      <!--
+        "Why this is the Match of the Week" (SB-1552). null (never written) and
+        [] (written, empty) both render nothing: no heading over an empty list.
+      -->
+      <div v-if="hasReasons" class="motw-reasons" data-testid="motw-reasons">
+        <h3 class="motw-reasons-title">Why this is the Match of the Week</h3>
+        <ul class="motw-reasons-list">
+          <li
+            v-for="(reason, i) in reasons"
+            :key="i"
+            class="motw-reason"
+            data-testid="motw-reason"
+          >
+            <span class="motw-reason-mark" aria-hidden="true">▸</span>
+            <span>{{ reason.text }}</span>
+          </li>
+        </ul>
+      </div>
+
       <div class="motw-actions">
         <button
           type="button"
@@ -237,6 +256,8 @@ export default {
   props: {
     match: { type: Object, required: true },
     blurb: { type: String, default: null },
+    // [{text, kind}] or null. null = never provided, [] = provided empty.
+    reasons: { type: Array, default: null },
     // Generating a share card is open to anyone signed in (SB-659), so the
     // button is hidden rather than shown-and-failing for logged-out viewers.
     canShare: { type: Boolean, default: false },
@@ -390,7 +411,12 @@ export default {
       return 'Reveal this week’s pick';
     });
 
+    const hasReasons = computed(
+      () => Array.isArray(props.reasons) && props.reasons.length > 0
+    );
+
     return {
+      hasReasons,
       expanded,
       teaser,
       BLURB_MAX,
@@ -636,6 +662,47 @@ export default {
   line-height: 22px;
   color: rgb(var(--color-fg));
   max-width: 62ch;
+}
+
+/* --- why this is the match of the week (SB-1552) ------------------- */
+
+.motw-reasons {
+  max-width: 62ch;
+}
+
+.motw-reasons-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #b45309;
+}
+
+:global(.dark .motw-reasons-title) {
+  color: #f59e0b;
+}
+
+.motw-reasons-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.motw-reason {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: rgb(var(--color-fg));
+}
+
+.motw-reason-mark {
+  flex-shrink: 0;
+  color: #f59e0b;
 }
 
 .motw-actions {

@@ -488,4 +488,42 @@ describe('MotwHero', () => {
       );
     });
   });
+
+  describe('why this is the match of the week (SB-1552)', () => {
+    it('renders no Why section when reasons were never provided', async () => {
+      const wrapper = await mountOpen({ reasons: null });
+      expect(wrapper.find('[data-testid="motw-reasons"]').exists()).toBe(false);
+    });
+
+    it('renders no Why section, not an empty heading, for []', async () => {
+      const wrapper = await mountOpen({ reasons: [] });
+      expect(wrapper.find('[data-testid="motw-reasons"]').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain('Why this is the Match of the Week');
+    });
+
+    it('lists every reason in order when populated', async () => {
+      const wrapper = await mountOpen({
+        blurb: 'Top two collide',
+        reasons: [
+          { text: '1st vs 3rd in Turnpike', kind: 'standings' },
+          { text: 'Both unbeaten', kind: 'form' },
+        ],
+      });
+      const section = wrapper.find('[data-testid="motw-reasons"]');
+      expect(section.text()).toContain('Why this is the Match of the Week');
+      const items = wrapper.findAll('[data-testid="motw-reason"]');
+      expect(items).toHaveLength(2);
+      expect(items[0].text()).toContain('1st vs 3rd in Turnpike');
+      expect(items[1].text()).toContain('Both unbeaten');
+      // The blurb still shows alongside: reasons add to it, not replace it.
+      expect(wrapper.find('[data-testid="motw-blurb"]').text()).toContain(
+        'Top two collide'
+      );
+    });
+
+    it('keeps the reasons hidden while the strip is closed', () => {
+      const wrapper = mountHero({ reasons: [{ text: 'Both unbeaten' }] });
+      expect(wrapper.text()).not.toContain('Both unbeaten');
+    });
+  });
 });

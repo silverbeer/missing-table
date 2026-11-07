@@ -167,3 +167,61 @@ class TestWeekStartsWithPicks:
         dao = _dao(table_data=[])
         assert dao.week_starts_with_picks([]) == {}
         dao.client.table.assert_not_called()
+
+
+@pytest.mark.unit
+class TestReasons:
+    """SB-1552: null (never provided) and [] (provided, empty) stay distinct,
+    and a blurb edit never wipes reasons someone wrote."""
+
+    def test_returns_reasons_as_stored(self):
+        reasons = [{"text": "1st vs 3rd", "kind": "standings"}]
+        dao = _dao(table_data=[{**ROW, "reasons": reasons}])
+        assert dao.get_for_week("2026-08-31")["reasons"] == reasons
+
+    def test_null_reasons_stay_null(self):
+        dao = _dao(table_data=[{**ROW, "reasons": None}])
+        assert dao.get_for_week("2026-08-31")["reasons"] is None
+
+    def test_empty_reasons_stay_empty_not_null(self):
+        dao = _dao(table_data=[{**ROW, "reasons": []}])
+        assert dao.get_for_week("2026-08-31")["reasons"] == []
+
+    def test_a_pre_migration_row_reads_as_null(self):
+        # ROW has no reasons key at all, like a row read before the column.
+        dao = _dao(table_data=[ROW])
+        assert dao.get_for_week("2026-08-31")["reasons"] is None
+
+    def test_explicit_reasons_are_written(self):
+        reasons = [{"text": "Both unbeaten", "kind": None}]
+        dao = _dao(table_data=[ROW])
+        dao.set_for_match(77, reasons=reasons)
+        assert dao._table.upsert.call_args.args[0]["reasons"] == reasons
+
+    def test_explicit_empty_list_is_written_as_empty(self):
+        dao = _dao(table_data=[ROW])
+        dao.set_for_match(77, reasons=[])
+        assert dao._table.upsert.call_args.args[0]["reasons"] == []
+
+    def test_explicit_none_clears(self):
+        dao = _dao(table_data=[ROW])
+        dao.set_for_match(77, reasons=None)
+        assert dao._table.upsert.call_args.args[0]["reasons"] is None
+
+    def test_omitted_on_the_same_match_leaves_reasons_alone(self):
+        # The blurb editor re-posts {match_id, blurb}: no reasons key in the
+        # upsert, so the database keeps what it has.
+        dao = _dao(table_data=[ROW])  # ROW holds match 77 for the week
+        dao.set_for_match(77, blurb="New line")
+        assert "reasons" not in dao._table.upsert.call_args.args[0]
+
+    def test_omitted_on_a_different_match_clears(self):
+        # Another match took the week: its predecessor's reasons are wrong now.
+        dao = _dao(table_data=[{**ROW, "match_id": 12}])
+        dao.set_for_match(77)
+        assert dao._table.upsert.call_args.args[0]["reasons"] is None
+
+    def test_omitted_on_an_empty_week_writes_null(self):
+        dao = _dao(table_data=[])
+        dao.set_for_match(77)
+        assert dao._table.upsert.call_args.args[0]["reasons"] is None

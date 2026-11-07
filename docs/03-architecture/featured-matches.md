@@ -10,7 +10,7 @@ call the same admin endpoints.
 | One pick per | calendar week (Monday start), global | tournament **and** day |
 | Uniqueness | `UNIQUE(week_start)` | `UNIQUE(tournament_id, match_date)` |
 | Key derived from | the match's own date → its Monday | the match's own date |
-| Extra fields | `blurb` | `blurb`, `reasons` |
+| Extra fields | `blurb`, `reasons` (SB-1552) | `blurb`, `reasons` |
 | Read | `GET /api/motw?week_start=` | `GET /api/tournaments/{id}/motd?date=` |
 | Write | `POST /api/admin/motw` | `POST /api/admin/tournaments/{id}/motd` |
 | Clear | `DELETE /api/admin/motw/{week_start}` | `DELETE /api/admin/tournaments/{id}/motd/{date}` |
@@ -24,11 +24,23 @@ They are separate tables on purpose: MOTW's global uniqueness and its pick ordin
 - **The slot comes from the match, not from today.** Picking a future fixture fills its
   own week or day instead of overwriting the current one.
 - **Re-picking is an upsert that replaces the whole pick.** Fields you omit on a re-pick
-  (blurb, reasons) are cleared, not kept.
+  are cleared, not kept — with one exception: MOTW `reasons` (below).
+- **`reasons` is a list of `{text, kind}`, at most 6.** `null` = never provided, `[]` =
+  provided and empty; the database keeps them distinct (MOTW enforces "array or null"
+  with a CHECK). On screen both render no "Why" list.
 - **A pick whose match the viewer cannot see reads as no pick** (a test match picked by
   an admin, read by a visitor).
 - **`selected_by` is provenance, not a foreign key**, so deleting an admin does not erase
   editorial history.
+
+## Match of the Week specifics
+
+- **Omitted `reasons` on a re-pick of the same match keeps them** (SB-1552). The hero's
+  blurb editor re-posts `{match_id, blurb}`, and must not wipe a "Why" list the agent
+  or an admin wrote. Picking a *different* match for the week clears them: another
+  match's reasons are wrong for this one. Send `reasons: null` to clear explicitly.
+- `MotwHero` shows the reasons under the blurb as "Why this is the Match of the Week",
+  only once the strip is opened.
 
 ## Match of the Day specifics
 
