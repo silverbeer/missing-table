@@ -75,6 +75,10 @@ over the MT AI `ToolDeps` protocols and public data only.
 - **Coverage**: fixtures in the week, how many were eligible, and how many teams had too
   few games. An empty week is `candidates: []` with a `reason`; a failed read is an
   `error`, never an empty list. An existing pick is returned as `current_pick`.
+- **Where to get them** (SB-1551): mt-mcp tool `suggest_motw_candidates(week, limit)`
+  (read tier, so the sb-agents MOTW agent's public account can call it), the admin API
+  `GET /api/admin/motw/candidates?week=&limit=`, and `mt motw suggest [--week] [--facts]
+  [--json]`. All three return the same result.
 
 ## Match of the Day specifics
 

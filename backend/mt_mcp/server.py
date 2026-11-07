@@ -57,6 +57,7 @@ from mt_tools.ingest import (
     list_ingest_failures,
     resolve_ingest_failure,
 )
+from mt_tools.motw_candidates import MotwCandidatesResult, suggest_from_deps
 from mt_tools.my_team import MyTeamResult, resolve_my_team
 
 logger = structlog.get_logger()
@@ -76,6 +77,9 @@ Standings ship with their coverage: say how many matches were played of how many
 scheduled, and for a combined view how many were against teams outside the table.
 Results distinguish "not tracked" (null) from "none" ([]); never report an absent
 value as zero.
+Match of the Week ideas: suggest_motw_candidates. Every claim about a candidate must
+come from one of its facts; a fact with confirmed=false may only be stated as
+unconfirmed.
 """
 
 UNAVAILABLE = "MT could not answer that right now."
@@ -89,6 +93,7 @@ TOOL_TIERS: dict[str, Tier] = {
     "get_live_match": "read",
     "get_standings": "read",
     "list_divisions": "read",
+    "suggest_motw_candidates": "read",
     "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
@@ -219,6 +224,23 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
             lambda: list_divisions(deps(), viewer, age_group=age_group, league=league, query=query),
             "list_divisions",
         )
+
+    @server.tool(name="suggest_motw_candidates")
+    async def suggest_motw_candidates_tool(
+        week: str | None = None, limit: Annotated[int, Field(ge=1, le=10)] = 5
+    ) -> MotwCandidatesResult:
+        """Match of the Week candidates: the week's best fixtures in the Northeast pool
+        (Homegrown Northeast and Northeast PPP, Flex Empire/New England/Turnpike;
+        U15-U19; League and Flex), ranked by score (quality, closeness, stakes, form).
+        `week` is any YYYY-MM-DD date in the wanted Monday-Sunday week; default this
+        week (New York time). Each candidate carries "facts" with ids
+        ("<match_id>:<slug>") and the qualification "rules" its table feeds: cite a
+        fact id for every claim, and state a fact with confirmed=false only as
+        unconfirmed. "current_pick" is the week's existing pick: never replace it
+        without asking. "candidates" [] with "reason" means nothing eligible that
+        week; null with "error" means MT could not check. Always state "coverage"."""
+        _caller()
+        return await _run(lambda: suggest_from_deps(deps(), week, limit=limit), "suggest_motw_candidates")
 
     # --- my tier --------------------------------------------------------------
 
