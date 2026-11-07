@@ -92,6 +92,7 @@ async function mountWith(matches = [mkMatch()], onPatch = null) {
   const tournament = TOURNAMENT(matches);
   apiRequest.mockImplementation((url, options) => {
     if (url.includes('/api/seasons')) return Promise.resolve(SEASONS);
+    if (url.includes('/motd')) return Promise.resolve({ picks: [] });
     if (/\/api\/tournaments\/\d+/.test(url)) return Promise.resolve(tournament);
     if (url.includes('/api/tournaments')) return Promise.resolve([tournament]);
     if (/\/api\/matches\/\d+/.test(url) && onPatch)

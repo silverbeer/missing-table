@@ -40,6 +40,19 @@ export function parseDateOnly(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * `YYYY-MM-DD` for the viewer's local calendar day.
+ *
+ * `toISOString().slice(0, 10)` is UTC, which flips to tomorrow at 7–8pm on the
+ * US east coast — the exact hours a parent checks tomorrow's Fest schedule.
+ */
+export function localDateKey(now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 /** Local midnight at the start of whatever day `date` falls on. */
 export function startOfDay(date) {
   const d = new Date(date);

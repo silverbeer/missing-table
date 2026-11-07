@@ -88,6 +88,7 @@ async function mountWith(matches, laterMatches = null) {
   let served = 0;
   apiRequest.mockImplementation(url => {
     if (url.includes('/api/seasons')) return Promise.resolve(SEASONS);
+    if (url.includes('/motd')) return Promise.resolve({ picks: [] });
     if (/\/api\/tournaments\/\d+/.test(url)) {
       served += 1;
       const body = served > 1 && laterMatches ? laterMatches : matches;
@@ -105,8 +106,9 @@ async function mountWith(matches, laterMatches = null) {
 }
 
 const tournamentFetches = () =>
-  apiRequest.mock.calls.filter(([url]) => /\/api\/tournaments\/\d+/.test(url))
-    .length;
+  apiRequest.mock.calls.filter(
+    ([url]) => /\/api\/tournaments\/\d+/.test(url) && !url.includes('/motd')
+  ).length;
 
 const setHidden = value =>
   Object.defineProperty(document, 'hidden', { value, configurable: true });
