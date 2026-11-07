@@ -262,6 +262,8 @@ const props = defineProps({
   // this row could ask of someone standing on a touchline.
   saving: { type: Boolean, default: false },
   saveError: { type: String, default: '' },
+  // This match is a tournament Match of the Day (SB-1560).
+  isMotd: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['select', 'save']);
@@ -416,6 +418,9 @@ const kickoffLabel = computed(() =>
 
 const chips = computed(() => {
   const out = [];
+  if (props.isMotd) {
+    out.push({ key: 'motd', variant: 'motd', text: '◆ Match of the Day' });
+  }
   if (props.showAgeChip && props.match.age_group) {
     out.push({ key: 'age', variant: 'age', text: props.match.age_group.name });
   }

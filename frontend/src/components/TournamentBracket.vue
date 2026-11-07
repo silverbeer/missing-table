@@ -98,6 +98,9 @@ import { computed, h } from 'vue';
 
 const props = defineProps({
   matches: { type: Array, required: true },
+  // Match ids that are a tournament Match of the Day (SB-1560): ringed in
+  // amber so the pick is findable in the bracket, not only in the banner.
+  motdMatchIds: { type: Array, default: () => [] },
 });
 
 defineEmits(['match-click']);
@@ -333,14 +336,18 @@ const BracketCell = {
         );
       }
       const live = p.match.match_status === 'in_progress';
+      const motd = props.motdMatchIds.includes(p.match.id);
       return h(
         'button',
         {
           type: 'button',
           onClick: () => emit('click', p.match),
+          'data-motd': motd ? 'true' : 'false',
+          title: motd ? 'Match of the Day' : undefined,
           class: [
             'w-full text-left rounded-md border bg-card px-2 py-1.5 shadow-sm hover:border-brand-400 transition-colors',
             live ? 'border-brand-400 animate-pulse' : 'border-line',
+            motd ? 'ring-2 ring-amber-400 dark:ring-amber-500' : '',
           ],
         },
         [

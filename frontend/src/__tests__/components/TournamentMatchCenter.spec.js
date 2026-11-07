@@ -84,6 +84,7 @@ async function mountWith(tournament) {
   apiRequest.mockReset();
   apiRequest.mockImplementation(url => {
     if (url.includes('/api/seasons')) return Promise.resolve(SEASONS);
+    if (url.includes('/motd')) return Promise.resolve({ picks: [] });
     if (/\/api\/tournaments\/\d+/.test(url)) return Promise.resolve(tournament);
     if (url.includes('/api/tournaments')) return Promise.resolve([tournament]);
     return Promise.resolve(null);

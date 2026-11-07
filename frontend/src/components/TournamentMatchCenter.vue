@@ -148,6 +148,15 @@
               </div>
             </template>
           </TournamentHeroCard>
+          <!-- Tournament Match of the Day (SB-1560): today's pick only, in
+               every view. No pick renders nothing. -->
+          <TournamentMotdBanner
+            v-if="todayMotd"
+            :pick="todayMotd"
+            :live-match="todayMotdLiveMatch"
+            day-label="Today"
+            @select-match="viewMatch"
+          />
           <!-- Match loading -->
           <div v-if="matchesLoading" class="flex justify-center py-8">
             <div
@@ -297,6 +306,7 @@
                     :can-edit="canEditMatchRow(match)"
                     :saving="savingMatchId === match.id"
                     :save-error="saveErrorMatchId === match.id ? saveError : ''"
+                    :is-motd="motdMatchIds.includes(match.id)"
                     @select="viewMatch"
                     @save="saveScore"
                   />
@@ -383,6 +393,7 @@
 
             <TournamentBracket
               :matches="bracketMatches"
+              :motd-match-ids="motdMatchIds"
               @match-click="viewMatch"
             />
           </template>
@@ -485,12 +496,14 @@ import MatchDetailView from './MatchDetailView.vue';
 import ModalOverlay from './ui/ModalOverlay.vue';
 import TournamentHeroCard from './TournamentHeroCard.vue';
 import TournamentMatchRow from './TournamentMatchRow.vue';
+import TournamentMotdBanner from './TournamentMotdBanner.vue';
 import { useLiveRowSync } from '@/composables/useLiveRowSync';
 import { useBracketFollows } from '../composables/useBracketFollows';
 import { usePushNotifications } from '../composables/usePushNotifications';
 import {
   compareByStatus,
   groupMatchesByDay,
+  localDateKey,
   relativeDayLabel,
 } from '../utils/tournamentStatus';
 import { canEditMatch } from '../utils/matchPermissions';
@@ -525,6 +538,7 @@ export default {
     ModalOverlay,
     TournamentHeroCard,
     TournamentMatchRow,
+    TournamentMotdBanner,
   },
   setup() {
     const authStore = useAuthStore();
@@ -646,8 +660,44 @@ export default {
       }
     };
 
+    // ── Tournament Match of the Day (SB-1560) ──
+    // Picks are decoration on top of the schedule: a failed fetch leaves the
+    // page as it would be with no picks, never on an error path.
+    const motdPicks = ref([]);
+    const fetchMotd = async id => {
+      try {
+        const data = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/tournaments/${id}/motd`,
+          { method: 'GET' }
+        );
+        // A late answer for a tournament the visitor has already left.
+        if (selectedId.value !== id) return;
+        motdPicks.value = Array.isArray(data?.picks) ? data.picks : [];
+      } catch (err) {
+        console.error('Error fetching match of the day:', err);
+      }
+    };
+    const todayMotd = computed(
+      () =>
+        motdPicks.value.find(
+          p => String(p.match_date).slice(0, 10) === localDateKey()
+        ) || null
+    );
+    // The tournament payload's copy is kept current by realtime; the pick's
+    // embedded match is a snapshot from when it loaded.
+    const todayMotdLiveMatch = computed(() => {
+      const id = todayMotd.value?.match?.id;
+      if (id == null) return null;
+      return (selected.value?.matches ?? []).find(m => m.id === id) || null;
+    });
+    const motdMatchIds = computed(() =>
+      motdPicks.value.map(p => p.match?.id).filter(id => id != null)
+    );
+
     const selectTournament = async id => {
       selectedId.value = id;
+      motdPicks.value = [];
+      fetchMotd(id);
       matchesLoading.value = true;
       teamFilter.value = '';
       ageGroupFilter.value = null;
@@ -672,6 +722,7 @@ export default {
 
     const refreshSelected = async () => {
       if (selectedId.value == null) return;
+      fetchMotd(selectedId.value);
       try {
         const data = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/tournaments/${selectedId.value}`,
@@ -1206,6 +1257,9 @@ export default {
       listSections,
       stageLabel,
       selectTournament,
+      todayMotd,
+      todayMotdLiveMatch,
+      motdMatchIds,
       viewMode,
       hasBracketRounds,
       bracketAgeGroups,

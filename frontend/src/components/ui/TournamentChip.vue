@@ -30,7 +30,7 @@ const props = defineProps({
   variant: {
     type: String,
     default: 'group',
-    validator: v => ['age', 'round', 'group'].includes(v),
+    validator: v => ['age', 'round', 'group', 'motd'].includes(v),
   },
 });
 
@@ -42,6 +42,8 @@ const VARIANTS = {
     'bg-accent-100 text-accent-700 dark:bg-accent-800 dark:text-accent-100',
   // Pool / bracket group — the quietest of the three; neutral by design.
   group: 'bg-surface-alt text-fg-muted',
+  // Match of the Day (SB-1560) — amber, matching the banner it points back to.
+  motd: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100',
 };
 
 const variantClasses = computed(

@@ -39,7 +39,21 @@ They are separate tables on purpose: MOTW's global uniqueness and its pick ordin
   and Fest (Mesa, `America/Phoenix`) is 2–3 hours behind most viewers.
 - `reasons` is the "Why this is the Match of the Day" list: up to 6 items of
   `{text, kind}`. `null` means never provided; `[]` means provided and empty. The
-  frontend treats them differently (SB-1560).
+  distinction is kept in the data; on screen both render no "Why" list.
+
+### On the tournament page (SB-1560)
+
+`TournamentMatchCenter` fetches `GET /api/tournaments/{id}/motd` alongside the
+tournament, and again on each refresh. Picks are decoration: a failed fetch is
+logged and the page renders as if there were none.
+
+- **Banner** (`TournamentMotdBanner.vue`): today's pick only, where "today" is the
+  viewer's local date (`localDateKey`), shown above every view (list, bracket,
+  standings). No pick for today renders nothing — no placeholder. The score comes
+  from the tournament's own copy of the match, which realtime keeps current; an
+  unplayed match shows "vs", never 0–0.
+- **List**: every picked match (any day) carries an amber `◆ Match of the Day` chip.
+- **Bracket**: every picked match gets an amber ring.
 
 ## Picking by hand
 
