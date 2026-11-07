@@ -768,4 +768,56 @@ describe('MatchDetailView — penalty shootout', () => {
       false
     );
   });
+
+  // ===========================================================================
+  // TESTS: MATCH OF THE WEEK SECTION (SB-1577)
+  // ===========================================================================
+
+  describe('match of the week section (SB-1577)', () => {
+    const mountMotw = async props => {
+      const match = createMockMatch();
+      mockAuthStore.apiRequest = createMockApiRequestForMatch(match);
+      const wrapper = mountMatchDetailView({ props });
+      await flushPromises();
+      return wrapper;
+    };
+
+    it('renders nothing when the match is not the pick', async () => {
+      const w = await mountMotw({
+        isMotw: false,
+        motwBlurb: 'x',
+        motwReasons: [{ text: 'y' }],
+      });
+      expect(w.find('[data-testid="motw-detail"]').exists()).toBe(false);
+    });
+
+    it('renders nothing when the pick has no blurb and no reasons', async () => {
+      const w = await mountMotw({ isMotw: true, motwReasons: [] });
+      expect(w.find('[data-testid="motw-detail"]').exists()).toBe(false);
+    });
+
+    it('shows the blurb alone when reasons are null', async () => {
+      const w = await mountMotw({
+        isMotw: true,
+        motwBlurb: 'Top two collide',
+        motwReasons: null,
+      });
+      expect(w.find('[data-testid="motw-detail-blurb"]').text()).toBe(
+        'Top two collide'
+      );
+      expect(w.find('[data-testid="motw-reasons"]').exists()).toBe(false);
+    });
+
+    it('shows the reasons with their markers', async () => {
+      const w = await mountMotw({
+        isMotw: true,
+        motwReasons: [
+          { text: '1st vs 3rd', kind: 'standings' },
+          { text: 'Unbeaten', kind: 'form' },
+        ],
+      });
+      expect(w.find('[data-testid="motw-detail"]').exists()).toBe(true);
+      expect(w.findAll('[data-testid="motw-reason"]')).toHaveLength(2);
+    });
+  });
 });

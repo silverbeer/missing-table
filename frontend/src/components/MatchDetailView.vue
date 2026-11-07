@@ -597,6 +597,28 @@
 
         <!-- Right column: preview + lineup (expands to fill available space) -->
         <div class="mt-4 md:mt-0">
+          <!-- Match of the Week (SB-1577): the blurb and "Why" list follow the
+               pick from the hero, so "Preview" does not drop them. Nothing
+               renders when neither was written. -->
+          <section
+            v-if="isMotw && (motwBlurb || motwHasReasons)"
+            class="mb-4 rounded-lg border border-amber-300 dark:border-amber-700 border-l-4 border-l-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 sm:px-4 py-3 flex flex-col gap-2"
+            data-testid="motw-detail"
+          >
+            <span
+              class="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300"
+            >
+              <span aria-hidden="true">◆</span> Match of the Week
+            </span>
+            <p
+              v-if="motwBlurb"
+              class="m-0 text-sm text-fg"
+              data-testid="motw-detail-blurb"
+            >
+              {{ motwBlurb }}
+            </p>
+            <MotwReasons :reasons="motwReasons" />
+          </section>
           <!-- Match Preview (scheduled/tbd matches only) -->
           <div
             v-if="
@@ -791,6 +813,8 @@ import LineupManager from './live/LineupManager.vue';
 import PostMatchEditor from './PostMatchEditor.vue';
 import MatchPreview from './MatchPreview.vue';
 import IgShareModal from './IgShareModal.vue';
+import MotwReasons from './MotwReasons.vue';
+import { hasReasons } from '../utils/featuredReasons';
 import { roundLabel } from '../utils/tournamentRounds';
 
 export default {
@@ -800,6 +824,7 @@ export default {
     PostMatchEditor,
     MatchPreview,
     IgShareModal,
+    MotwReasons,
   },
   props: {
     matchId: {
@@ -830,6 +855,11 @@ export default {
     },
     motwBlurb: {
       type: String,
+      default: null,
+    },
+    // [{text, kind}] or null (SB-1577).
+    motwReasons: {
+      type: Array,
       default: null,
     },
     motwWeekNumber: {
@@ -1383,7 +1413,10 @@ export default {
       }
     };
 
+    const motwHasReasons = computed(() => hasReasons(props.motwReasons));
+
     return {
+      motwHasReasons,
       hasResult,
       hasShootout,
       kickoffClock,

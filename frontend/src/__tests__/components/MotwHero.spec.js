@@ -526,4 +526,52 @@ describe('MotwHero', () => {
       expect(wrapper.text()).not.toContain('Both unbeaten');
     });
   });
+
+  describe('editing reasons (SB-1577)', () => {
+    it('offers no reasons editor to non-admins', async () => {
+      const wrapper = await mountOpen({ reasons: [{ text: 'x' }] });
+      expect(wrapper.find('[data-testid="motw-reasons-edit"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('says "Add" when none exist and "Edit" when they do', async () => {
+      const none = await mountOpen({ canEdit: true, reasons: null });
+      expect(none.find('[data-testid="motw-reasons-edit"]').text()).toContain(
+        'Add reasons'
+      );
+      const some = await mountOpen({
+        canEdit: true,
+        reasons: [{ text: 'x' }],
+      });
+      expect(some.find('[data-testid="motw-reasons-edit"]').text()).toContain(
+        'Edit reasons'
+      );
+    });
+
+    it('opens the editor and emits save-reasons', async () => {
+      const wrapper = await mountOpen({
+        canEdit: true,
+        reasons: [{ text: 'Both unbeaten', kind: 'form' }],
+      });
+      await wrapper.find('[data-testid="motw-reasons-edit"]').trigger('click');
+      expect(wrapper.find('[data-testid="motw-reasons-editor"]').exists()).toBe(
+        true
+      );
+      await wrapper.find('[data-testid="motw-reasons-save"]').trigger('click');
+      expect(wrapper.emitted('save-reasons')[0][0]).toEqual([
+        { text: 'Both unbeaten', kind: 'form' },
+      ]);
+    });
+
+    it('closes the editor when the saved reasons arrive', async () => {
+      const wrapper = await mountOpen({ canEdit: true, reasons: null });
+      await wrapper.find('[data-testid="motw-reasons-edit"]').trigger('click');
+      await wrapper.setProps({ reasons: [{ text: 'new' }] });
+      expect(wrapper.find('[data-testid="motw-reasons-editor"]').exists()).toBe(
+        false
+      );
+      expect(wrapper.text()).toContain('new');
+    });
+  });
 });
