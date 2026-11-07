@@ -1,0 +1,186 @@
+# MLS NEXT qualification rules for the 2026–27 season (SB-1549).
+#
+# Encoded from the reviewed research (SB-1544, PR #733):
+#   docs/03-architecture/mls-next-qualification-facts.md          — the short answers
+#   docs/research/notes/mls-next-qualification-2026-27/sources.md — the claim table; `claims` ids point there
+#
+# Rules for agents reading this file (the MOTW agent, MT AI):
+#   - `confirmed: true` means an official 2026–27 source states it. Anything else
+#     may only be repeated as unconfirmed ("reportedly", "in past seasons").
+#   - `slots: null` means MLS has not said. Never 0, never worked out backwards
+#     from a total. The loader rejects 0.
+#   - `qualifies: false` records an event that is NOT a route, so nobody says it is.
+#   - `tier` is the MLS NEXT tier (Homegrown / Academy). It is not an MT "division":
+#     in MT a division is a conference.
+#   - `conference_kind` selects tables by kind, never by name: `league` (a Homegrown
+#     league conference such as Northeast), `flex` (an MT division in league "Flex",
+#     such as Turnpike), `ppp` (a "(Pro Player Pathway)" division). null = not a table.
+#
+# Change this file only from a cited source, and update the facts page with it.
+
+season: "2026-27"
+target: "MLS NEXT Cup 2027 (Cincinnati, Jun 5–13, 2027)"
+reviewed: "2026-11-06"
+
+rules:
+  - id: hg-flex-conference-bye-race
+    competition: "Flex conference regular season"
+    pathway: "MLS NEXT Cup first-round bye race"
+    tier: Homegrown
+    age_groups: [U15, U16, U17, U19]
+    conference_kind: flex
+    selector: {rank: 1}
+    slots: 4
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [FC1]
+    summary: >-
+      The 14 regular-season Flex Conference winners compete for a first-round bye at
+      MLS NEXT Cup: the top four in that table get the bye, the other ten enter the Cup
+      without one. How the bye table is built is not published.
+
+  - id: hg-flex-conference-winner-berth
+    competition: "Flex conference regular season"
+    pathway: "MLS NEXT Cup berth"
+    tier: Homegrown
+    age_groups: [U15, U16, U17, U19]
+    conference_kind: flex
+    selector: {rank: 1}
+    slots: null
+    confirmed: false
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [FC1, FC3, X4, OQ2]
+    summary: >-
+      Winning a Flex conference most likely is a Cup berth, earned before the Atlanta
+      event: inferred from "enter MLS NEXT Cup". MLS says 14 conferences; MissingTable
+      sees 13 per age group, so the count is left null.
+
+  - id: hg-flex-event-group-winner
+    competition: "MLS NEXT Flex (Atlanta, Apr 29–May 4, 2027)"
+    pathway: "MLS NEXT Cup berth"
+    tier: Homegrown
+    age_groups: [U15, U16, U17, U19]
+    conference_kind: null
+    selector: {group_winner: true}
+    slots: null
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [FX2, FX3, FX4, FX7]
+    summary: >-
+      Each group winner at MLS NEXT Flex automatically clinches an MLS NEXT Cup spot.
+      Groups of four, seeded on league results from September 2026 to March 2027. The
+      number of groups and who enters are not published.
+
+  - id: hg-league-play
+    competition: "Homegrown league play"
+    pathway: "MLS NEXT Cup berth"
+    tier: Homegrown
+    age_groups: [U15, U16, U17, U19]
+    conference_kind: league
+    selector: null
+    slots: null
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [C3, C4, NE22, OQ4]
+    summary: >-
+      "League play" is a named route into the 48-team Homegrown Cup field, but no cutoff,
+      conference allocation or slot count is published. Nothing ties a league-conference
+      finish (e.g. Northeast) to a Cup place.
+
+  - id: hg-pro-player-pathway
+    competition: "Pro Player Pathway competition"
+    pathway: "MLS NEXT Cup berth"
+    tier: Homegrown
+    age_groups: [U16, U17, U19]
+    conference_kind: ppp
+    selector: null
+    slots: null
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [P6, P7, P8]
+    summary: >-
+      The Pro Player Pathway competition (MLS club academies only) is a named Homegrown
+      Cup route; its slot count and format are not published. No PPP tables exist at U15.
+
+  - id: ad-league-play
+    competition: "Academy Division league play"
+    pathway: "MLS NEXT Cup berth"
+    tier: Academy
+    age_groups: [U13, U14, U15, U16, U17, U19]
+    conference_kind: league
+    selector: null
+    slots: 20
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [PI1, Q1]
+    summary: >-
+      20 places per age group through league play; U13 and U14 qualify on Quality of
+      Play standings instead of win-draw-loss tables.
+
+  - id: ad-cup-play-in
+    competition: "MLS NEXT Cup Play-In"
+    pathway: "MLS NEXT Cup berth"
+    tier: Academy
+    age_groups: [U13, U14, U15, U16, U17, U19]
+    conference_kind: null
+    selector: null
+    slots: 2
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [PI1, PI3, PI4]
+    summary: >-
+      Two places per age group through a new MLS NEXT Cup Play-In. Dates, venue, format
+      and eligibility are not published.
+
+  - id: ad-regional-qualifiers
+    competition: "MLS NEXT Cup Qualifiers (ten regional events)"
+    pathway: "MLS NEXT Cup berth"
+    tier: Academy
+    age_groups: [U13, U14, U15, U16, U17, U19]
+    conference_kind: null
+    selector: {event_winner: true}
+    slots: 10
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [PI1, PI6]
+    summary: "The winner of each of the ten regional Cup Qualifiers earns a berth."
+
+  - id: fest-not-a-route
+    competition: "MLS NEXT Fest (Mesa, Dec 2–13, 2026)"
+    pathway: "none"
+    tier: null
+    age_groups: [U13, U14, U15, U16, U17, U19]
+    conference_kind: null
+    selector: null
+    slots: null
+    qualifies: false
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [FE19]
+    summary: >-
+      Fest is a scouting and recruiting showcase, not an MLS NEXT Cup route for either
+      tier (confirmed by omission from the official route list).
+
+  - id: ga-cup-not-a-route
+    competition: "Generation adidas Cup (IMG Academy, Mar 25–Apr 2, 2027)"
+    pathway: "none"
+    tier: null
+    age_groups: [U15, U16, U17, U19]
+    conference_kind: null
+    selector: null
+    slots: null
+    qualifies: false
+    confirmed: true
+    source_url: "https://www.mlssoccer.com/mlsnext/news/mls-next-announces-key-dates-and-expanded-national-events-for-2026-27-season"
+    source_date: "2026-10-05"
+    claims: [GA5]
+    summary: "The Generation adidas Cup is not a route into MLS NEXT Cup."

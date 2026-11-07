@@ -1,6 +1,21 @@
 # MLS NEXT qualification — MissingTable data model & features
 
-Proposal from the 2026–27 qualification research (SB-1544). Facts it relies on: [mls-next-qualification-facts.md](mls-next-qualification-facts.md); full analysis: [mls-next-qualification-2026-27.md](mls-next-qualification-2026-27.md). Not yet built — see SB-1549 for the first slice (rules YAML).
+Proposal from the 2026–27 qualification research (SB-1544). Facts it relies on: [mls-next-qualification-facts.md](mls-next-qualification-facts.md); full analysis: [mls-next-qualification-2026-27.md](mls-next-qualification-2026-27.md). The first slice is built (SB-1549): the rules layer as a reviewed YAML file per season.
+
+## Built: qualification rules YAML (SB-1549)
+
+`backend/qualification_rules/<season>.yaml` (today `2026-27.yaml`), loaded and validated by
+`backend/mt_tools/qualification_rules.py`. One entry per route (or confirmed non-route, such as
+Fest): `id`, `competition`, `pathway`, `tier` (Homegrown/Academy — not an MT division),
+`age_groups`, `conference_kind` (`league`/`flex`/`ppp`, never a named conference), `selector`,
+`slots`, `qualifies`, `confirmed`, `source_url`, `source_date`, `claims` (ids in
+[sources.md](../research/notes/mls-next-qualification-2026-27/sources.md)), `summary`.
+
+The loader refuses: a confirmed rule without a source, `slots: 0` (unknown is `null`, never 0),
+duplicate ids, unknown age groups or keys. `RuleSet.applicable(age, kind)` lists the routes a table
+of that kind feeds — what the Match of the Week agent (SB-1550) may say is at stake. Inferred rules
+may only be repeated as unconfirmed. Change the YAML only from a cited source, together with the
+facts page.
 
 ## Proposed model: sourced, versioned rules where nulls stay null
 
