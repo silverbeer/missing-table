@@ -1495,6 +1495,18 @@ class MissingTableClient:
 
     # Tournament Match of the Day (SB-1559)
 
+    def get_motw(self, week_start: str | None = None) -> dict[str, Any]:
+        """The Match of the Week for the week containing ``week_start`` (default this week)."""
+        params = {"week_start": week_start} if week_start else None
+        return self._request("GET", "/api/motw", params=params).json()
+
+    def get_motw_candidates(self, week: str | None = None, limit: int = 5) -> dict[str, Any]:
+        """Ranked Match of the Week candidates for a week (admin, SB-1551)."""
+        params: dict[str, Any] = {"limit": limit}
+        if week:
+            params["week"] = week
+        return self._request("GET", "/api/admin/motw/candidates", params=params).json()
+
     def get_tournament_motd(self, tournament_id: int, date: str | None = None) -> dict[str, Any]:
         """One day's pick (``motd``, null when unpicked) or, without ``date``, every pick (``picks``)."""
         params = {"date": date} if date else None

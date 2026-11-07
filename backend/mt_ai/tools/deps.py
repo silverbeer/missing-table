@@ -63,6 +63,10 @@ class RosterSource(Protocol):
     def get_player_by_id(self, player_id: int) -> dict | None: ...
 
 
+class MotwSource(Protocol):
+    def get_for_week(self, week_start: str, *, include_test: bool = False) -> dict | None: ...
+
+
 class SeasonSource(Protocol):
     def get_current_season(self) -> dict | None: ...
 
@@ -81,6 +85,8 @@ class ToolDeps:
     live: LiveMatchSource | None = None
     events: MatchEventSource | None = None
     roster: RosterSource | None = None
+    # suggest_motw_candidates only (SB-1551): the week's pick and the recent ones.
+    motw: MotwSource | None = None
 
 
 def dao_tool_deps() -> ToolDeps:
@@ -90,6 +96,7 @@ def dao_tool_deps() -> ToolDeps:
     from dao.league_dao import LeagueDAO
     from dao.match_dao import MatchDAO, SupabaseConnection
     from dao.match_event_dao import MatchEventDAO
+    from dao.motw_dao import MotwDAO
     from dao.roster_dao import RosterDAO
     from dao.season_dao import SeasonDAO
     from dao.team_dao import TeamDAO
@@ -105,4 +112,5 @@ def dao_tool_deps() -> ToolDeps:
         live=matches,
         events=MatchEventDAO(conn),
         roster=RosterDAO(conn),
+        motw=MotwDAO(conn),
     )

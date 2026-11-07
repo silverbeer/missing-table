@@ -270,6 +270,7 @@ mt ingest resolve 1 --note "fixed at the sender"
 mt ai gaps --days 30                   # what MT AI could not answer (not_found/ambiguous), admin
 mt mcp headers                         # auth headers for Claude Code's mt-mcp connection (never run visibly)
 mt tournament motd set -T 12 -m 501 -r "why"  # tournament Match of the Day (SB-1559), admin
+mt motw suggest --week 2026-11-14 --facts      # ranked Match of the Week candidates (SB-1551), admin
 ```
 
 ### Login

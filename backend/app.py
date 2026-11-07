@@ -9087,6 +9087,28 @@ async def get_match_of_the_week(
         raise HTTPException(status_code=500, detail="Could not read match of the week") from e
 
 
+@app.get("/api/admin/motw/candidates")
+async def get_motw_candidates(
+    week: str | None = None,
+    limit: int = Query(5, ge=1, le=10),
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Ranked Match of the Week candidates for a week (SB-1551), as `mt motw suggest` shows them.
+
+    The same result as mt-mcp's suggest_motw_candidates: candidates with a score
+    breakdown, fact ids and the qualification rules each table feeds. An empty
+    week is 200 with `candidates: []` and a `reason`; a failed read is 503.
+    """
+    from mt_tools.motw_candidates import suggest_from_deps
+
+    result = await asyncio.to_thread(suggest_from_deps, _my_team_deps(), week, limit=limit)
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="Match of the Week candidates are unavailable right now")
+    return result.model_dump(mode="json")
+
+
 @app.get("/api/admin/coverage")
 async def get_competition_coverage(
     season_id: int | None = None,

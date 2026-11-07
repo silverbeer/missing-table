@@ -18,6 +18,7 @@ READ_TOOLS = {
     "get_live_match",
     "get_standings",
     "list_divisions",
+    "suggest_motw_candidates",
 }
 MY_TOOLS = {"get_my_team"}
 

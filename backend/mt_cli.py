@@ -68,6 +68,8 @@ ai_app = typer.Typer(help="MT AI: what it could not answer (admin)")
 app.add_typer(ai_app, name="ai")
 mcp_app = typer.Typer(help="mt-mcp: credentials for MCP clients such as Claude Code (SB-1304)")
 app.add_typer(mcp_app, name="mcp")
+motw_app = typer.Typer(help="Match of the Week: candidates and the current pick (admin)")
+app.add_typer(motw_app, name="motw")
 console = Console()
 
 
@@ -1331,6 +1333,58 @@ def tournament_motd_clear(
         console.print(f"[green]Cleared Match of the Day for {result.get('match_date')}[/green]")
     else:
         console.print(f"[yellow]Nothing was picked for {result.get('match_date')}.[/yellow]")
+
+
+def _motw_team(team: dict[str, Any]) -> str:
+    pos = team.get("position")
+    where = f"{pos}/{team.get('table_size')}" if pos else "no games"
+    return f"{team.get('name')} ({where})"
+
+
+@motw_app.command("suggest")
+def motw_suggest(
+    week: str = typer.Option(None, "--week", "-w", help="Any date (YYYY-MM-DD) in the week; default this week"),
+    limit: int = typer.Option(5, "--limit", "-n", min=1, max=10, help="How many candidates"),
+    facts: bool = typer.Option(False, "--facts", "-f", help="Show every fact id and text"),
+    as_json: bool = typer.Option(False, "--json", help="Print the raw result"),
+):
+    """Rank this week's Match of the Week candidates (SB-1551)."""
+    client, _ = get_client()
+    try:
+        result = client.get_motw_candidates(week, limit=limit)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+    if as_json:
+        console.print_json(data=result)
+        return
+    console.print(f"[bold]Week {result['week_start']} - {result['week_end']}[/bold]")
+    pick = result.get("current_pick")
+    if pick:
+        console.print(f"[yellow]Already picked: match #{pick['match_id']}. Candidates are for reference.[/yellow]")
+    cov = result.get("coverage") or {}
+    console.print(
+        f"[dim]{cov.get('eligible', 0)} eligible of {cov.get('fixtures_in_week', 0)} pool fixtures; "
+        f"{cov.get('teams_low_sample', 0)} teams with under 3 games; rules {cov.get('rules_season') or 'none'}[/dim]"
+    )
+    candidates = result.get("candidates") or []
+    if not candidates:
+        console.print(f"[yellow]{result.get('reason') or 'No candidates.'}[/yellow]")
+        return
+    for rank, c in enumerate(candidates, start=1):
+        s = c["score"]
+        console.print(
+            f"\n[bold]#{rank}[/bold] {s['total']:.3f}  match #{c['match_id']}  {c['match_date']}  "
+            f"{c['age_group']['name']} {c['division']['name']} ({c['competition']})"
+        )
+        console.print(f"   {_motw_team(c['home'])} vs {_motw_team(c['away'])}")
+        console.print(
+            f"   [dim]quality {s['quality']}  closeness {s['closeness']}  stakes {s['stakes']}  "
+            f"form {s['form']}  x{s['penalty']}  {' '.join(c.get('flags') or [])}[/dim]"
+        )
+        if facts:
+            for fact in c.get("facts") or []:
+                console.print(f"   [cyan]{fact['id']}[/cyan] {fact['text']}")
 
 
 @tournament_app.command("score")

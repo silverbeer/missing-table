@@ -844,3 +844,18 @@ def _date(value: Any) -> date:
     if isinstance(value, date):
         return value
     return date.fromisoformat(str(value)[:10])
+
+
+def suggest_from_deps(
+    deps: ToolDeps, week: str | None = None, *, limit: int = 5, now: datetime | None = None
+) -> MotwCandidatesResult:
+    """`suggest_motw_candidates` reading the picks from `deps.motw` (mt-mcp, the API)."""
+    motw = deps.motw
+    if motw is None:
+        start, end = week_bounds(None, (now or datetime.now(UTC)).astimezone(POOL_TIMEZONE).date())
+        return MotwCandidatesResult(
+            week_start=start,
+            week_end=end,
+            error=ToolError(kind="unavailable", message="MOTW candidates are unavailable right now."),
+        )
+    return suggest_motw_candidates(deps, week, picks=lambda w: motw.get_for_week(w), limit=limit, now=now)
