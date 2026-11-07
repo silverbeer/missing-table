@@ -40,7 +40,14 @@ They are separate tables on purpose: MOTW's global uniqueness and its pick ordin
   or an admin wrote. Picking a *different* match for the week clears them: another
   match's reasons are wrong for this one. Send `reasons: null` to clear explicitly.
 - `MotwHero` shows the reasons under the blurb as "Why this is the Match of the Week",
-  only once the strip is opened.
+  only once the strip is opened. The same list (`MotwReasons.vue`) shows on the match
+  detail page when that match is the pick, so "Preview" keeps it (SB-1577).
+- **Kinds** (`utils/featuredReasons.js`): `standings` 📊, `form` 🔥, `stakes` 🏆,
+  `rivalry` ⚔️, `storyline` 📖. `kind` is free text on the API, so an unknown kind
+  gets the default ▸ marker rather than an error.
+- **Admins edit reasons in place** (`MotwReasonsEditor.vue`): add, remove, reorder,
+  max 6, 200 chars each. Save re-POSTs `{match_id, blurb, reasons}` — the blurb rides
+  along, since omitting it would clear it. Removing every row saves `[]`, not `null`.
 
 ## Match of the Day specifics
 

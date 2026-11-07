@@ -7,6 +7,7 @@
       :auto-open-share="detailAutoShare"
       :is-motw="isMotw({ id: selectedMatchId })"
       :motw-blurb="motw && motw.blurb"
+      :motw-reasons="motw ? (motw.reasons ?? null) : null"
       :motw-week-number="motw && motw.pick_number"
       @back="handleBackFromDetail"
     />
@@ -292,6 +293,7 @@
                 @preview="viewMatch"
                 @share="shareMotw"
                 @save-blurb="saveMotwBlurb"
+                @save-reasons="saveMotwReasons"
               />
               <!--
                 No pick this week. Admins get the nudge; everyone else gets
@@ -2132,6 +2134,32 @@ export default {
       }
     };
 
+    // SB-1577. The POST replaces the whole pick, so the current blurb rides
+    // along — leaving it out would clear it.
+    const saveMotwReasons = async reasons => {
+      if (!motw.value) return;
+      motwSaving.value = true;
+      try {
+        const result = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/admin/motw`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              match_id: motw.value.match.id,
+              blurb: motw.value.blurb ?? null,
+              reasons,
+            }),
+          }
+        );
+        motw.value = result || motw.value;
+      } catch (err) {
+        console.error('Error saving match of the week reasons:', err);
+      } finally {
+        motwSaving.value = false;
+      }
+    };
+
     const shareMotw = match => {
       detailAutoShare.value = true;
       selectedMatchId.value = match.id;
@@ -2493,6 +2521,7 @@ export default {
       motwLoading,
       motwSaving,
       saveMotwBlurb,
+      saveMotwReasons,
       isMotw,
       toggleMotw,
       shareMotw,

@@ -198,23 +198,28 @@
       </template>
 
       <!--
-        "Why this is the Match of the Week" (SB-1552). null (never written) and
-        [] (written, empty) both render nothing: no heading over an empty list.
+        "Why this is the Match of the Week" (SB-1552, SB-1577). Admins edit it
+        in place, like the blurb; everyone else sees the list or nothing.
       -->
-      <div v-if="hasReasons" class="motw-reasons" data-testid="motw-reasons">
-        <h3 class="motw-reasons-title">Why this is the Match of the Week</h3>
-        <ul class="motw-reasons-list">
-          <li
-            v-for="(reason, i) in reasons"
-            :key="i"
-            class="motw-reason"
-            data-testid="motw-reason"
-          >
-            <span class="motw-reason-mark" aria-hidden="true">▸</span>
-            <span>{{ reason.text }}</span>
-          </li>
-        </ul>
-      </div>
+      <MotwReasonsEditor
+        v-if="editingReasons"
+        :reasons="reasons"
+        :saving="saving"
+        @save="$emit('save-reasons', $event)"
+        @cancel="editingReasons = false"
+      />
+      <template v-else>
+        <MotwReasons :reasons="reasons" />
+        <button
+          v-if="canEdit"
+          type="button"
+          class="motw-blurb-add"
+          data-testid="motw-reasons-edit"
+          @click="editingReasons = true"
+        >
+          {{ hasReasons ? 'Edit reasons' : '+ Add reasons' }}
+        </button>
+      </template>
 
       <div class="motw-actions">
         <button
@@ -242,6 +247,9 @@
 <script>
 import { computed, nextTick, ref, watch } from 'vue';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
+import MotwReasons from '@/components/MotwReasons.vue';
+import MotwReasonsEditor from '@/components/MotwReasonsEditor.vue';
+import { hasReasons as reasonsPresent } from '@/utils/featuredReasons';
 
 // Matches the API's own cap (MotwPick.blurb), so the textarea stops where
 // the server would have rejected rather than after it.
@@ -252,7 +260,7 @@ const HOUR = 60 * 60 * 1000;
 
 export default {
   name: 'MotwHero',
-  components: { ClubLogo },
+  components: { ClubLogo, MotwReasons, MotwReasonsEditor },
   props: {
     match: { type: Object, required: true },
     blurb: { type: String, default: null },
@@ -265,7 +273,7 @@ export default {
     canEdit: { type: Boolean, default: false },
     saving: { type: Boolean, default: false },
   },
-  emits: ['preview', 'share', 'save-blurb'],
+  emits: ['preview', 'share', 'save-blurb', 'save-reasons'],
   setup(props, { emit }) {
     const expanded = ref(false);
 
@@ -411,12 +419,21 @@ export default {
       return 'Reveal this week’s pick';
     });
 
-    const hasReasons = computed(
-      () => Array.isArray(props.reasons) && props.reasons.length > 0
+    const hasReasons = computed(() => reasonsPresent(props.reasons));
+
+    // Same contract as the blurb: the save lands as a new prop and the editor
+    // closes; a failed save leaves it open with the rows intact.
+    const editingReasons = ref(false);
+    watch(
+      () => props.reasons,
+      () => {
+        if (editingReasons.value && !props.saving) editingReasons.value = false;
+      }
     );
 
     return {
       hasReasons,
+      editingReasons,
       expanded,
       teaser,
       BLURB_MAX,
@@ -662,47 +679,6 @@ export default {
   line-height: 22px;
   color: rgb(var(--color-fg));
   max-width: 62ch;
-}
-
-/* --- why this is the match of the week (SB-1552) ------------------- */
-
-.motw-reasons {
-  max-width: 62ch;
-}
-
-.motw-reasons-title {
-  margin: 0 0 4px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #b45309;
-}
-
-:global(.dark .motw-reasons-title) {
-  color: #f59e0b;
-}
-
-.motw-reasons-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.motw-reason {
-  display: flex;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 20px;
-  color: rgb(var(--color-fg));
-}
-
-.motw-reason-mark {
-  flex-shrink: 0;
-  color: #f59e0b;
 }
 
 .motw-actions {
