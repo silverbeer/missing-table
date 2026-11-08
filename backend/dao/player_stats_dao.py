@@ -273,7 +273,7 @@ class PlayerStatsDAO(BaseDAO):
         league_id: int | None = None,
         division_id: int | None = None,
         age_group_id: int | None = None,
-        match_type_id: int | None = None,
+        match_type_id: int | list[int] | None = None,
         tournament_id: int | None = None,
         limit: int = 50,
         include_test: bool = False,
@@ -286,7 +286,8 @@ class PlayerStatsDAO(BaseDAO):
             league_id: Optional league filter
             division_id: Optional division filter
             age_group_id: Optional age group filter
-            match_type_id: Optional match type filter (e.g. 4 for Playoff)
+            match_type_id: Optional match type filter (e.g. 4 for Playoff). A list
+                totals several types, e.g. League + Flex (SB-1594).
             tournament_id: Optional specific tournament filter (matches.tournament_id)
             limit: Maximum results (default 50)
 
@@ -353,7 +354,9 @@ class PlayerStatsDAO(BaseDAO):
             if not include_test:
                 stats = [s for s in stats if not s.get("match", {}).get("is_test")]
             if match_type_id is not None:
-                stats = [s for s in stats if s.get("match", {}).get("match_type_id") == match_type_id]
+                wanted = {match_type_id} if isinstance(match_type_id, int) else set(match_type_id)
+                if wanted:
+                    stats = [s for s in stats if s.get("match", {}).get("match_type_id") in wanted]
             if tournament_id is not None:
                 stats = [s for s in stats if s.get("match", {}).get("tournament_id") == tournament_id]
             if league_id is not None:

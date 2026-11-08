@@ -5291,7 +5291,11 @@ async def get_goals_leaderboard(
     league_id: int | None = Query(None, description="Filter by league ID"),
     division_id: int | None = Query(None, description="Filter by division ID"),
     age_group_id: int | None = Query(None, description="Filter by age group ID"),
-    match_type_id: int | None = Query(None, description="Filter by match type ID (e.g. 4 for Playoff)"),
+    # Repeatable (SB-1594): ?match_type_id=1&match_type_id=2 totals League +
+    # Flex. A single value behaves exactly as before.
+    match_type_id: list[int] | None = Query(
+        None, description="Filter by match type ID (e.g. 4 for Playoff); repeat to combine types"
+    ),
     tournament_id: int | None = Query(None, description="Filter by specific tournament ID"),
     limit: int = Query(50, description="Maximum results", ge=1, le=100),
 ):
