@@ -183,6 +183,24 @@ Fixing it moved 2025-2026 League from 1177 counted matches to 1265, and left
 2026-2027 Northeast League at 190 — unchanged, because there every match's
 teams were already recorded under the division they played in.
 
+## Guests: in the fixtures, not in the table
+
+Pro Academy teams can play a Flex conference's fixtures without being members of
+it (SB-1598). The official U15 New England Flex table has no CF Montreal row, but
+every other team's line includes its match against them. So a guest loses its
+row and its opponents keep the result.
+
+`division_guests` holds one row per team, division, age group and season. It is
+the only lever that does this:
+
+- `team_mappings` does not decide who gets a row, and ingest writes it (SB-852).
+- Deleting or re-filing the matches takes the opponents' results with them.
+
+Set it with `mt team guest add "CF Montreal" -a U15 -d "New England" -r "why"`.
+`--league` defaults to Flex because division names repeat across leagues: "New
+England" is also an Academy conference. A guest still appears on schedules and
+in every other table it plays in.
+
 ## How the combined table is built
 
 The obvious implementation still does not work: a team's Flex matches carry the

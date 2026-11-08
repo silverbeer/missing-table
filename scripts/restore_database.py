@@ -143,6 +143,7 @@ RESTORATION_ORDER = [
     "team_mappings",
     "team_match_types",
     "team_aliases",
+    "division_guests",  # teams, divisions, age_groups, seasons
     "qop_snapshots",  # divisions, age_groups
     "qop_rankings",  # qop_snapshots, teams
     # 4. Team management

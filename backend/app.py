@@ -54,6 +54,7 @@ from models import (
     BulkRosterCreate,
     Club,
     DivisionCreate,
+    DivisionGuestCreate,
     DivisionUpdate,
     EnhancedMatch,
     ForfeitMatchRequest,
@@ -6072,6 +6073,51 @@ async def delete_team_mapping(
     except Exception as e:
         logger.error(f"Error deleting team mapping: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# Division guests: teams with no row in a table they play fixtures in (SB-1598)
+@app.get("/api/admin/division-guests")
+async def list_division_guests(
+    season_id: int | None = None,
+    age_group_id: int | None = None,
+    division_id: int | None = None,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """List guests, narrowed by whichever filters are given. None is an empty list."""
+    try:
+        return match_dao.list_division_guests(season_id, age_group_id, division_id)
+    except Exception as e:
+        logger.error(f"Error listing division guests: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not list division guests") from e
+
+
+@app.post("/api/admin/division-guests")
+async def add_division_guest(
+    guest: DivisionGuestCreate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Hide a team from one table. Its matches still count for its opponents."""
+    try:
+        return match_dao.add_division_guest(**guest.model_dump(), created_by=current_user.get("user_id"))
+    except Exception as e:
+        logger.error(f"Error adding division guest: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not add division guest") from e
+
+
+@app.delete("/api/admin/division-guests/{guest_id}")
+async def remove_division_guest(
+    guest_id: int,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Give a team its row back."""
+    try:
+        removed = match_dao.remove_division_guest(guest_id)
+    except Exception as e:
+        logger.error(f"Error removing division guest: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not remove division guest") from e
+    if not removed:
+        raise HTTPException(status_code=404, detail="Division guest not found")
+    return {"message": "Division guest removed"}
 
 
 # === Match-Scraper Integration Endpoints ===

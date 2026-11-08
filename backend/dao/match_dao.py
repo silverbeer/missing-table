@@ -1485,11 +1485,17 @@ class MatchDAO(BaseDAO):
             # not, so an empty table can say "16 fixtures, none played yet"
             # rather than show a bare header (SB-1043).
             if not combined:
+                # Everyone who played gets a row unless the table has guests:
+                # they lose the row, their opponents keep the result (SB-1598).
+                only_team_ids = None
                 if division_id:
                     fixtures = filter_matches_in_division(fixtures, division_id)
                     matches = filter_matches_in_division(matches, division_id)
+                    guests = self._guest_team_ids(season_id, age_group_id, division_id)
+                    if guests:
+                        only_team_ids = teams_in_division(fixtures, division_id) - guests
                 return {
-                    "standings": calculate_standings_with_extras(matches),
+                    "standings": calculate_standings_with_extras(matches, only_team_ids),
                     "coverage": self._coverage(match_type, names, matches, None, len(fixtures)),
                 }
 
@@ -1505,7 +1511,9 @@ class MatchDAO(BaseDAO):
             # comes from every fixture filed to the division, so a team with
             # only scheduled matches is still in the table it is registered
             # to — it has no row yet, but its fixtures count.
-            roster = teams_in_division(fixtures, division_id)
+            roster = teams_in_division(fixtures, division_id) - self._guest_team_ids(
+                season_id, age_group_id, division_id
+            )
             counted = filter_matches_involving(matches, roster)
             scheduled = filter_matches_involving(fixtures, roster)
 
@@ -1852,6 +1860,84 @@ class MatchDAO(BaseDAO):
         response = query.execute()
         return response.data
 
+    # === Division Guests (SB-1598) ===
+
+    def _guest_team_ids(self, season_id: int | None, age_group_id: int | None, division_id: int | None) -> set[int]:
+        """Teams that get no row in this table.
+
+        A guest is per table, so a query that is not for one table has none.
+        A failed read returns none too: a backend deployed ahead of the
+        migration, or a blip here, must still serve standings.
+        """
+        if not (season_id and age_group_id and division_id):
+            return set()
+        try:
+            response = (
+                self.client.table("division_guests")
+                .select("team_id")
+                .eq("season_id", season_id)
+                .eq("age_group_id", age_group_id)
+                .eq("division_id", division_id)
+                .execute()
+            )
+        except Exception:
+            logger.warning("could not read division guests", exc_info=True)
+            return set()
+        return {row["team_id"] for row in response.data or []}
+
+    def list_division_guests(
+        self,
+        season_id: int | None = None,
+        age_group_id: int | None = None,
+        division_id: int | None = None,
+    ) -> list[dict]:
+        """Guests with the names needed to read them, narrowed by what is given."""
+        query = self.client.table("division_guests").select(
+            "*, team:teams(id, name), division:divisions(id, name, leagues!divisions_league_id_fkey(name)),"
+            " age_group:age_groups(id, name), season:seasons(id, name)"
+        )
+        if season_id:
+            query = query.eq("season_id", season_id)
+        if age_group_id:
+            query = query.eq("age_group_id", age_group_id)
+        if division_id:
+            query = query.eq("division_id", division_id)
+        return query.order("id").execute().data or []
+
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    def add_division_guest(
+        self,
+        team_id: int,
+        division_id: int,
+        age_group_id: int,
+        season_id: int,
+        reason: str,
+        created_by: str | None = None,
+    ) -> dict:
+        """Hide a team from one table. Adding it twice updates the reason."""
+        response = (
+            self.client.table("division_guests")
+            .upsert(
+                {
+                    "team_id": team_id,
+                    "division_id": division_id,
+                    "age_group_id": age_group_id,
+                    "season_id": season_id,
+                    "reason": reason,
+                    "created_by": created_by,
+                },
+                on_conflict="team_id,division_id,age_group_id,season_id",
+            )
+            .execute()
+        )
+        return response.data[0]
+
+    @invalidates_cache(MATCHES_CACHE_PATTERN)
+    def remove_division_guest(self, guest_id: int) -> bool:
+        """Give a team its row back. False when there was no such guest."""
+        response = self.client.table("division_guests").delete().eq("id", guest_id).execute()
+        return bool(response.data)
+
     # === Live Match Methods ===
 
     def get_live_matches(self, include_test: bool = False, live_scored_only: bool = True) -> list[dict]:
@@ -2053,13 +2139,7 @@ class MatchDAO(BaseDAO):
                 # both lets the derived clock resume as (now - kickoff_time),
                 # the real game time since kickoff, including the time spent
                 # mistakenly on the later clock.
-                current = (
-                    self.client.table("matches")
-                    .select("halftime_start")
-                    .eq("id", match_id)
-                    .single()
-                    .execute()
-                )
+                current = self.client.table("matches").select("halftime_start").eq("id", match_id).single().execute()
                 if not current.data:
                     logger.warning("cancel_halftime rejected - match not found", match_id=match_id)
                     return None
