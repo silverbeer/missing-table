@@ -2,7 +2,7 @@
 Team-related Pydantic models.
 """
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class Team(BaseModel):
@@ -46,3 +46,13 @@ class TeamMappingCreate(BaseModel):
     team_id: int
     age_group_id: int
     division_id: int
+
+
+class DivisionGuestCreate(BaseModel):
+    """A team that gets no row in one table (SB-1598)."""
+
+    team_id: int
+    division_id: int
+    age_group_id: int
+    season_id: int
+    reason: str = Field(min_length=1)

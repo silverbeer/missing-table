@@ -94,7 +94,7 @@ from .roster import (
 from .seasons import AgeGroupCreate, AgeGroupUpdate, SeasonCreate, SeasonUpdate
 
 # Team models
-from .teams import Team, TeamMappingCreate, TeamMatchTypeMapping, TeamUpdate
+from .teams import DivisionGuestCreate, Team, TeamMappingCreate, TeamMatchTypeMapping, TeamUpdate
 
 # Note: MatchData has Pydantic compatibility issues, import directly if needed
 # from .match_data import MatchData
@@ -115,6 +115,7 @@ __all__ = [
     "ClubData",
     "ClubWithTeams",
     "DivisionCreate",
+    "DivisionGuestCreate",
     "DivisionUpdate",
     "EnhancedMatch",
     "ForfeitMatchRequest",

@@ -1234,6 +1234,38 @@ class MissingTableClient:
         response = self._request("DELETE", f"/api/team-mappings/{team_id}/{age_group_id}/{division_id}")
         return response.json()
 
+    # Division guests (SB-1598)
+
+    def list_division_guests(self, season_id: int, age_group_id: int | None = None) -> list[dict[str, Any]]:
+        """Teams hidden from a table this season."""
+        params: dict[str, Any] = {"season_id": season_id}
+        if age_group_id:
+            params["age_group_id"] = age_group_id
+        response = self._request("GET", "/api/admin/division-guests", params=params)
+        return response.json()
+
+    def add_division_guest(
+        self, team_id: int, division_id: int, age_group_id: int, season_id: int, reason: str
+    ) -> dict[str, Any]:
+        """Hide a team from one table; its matches still count for opponents."""
+        response = self._request(
+            "POST",
+            "/api/admin/division-guests",
+            json_data={
+                "team_id": team_id,
+                "division_id": division_id,
+                "age_group_id": age_group_id,
+                "season_id": season_id,
+                "reason": reason,
+            },
+        )
+        return response.json()
+
+    def remove_division_guest(self, guest_id: int) -> dict[str, Any]:
+        """Give a team its table row back."""
+        response = self._request("DELETE", f"/api/admin/division-guests/{guest_id}")
+        return response.json()
+
     # Club logo
 
     def upload_club_logo(self, club_id: int, file_path: str) -> dict[str, Any]:

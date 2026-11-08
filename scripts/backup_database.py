@@ -115,6 +115,7 @@ TABLES_TO_BACKUP = [
     "team_mappings",
     "team_match_types",
     "team_aliases",
+    "division_guests",  # SB-1598; depends on teams, divisions, age_groups, seasons
     # QoP ranking history (SB-1071): snapshots are dated, so a lost one
     # cannot be scraped again
     "qop_snapshots",
@@ -469,7 +470,9 @@ def collect_tables(tables: list[str]) -> tuple[dict, dict[str, str], list[str]]:
         except Exception as error:
             if name != AUTH_USERS_KEY and is_absent_table(error):
                 absent.append(name)
-                print(f"  ⚠ {name}: not in this database yet (migration not applied) — skipped")
+                print(
+                    f"  ⚠ {name}: not in this database yet (migration not applied) — skipped"
+                )
                 continue
             failures[name] = describe_error(error)
             print(f"  ✗ {name}: {failures[name]}")
@@ -711,7 +714,9 @@ def create_backup(backup_dir: Path | None = None) -> Path:
     }
     backup_data["backup_info"]["row_counts"] = row_counts(backup_data)
 
-    problems = validate_backup(backup_data, [t for t in TABLES_TO_BACKUP if t not in absent])
+    problems = validate_backup(
+        backup_data, [t for t in TABLES_TO_BACKUP if t not in absent]
+    )
     if problems:
         raise BackupError(
             "Backup is incomplete:\n" + "\n".join(f"  - {p}" for p in problems)

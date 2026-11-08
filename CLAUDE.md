@@ -265,6 +265,7 @@ mt search --age U15 --days 30
 mt match start 1053                    # live scoring: goal, message, halftime, end
 mt team mapping list "NEFC"            # which age groups a team is registered in
 mt team mapping add "NEFC" -a U16 -d Northeast
+mt team guest add "CF Montreal" -a U15 -d "New England" -r "why"  # no table row, results still count (SB-1598), admin
 mt ingest failures                     # what the scraper could not resolve
 mt ingest resolve 1 --note "fixed at the sender"
 mt ai gaps --days 30                   # what MT AI could not answer (not_found/ambiguous), admin
