@@ -390,7 +390,7 @@
         </div>
       </div>
     </div>
-    <LiveUpdatesSection />
+    <TeamChannelsCard />
   </div>
 </template>
 
@@ -400,11 +400,11 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import { hasAnyRole } from '../../utils/roles';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
-import LiveUpdatesSection from './LiveUpdatesSection.vue';
+import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
 
 export default {
   name: 'FanProfile',
-  components: { LiveUpdatesTeaser, LiveUpdatesSection },
+  components: { LiveUpdatesTeaser, TeamChannelsCard },
   emits: ['logout', 'navigate'],
   setup(props, { emit }) {
     const authStore = useAuthStore();

@@ -81,6 +81,45 @@ def world():
     client.table("teams").delete().eq("id", team["id"]).execute()
 
 
+@pytest.fixture
+def isolated(world):
+    """Like `world`, but in a club of its own, so parallel tests cannot add channels to it.
+
+    Only for tests that never need the fan's stored profile (no manager decisions).
+    """
+    from dao.club_dao import ClubDAO
+
+    conn = SupabaseConnection()
+    client = conn.get_client()
+    club = ClubDAO(conn).create_club(name=f"ChanIso-{uuid.uuid4().hex[:8]}", city="Boston")
+    team = (
+        client.table("teams")
+        .insert({"name": f"ChanIso-{uuid.uuid4().hex[:8]}", "city": "Boston", "club_id": club["id"]})
+        .execute()
+        .data[0]
+    )
+    u15 = client.table("age_groups").select("id").eq("name", "U15").execute().data[0]["id"]
+    created: list[int] = []
+
+    def channel(scope="team", audience="fans", invite_url=INVITE):
+        row = {"platform": "discord", "destination": f"{DISCORD}{uuid.uuid4().hex}", "audience": audience}
+        if scope == "team":
+            row |= {"scope_type": "team", "team_id": team["id"], "age_group_id": u15}
+        else:
+            row |= {"scope_type": "club", "club_id": club["id"]}
+        if invite_url:
+            row["invite_url"] = invite_url
+        cid = client.table("notification_channels").insert(row).execute().data[0]["id"]
+        created.append(cid)
+        return cid
+
+    yield {"team": team["id"], "channel": channel, "fan": {**world["fan"], "club_id": club["id"]}}
+    for cid in created:
+        client.table("notification_channels").delete().eq("id", cid).execute()
+    client.table("teams").delete().eq("id", team["id"]).execute()
+    ClubDAO(conn).delete_club(club["id"])
+
+
 def available(w, who="fan"):
     with as_user(w[who]) as c:
         r = c.get(f"/api/teams/{w['team']}/channels/available")
@@ -89,23 +128,23 @@ def available(w, who="fan"):
 
 
 class TestStates:
-    def test_team_with_no_channels_is_empty(self, world):
-        assert available(world) == {}
+    def test_team_with_no_channels_is_empty(self, isolated):
+        assert available(isolated) == {}
 
-    def test_unknown_team_is_empty(self, world):
-        with as_user(world["fan"]) as c:
+    def test_unknown_team_is_empty(self, isolated):
+        with as_user(isolated["fan"]) as c:
             r = c.get("/api/teams/999999999/channels/available")
         assert (r.status_code, r.json()) == (200, [])
 
-    def test_channels_without_an_invite_link_are_not_listed(self, world):
-        world["channel"](invite_url=None)
-        assert available(world) == {}
+    def test_channels_without_an_invite_link_are_not_listed(self, isolated):
+        isolated["channel"](invite_url=None)
+        assert available(isolated) == {}
 
-    def test_populated(self, world):
-        club = world["channel"]("club")
-        squad = world["channel"]()
-        players = world["channel"](audience="players")
-        seen = available(world)
+    def test_populated(self, isolated):
+        club = isolated["channel"]("club")
+        squad = isolated["channel"]()
+        players = isolated["channel"](audience="players")
+        seen = available(isolated)
         assert seen[club]["state"] == "can_join"
         assert seen[squad]["state"] == "can_request"
         assert players not in seen
@@ -201,3 +240,40 @@ def test_channel_api_rejects_a_public_invite_link(world):
     }
     with as_user(admin) as c:
         assert c.post("/api/notification-channels", json=body).status_code == 422
+
+
+class TestMyChannels:
+    """The profile card's endpoint (SB-1609)."""
+
+    def test_no_team_or_club(self, world):
+        nobody = {**world["fan"], "club_id": None, "team_id": None}
+        with as_user(nobody) as c:
+            body = c.get("/api/me/channels").json()
+        assert body == {"channels": [], "has_team": False, "managed": None, "can_manage": False}
+
+    def test_club_only_fan_sees_club_channel(self, world):
+        club = world["channel"]("club")
+        with as_user(world["fan"]) as c:
+            body = c.get("/api/me/channels").json()
+        assert body["has_team"] is True
+        assert [ch["id"] for ch in body["channels"] if ch["id"] == club] == [club]
+
+    def test_unclaimed_team(self, world):
+        from dao.club_dao import ClubDAO
+
+        conn = SupabaseConnection()
+        club = ClubDAO(conn).create_club(name=f"Unclaimed-{uuid.uuid4().hex[:8]}", city="Boston")
+        client = conn.get_client()
+        team = client.table("teams").insert({"name": f"U-{uuid.uuid4().hex[:8]}", "city": "Boston", "club_id": club["id"]}).execute().data[0]
+        try:
+            with as_user(world["fan"]) as c:
+                body = c.get("/api/me/channels", params={"team_id": team["id"]}).json()
+            assert body == {"channels": [], "has_team": True, "managed": False, "can_manage": False}
+        finally:
+            client.table("teams").delete().eq("id", team["id"]).execute()
+            ClubDAO(conn).delete_club(club["id"])
+
+    def test_team_manager_can_manage_their_team(self, world):
+        with as_user(world["manager"]) as c:
+            body = c.get("/api/me/channels", params={"team_id": world["team"]}).json()
+        assert body["can_manage"] is True

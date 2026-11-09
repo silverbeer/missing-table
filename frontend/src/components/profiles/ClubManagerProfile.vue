@@ -175,7 +175,7 @@
       <ClubNotificationChannels :club-id="club.id" />
     </div>
 
-    <LiveUpdatesSection />
+    <TeamChannelsCard />
   </div>
 </template>
 
@@ -184,14 +184,14 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
-import LiveUpdatesSection from './LiveUpdatesSection.vue';
+import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
 import ClubNotificationChannels from '@/components/notifications/ClubNotificationChannels.vue';
 
 export default {
   name: 'ClubManagerProfile',
   components: {
     LiveUpdatesTeaser,
-    LiveUpdatesSection,
+    TeamChannelsCard,
     ClubNotificationChannels,
   },
   emits: ['switch-tab'],

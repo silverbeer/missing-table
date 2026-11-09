@@ -407,7 +407,7 @@
       <p>Contact a team manager or administrator to get assigned to a team.</p>
     </div>
 
-    <LiveUpdatesSection />
+    <TeamChannelsCard />
   </div>
 </template>
 
@@ -418,7 +418,7 @@ import PlayerProfileEditor from './PlayerProfileEditor.vue';
 import { getApiBaseUrl } from '../../config/api';
 import ClubLogo from '@/components/shared/ClubLogo.vue';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
-import LiveUpdatesSection from './LiveUpdatesSection.vue';
+import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
 import PositionPicker from '@/components/shared/PositionPicker.vue';
 
 export default {
@@ -427,7 +427,7 @@ export default {
     PlayerProfileEditor,
     ClubLogo,
     LiveUpdatesTeaser,
-    LiveUpdatesSection,
+    TeamChannelsCard,
     PositionPicker,
   },
   setup() {

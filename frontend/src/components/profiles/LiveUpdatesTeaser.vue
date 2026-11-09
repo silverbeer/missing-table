@@ -29,7 +29,7 @@ export default {
 
     const scroll = () => {
       document
-        .getElementById('live-updates-section')
+        .getElementById('team-channels')
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
