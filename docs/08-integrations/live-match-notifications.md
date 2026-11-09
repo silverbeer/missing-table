@@ -26,17 +26,31 @@ Live-scoring UI  ──► POST /api/matches/{id}/live/{action}
                         │
                         ├─► resolve_destinations()      ── reads club_notification_channels
                         ├─► fetch_club_timezone()       ── reads clubs.timezone
-                        ├─► format_event()              ── renders per-platform message
+                        ├─► format_event()              ── renders one plain-text message
                         │
                         ▼
                   backend/notifications/senders.py::send_to
-                        ├─► TelegramClient (bot_token from env) ──► api.telegram.org
-                        └─► DiscordWebhookClient (webhook URL)  ──► discord.com
+                        │
+                        ▼
+                  backend/notifications/registry.py::get_adapter
+                        ├─► adapters/telegram.py (bot_token from env) ──► api.telegram.org
+                        └─► adapters/discord.py  (webhook URL)        ──► discord.com
 ```
 
 Best-effort delivery. The dispatcher catches all exceptions — notifications **never** block the user-facing live-scoring flow. Failures are logged, not retried.
 
 **Execution model:** FastAPI `BackgroundTasks` (in-process, after-response). Not Celery. No retry queue.
+
+### Adding a platform
+
+Platforms are adapters. Everything specific to one platform (destination format, escaping, config check, send) lives in one module:
+
+1. Subclass `ChannelAdapter` in `backend/notifications/adapters/<platform>.py`.
+2. Add `register(YourAdapter())` in `backend/notifications/registry.py`.
+
+No migration, API change or frontend change. `GET /api/notifications/platforms` serves the label, hint and validation pattern to the setup UI, and `tests/unit/test_notification_adapters.py` applies the contract to every registered adapter.
+
+`destination_pattern` is checked by both Python and the browser, so keep it to syntax both read the same way. For webhook platforms it is also the SSRF guard: the backend POSTs to whatever passes it. Implement `_deliver`, which returns a `DeliveryResult` with the provider's message id when there is one, and declare optional features in `capabilities`. The public `send` converts provider failures to `DeliveryError`, because `httpx` errors include the URL, which holds the Telegram bot token or a webhook's secret path.
 
 ---
 
@@ -50,7 +64,7 @@ Migration: `supabase/migrations/20260421000000_add_club_notification_channels.sq
 | ------------- | --------- | ---------------------------------------------------------------- |
 | `id`          | SERIAL    | Primary key                                                      |
 | `club_id`     | INTEGER   | FK → `clubs(id) ON DELETE CASCADE`                               |
-| `platform`    | TEXT      | `telegram` or `discord` (CHECK)                                  |
+| `platform`    | TEXT      | A registered adapter id; validated by the API, not the database  |
 | `destination` | TEXT      | Telegram `chat_id` or Discord webhook URL. Sensitive; not logged |
 | `enabled`     | BOOLEAN   | Default `true`                                                   |
 | `created_at`  | TIMESTAMP |                                                                  |
@@ -119,6 +133,7 @@ API endpoints (defined in `backend/api/club_notifications.py`):
 | Upsert       | PUT    | `/api/clubs/{club_id}/notifications/{platform}`       |
 | Delete       | DELETE | `/api/clubs/{club_id}/notifications/{platform}`       |
 | Send test    | POST   | `/api/clubs/{club_id}/notifications/{platform}/test`  |
+| Platforms    | GET    | `/api/notifications/platforms`                        |
 
 ---
 
@@ -233,11 +248,12 @@ All carry `match_id` and `event_type` as keys. `notifications.send_failed` also 
 - BackgroundTask wrapper: `backend/notifications/tasks.py`
 - Channel resolver: `backend/notifications/channel_resolver.py`
 - Formatters: `backend/notifications/formatters.py`
-- Platform senders: `backend/notifications/senders.py`
+- Platform adapters: `backend/notifications/adapters/`, registered in `backend/notifications/registry.py`
+- Send entry point: `backend/notifications/senders.py`
 - API: `backend/api/club_notifications.py`
 - DAO: `backend/dao/club_notifications_dao.py`
 - Admin UI: `frontend/src/components/notifications/ClubNotificationChannels.vue`, `frontend/src/components/admin/AdminClubNotifications.vue`
 - Club-manager UI: `frontend/src/components/profiles/ClubManagerProfile.vue`
 - Helm: `helm/missing-table/templates/backend.yaml`, `helm/missing-table/values.yaml`
-- Migration: `supabase/migrations/20260421000000_add_club_notification_channels.sql`
+- Migrations: `supabase/migrations/20260421000000_add_club_notification_channels.sql`, `20261109120000_drop_notification_platform_check.sql`
 - Epic: [#315](https://github.com/silverbeer/missing-table/issues/315)

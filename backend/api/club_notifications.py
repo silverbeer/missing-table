@@ -1,11 +1,12 @@
 """
 Club notification channels API.
 
-Per-club Telegram / Discord destinations for live-match notifications.
+Per-club chat destinations for live-match notifications.
 - GET    /api/clubs/{club_id}/notifications
 - PUT    /api/clubs/{club_id}/notifications/{platform}
 - DELETE /api/clubs/{club_id}/notifications/{platform}
 - POST   /api/clubs/{club_id}/notifications/{platform}/test
+- GET    /api/notifications/platforms
 
 Permissions: admin OR (club_manager AND user_club_id == club_id).
 The `destination` value is never returned in full — callers only see the last
@@ -16,21 +17,22 @@ write-only from the API's perspective.
 from __future__ import annotations
 
 import os
-import re
 import time
-from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from auth import get_current_user_required
-from dao.club_notifications_dao import VALID_PLATFORMS, ClubNotificationsDAO
+from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import SupabaseConnection
+from notifications.adapters.base import InvalidDestinationError, UnsupportedPlatformError
+from notifications.registry import all_adapters, get_adapter, platform_ids
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/clubs", tags=["club-notifications"])
+platforms_router = APIRouter(prefix="/api/notifications", tags=["club-notifications"])
 
 
 # ---------------------------------------------------------------------------
@@ -132,31 +134,24 @@ def ensure_club_access(current_user: dict, club_id: int) -> None:
 # Validation
 # ---------------------------------------------------------------------------
 
-_TELEGRAM_RE = re.compile(r"^(@\w+|-?\d+)$")
-_DISCORD_RE = re.compile(r"^https://discord(app)?\.com/api/webhooks/\d+/[\w-]+$")
+def _validate_platform(platform: str) -> None:
+    try:
+        get_adapter(platform)
+    except UnsupportedPlatformError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"platform must be one of {sorted(platform_ids())}",
+        ) from None
 
 
 def _validate_destination(platform: str, destination: str) -> None:
-    if platform == "telegram":
-        if not _TELEGRAM_RE.match(destination):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Telegram destination must be a numeric chat_id (e.g. -1001234567890) or @channel",
-            )
-    elif platform == "discord":
-        if not _DISCORD_RE.match(destination):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Discord destination must be a webhook URL",
-            )
-
-
-def _validate_platform(platform: str) -> None:
-    if platform not in VALID_PLATFORMS:
+    try:
+        get_adapter(platform).validate_destination(destination)
+    except InvalidDestinationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"platform must be one of {sorted(VALID_PLATFORMS)}",
-        )
+            detail=str(exc),
+        ) from None
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +160,7 @@ def _validate_platform(platform: str) -> None:
 
 
 class ChannelResponse(BaseModel):
-    platform: Literal["telegram", "discord"]
+    platform: str
     enabled: bool
     configured: bool
     hint: str | None = Field(None, description="Last 4 chars of destination; full value never exposed")
@@ -174,6 +169,19 @@ class ChannelResponse(BaseModel):
 class ChannelUpsert(BaseModel):
     destination: str = Field(..., min_length=1, max_length=500)
     enabled: bool = True
+
+
+class PlatformInfo(BaseModel):
+    """What the setup UI needs to render and validate one platform."""
+
+    id: str
+    label: str
+    icon: str
+    placeholder: str
+    hint: str
+    destination_pattern: str
+    destination_error: str
+    capabilities: list[str]
 
 
 class TestSendResponse(BaseModel):
@@ -193,7 +201,7 @@ def _to_response(row: dict) -> ChannelResponse:
 
 
 # ---------------------------------------------------------------------------
-# Test-send stub (Phase 5 replaces this with real Telegram / Discord calls)
+# Test-send
 # ---------------------------------------------------------------------------
 
 
@@ -215,6 +223,26 @@ def _send_test_message(platform: str, destination: str) -> None:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+@platforms_router.get("/platforms", response_model=list[PlatformInfo])
+def list_platforms(
+    current_user: dict = Depends(get_current_user_required),
+) -> list[PlatformInfo]:
+    """Every platform a channel can be configured for, in display order."""
+    return [
+        PlatformInfo(
+            id=adapter.id,
+            label=adapter.label,
+            icon=adapter.icon,
+            placeholder=adapter.placeholder,
+            hint=adapter.hint,
+            destination_pattern=adapter.destination_pattern,
+            destination_error=adapter.destination_error,
+            capabilities=sorted(adapter.capabilities),
+        )
+        for adapter in all_adapters()
+    ]
 
 
 @router.get(

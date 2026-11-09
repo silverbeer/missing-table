@@ -19,6 +19,7 @@ import r2_client
 from api.admin_attention import router as admin_attention_router
 from api.admin_emails import router as admin_emails_router
 from api.channel_requests import router as channel_requests_router
+from api.club_notifications import platforms_router as notification_platforms_router
 from api.club_notifications import router as club_notifications_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
@@ -353,6 +354,7 @@ app.include_router(invites_router)
 app.include_router(invite_requests_router)
 app.include_router(channel_requests_router)
 app.include_router(club_notifications_router)
+app.include_router(notification_platforms_router)
 app.include_router(push_router)
 app.include_router(webhooks_email_router)
 app.include_router(admin_emails_router)

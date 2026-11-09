@@ -1,8 +1,7 @@
 """Plain-text formatters for live-match notifications.
 
-Pure functions — no I/O. The same text is sent to both Telegram and Discord.
-Telegram senders apply MarkdownV2 escaping at send time; Discord accepts
-plain text as-is.
+Pure functions — no I/O. The same text goes to every platform; each
+adapter applies its own escaping at send time.
 
 All timestamps are rendered in the home club's timezone.
 """

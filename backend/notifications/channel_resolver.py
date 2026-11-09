@@ -21,8 +21,8 @@ def resolve_destinations(
 ) -> list[tuple[str, str]]:
     """Return a de-duplicated list of (platform, destination) tuples.
 
-    Rows are filtered to enabled=true. Order is stable (telegram first,
-    then discord) within a given club.
+    Rows are filtered to enabled=true. Order is stable within a given
+    club (the DAO sorts by platform).
     """
     seen: set[tuple[str, str]] = set()
     ordered: list[tuple[str, str]] = []
