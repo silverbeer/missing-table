@@ -63,10 +63,11 @@
             <button
               type="button"
               class="gb-sort-button"
-              :aria-label="`Sort by ${col.label}`"
+              :aria-label="`Sort by ${col.label}${col.beta ? ' (beta)' : ''}`"
               @click="sortBy(col.key)"
             >
               {{ col.short }}
+              <span v-if="col.beta" class="gb-beta-tag">Beta</span>
             </button>
           </th>
         </tr>
@@ -91,6 +92,19 @@
         </tr>
       </tbody>
     </table>
+
+    <p
+      v-if="!loading && !error && !nothingLogged"
+      class="gb-beta-note"
+      data-testid="gb-beta-note"
+    >
+      GP and GS are in beta and may be incomplete. To correct a total,
+      <SupportEmailLink
+        subject="Golden Boot correction"
+        :body="`Team ID: ${teamId}\nPlayer, match, and what should change:`"
+        display-text="contact support"
+      />
+    </p>
   </section>
 </template>
 
@@ -98,14 +112,30 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
+import SupportEmailLink from '@/components/SupportEmailLink.vue';
 
 // Minutes are deliberately absent. They are recorded, but a substitution nobody
 // logged silently understates a player, and a column that is quietly wrong is
 // worse than a column that is missing. Everything here is either counted from
 // an event (G, A, YC, RC) or from an appearance record (GP, GS).
+//
+// GP and GS are marked beta (SB-1614): they are only as good as the lineups that
+// were logged, unlike the event counts.
 const STAT_COLUMNS = [
-  { key: 'gp', short: 'GP', label: 'games played', field: 'games_played' },
-  { key: 'gs', short: 'GS', label: 'games started', field: 'games_started' },
+  {
+    key: 'gp',
+    short: 'GP',
+    label: 'games played',
+    field: 'games_played',
+    beta: true,
+  },
+  {
+    key: 'gs',
+    short: 'GS',
+    label: 'games started',
+    field: 'games_started',
+    beta: true,
+  },
   { key: 'goals', short: 'G', label: 'goals', field: 'total_goals' },
   { key: 'assists', short: 'A', label: 'assists', field: 'total_assists' },
   {
@@ -139,6 +169,7 @@ const FIELD_BY_KEY = Object.fromEntries(
 
 export default {
   name: 'GoldenBoot',
+  components: { SupportEmailLink },
   props: {
     teamId: { type: [Number, String], required: true },
     // The default competition depends on the whole club, not this squad.
@@ -510,6 +541,29 @@ export default {
   cursor: pointer;
 }
 
+/* Same amber as the nav's Beta badge. Fixed colours: the tint stays light in both
+   themes, so the text on it stays dark. */
+.gb-beta-tag {
+  display: block;
+  width: fit-content;
+  margin: 2px auto 0;
+  padding: 0 3px;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  color: #92400e;
+  background-color: #fef3c7;
+  border-radius: 9999px;
+}
+
+.gb-beta-note {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgb(var(--color-fg-muted));
+}
+
 .gb-sort-button:hover {
   color: rgb(var(--color-fg));
 }
@@ -575,6 +629,11 @@ export default {
 
   .gb-jersey {
     min-width: 26px;
+  }
+
+  .gb-beta-tag {
+    padding: 0 2px;
+    font-size: 0.5rem;
   }
 }
 </style>

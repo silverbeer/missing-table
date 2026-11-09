@@ -191,7 +191,9 @@ describe('GoldenBoot (SB-433)', () => {
     const wrapper = mountBoot();
     await flushPromises();
 
-    const headers = wrapper.findAll('thead .gb-sort-button').map(b => b.text());
+    const headers = wrapper
+      .findAll('thead .gb-sort-button')
+      .map(b => b.text().replace(/\s*Beta$/, ''));
     expect(headers).toEqual(['GP', 'GS', 'G', 'A', 'YC', 'RC']);
   });
 
@@ -349,6 +351,39 @@ describe('GoldenBoot (SB-433)', () => {
 
       expect(competitionIds()).toEqual(['1']);
       expect(select(wrapper).text()).not.toContain('League + Flex');
+    });
+  });
+
+  describe('beta columns (SB-1614)', () => {
+    it('tags GP and GS only', async () => {
+      const wrapper = mountBoot();
+      await flushPromises();
+
+      const tagged = wrapper
+        .findAll('thead th')
+        .filter(th => th.find('.gb-beta-tag').exists())
+        .map(th => th.find('button').attributes('aria-label'));
+
+      expect(tagged).toEqual([
+        'Sort by games played (beta)',
+        'Sort by games started (beta)',
+      ]);
+    });
+
+    it('explains the tag and links to support under the table', async () => {
+      const wrapper = mountBoot();
+      await flushPromises();
+
+      const note = wrapper.find('[data-testid="gb-beta-note"]');
+      expect(note.text()).toContain('GP and GS are in beta');
+      expect(note.find('a[href^="mailto:"]').exists()).toBe(true);
+    });
+
+    it('omits the note when nothing is logged', async () => {
+      const wrapper = mountBoot([]);
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="gb-beta-note"]').exists()).toBe(false);
     });
   });
 
