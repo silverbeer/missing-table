@@ -2278,6 +2278,7 @@ _DELETE_ORPHANS = [
     ("invitations", "invited_by_user_id", "invitations they sent"),
     ("content_reports", "reported_user_id", "chat reports against them"),
     ("content_reports", "resolved_by", "chat reports they resolved"),
+    ("notification_channels", "created_by", "notification channels they set up"),
 ]
 
 _DELETE_BLOCKERS = [
