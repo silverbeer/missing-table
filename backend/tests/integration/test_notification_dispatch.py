@@ -73,7 +73,16 @@ def two_clubs_with_teams_and_match(conn, club_dao):
     age_group_id = _fetch_ref("age_groups")
     season_id = _fetch_ref("seasons")
     match_type_id = _fetch_ref("match_types")
-    division_id = _fetch_ref("divisions")
+    # Not just the first division: one in a test league makes this a rehearsal
+    # match, which by design never reaches a chat channel (SB-591).
+    division_id = (
+        client.table("divisions")
+        .select("id, leagues!inner(is_test)")
+        .eq("leagues.is_test", False)
+        .limit(1)
+        .execute()
+        .data[0]["id"]
+    )
 
     home_team = (
         client.table("teams")

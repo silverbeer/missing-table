@@ -20,6 +20,8 @@ class DiscordAdapter(ChannelAdapter):
     )
     destination_pattern: ClassVar[str] = r"^https://discord(app)?\.com/api/webhooks/\d+/[\w-]+$"
     destination_error: ClassVar[str] = "Discord destination must be a webhook URL"
+    # Discord's minimum age is 13; U14 is the youngest squad that clears it.
+    min_player_age: ClassVar[int | None] = 14
 
     def _deliver(self, destination: str, content: str) -> DeliveryResult:
         # Discord-flavored markdown is permissive, so the text goes as-is.

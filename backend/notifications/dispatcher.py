@@ -244,7 +244,7 @@ class Notifier:
             )
             return
 
-        # Club notification channels (Telegram/Discord). A match may have none
+        # Chat channels (club, squad, global). A match may have none
         # — e.g. tournament teams whose clubs have no channel config — in which
         # case we skip the club sends but STILL run the Web Push fan-out below.
         # Push to team followers must not depend on the clubs having channels
@@ -253,7 +253,7 @@ class Notifier:
         # A test match never reaches a club channel: those are public rooms,
         # and the SB-591 partition exists so a rehearsal stays out of them.
         is_test = bool(match.get("is_test"))
-        destinations = [] if is_test else resolve_destinations(home_club_id, away_club_id, self.notif_dao)
+        destinations = [] if is_test else resolve_destinations(match, event_type, self.notif_dao)
         if destinations:
             sent = 0
             failed = 0

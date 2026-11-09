@@ -1,8 +1,8 @@
 """Resolve the set of (platform, destination) channels for a given match.
 
-The home + away club configurations are unioned and deduplicated. Home
-club's timezone is always used for message timestamps, regardless of
-which club owns a given destination.
+Club, squad and global channels are unioned and deduplicated. Home club's
+timezone is always used for message timestamps, regardless of which club
+owns a given destination.
 """
 
 from __future__ import annotations
@@ -10,46 +10,53 @@ from __future__ import annotations
 import structlog
 
 from dao.club_notifications_dao import ClubNotificationsDAO  # noqa: TC001 — used at runtime for type check
+from notifications.audience import players_allowed_at
 
 logger = structlog.get_logger(__name__)
 
 
-def resolve_destinations(
-    home_club_id: int | None,
-    away_club_id: int | None,
-    dao: ClubNotificationsDAO,
+def select_destinations(
+    rows: list[dict], event_type: str, age_group_name: str | None
 ) -> list[tuple[str, str]]:
-    """Return a de-duplicated list of (platform, destination) tuples.
+    """Filter candidate channels to de-duplicated (platform, destination) pairs.
 
-    Rows are filtered to enabled=true. Order is stable within a given
-    club (the DAO sorts by platform).
+    Pure, so the routing rules are testable without a database. `event_types`
+    of None means every event; an empty list means none.
     """
+    players_allowed = players_allowed_at(age_group_name)
     seen: set[tuple[str, str]] = set()
     ordered: list[tuple[str, str]] = []
-
-    for club_id in (home_club_id, away_club_id):
-        if club_id is None:
+    for row in rows:
+        if not row.get("enabled"):
             continue
-        try:
-            rows = dao.list_by_club(club_id)
-        except Exception as exc:
-            logger.warning(
-                "resolve_destinations_lookup_failed",
-                club_id=club_id,
-                error=str(exc),
-            )
+        if row.get("audience") == "players" and not players_allowed:
             continue
-
-        for row in rows:
-            if not row.get("enabled"):
-                continue
-            key = (row["platform"], row["destination"])
-            if key in seen:
-                continue
+        event_types = row.get("event_types")
+        if event_types is not None and event_type not in event_types:
+            continue
+        key = (row["platform"], row["destination"])
+        if key not in seen:
             seen.add(key)
             ordered.append(key)
-
     return ordered
+
+
+def resolve_destinations(
+    match: dict,
+    event_type: str,
+    dao: ClubNotificationsDAO,
+) -> list[tuple[str, str]]:
+    """The channels that should hear about this match event.
+
+    Both clubs' channels, both squads' channels (the team row plus the match's
+    age group), and global channels.
+    """
+    home_club = match.get("home_team_club") or {}
+    away_club = match.get("away_team_club") or {}
+    club_ids = [c for c in (home_club.get("id"), away_club.get("id")) if c is not None]
+    team_ids = [t for t in (match.get("home_team_id"), match.get("away_team_id")) if t is not None]
+    rows = dao.list_for_match(club_ids, team_ids, match.get("age_group_id"))
+    return select_destinations(rows, event_type, match.get("age_group_name"))
 
 
 def resolve_user_push_subscriptions(

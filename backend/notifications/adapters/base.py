@@ -70,6 +70,9 @@ class ChannelAdapter(ABC):
     destination_pattern: ClassVar[str]
     destination_error: ClassVar[str]
     capabilities: ClassVar[frozenset[Capability]] = frozenset()
+    # Youngest U-number this platform may host as a player channel. None means
+    # fans only. Set from the platform's terms, so a change is a one-line edit.
+    min_player_age: ClassVar[int | None] = None
 
     def validate_destination(self, destination: str) -> None:
         """Raise InvalidDestinationError unless `destination` fits this platform.
