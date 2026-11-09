@@ -22,6 +22,7 @@ from notifications.adapters.base import (
     UnsupportedPlatformError,
 )
 from notifications.adapters.discord import DiscordAdapter
+from notifications.adapters.slack import SlackAdapter, escape
 from notifications.adapters.telegram import TelegramAdapter
 from notifications.senders import send_to
 
@@ -109,6 +110,66 @@ class TestDiscordSend:
             result = DiscordAdapter().send("https://hook", "IFA 2-1 NEFC.")
         client.send.assert_called_once_with("IFA 2-1 NEFC.")
         assert result == DeliveryResult(message_ref=None)
+
+
+# Assembled so secret scanners don't read a test fixture as a real webhook.
+SLACK_URL = "https://hooks.slack.com/" + "/".join(["services", "TEAM1", "BOT2", "abc3"])
+
+
+class TestSlack:
+    def test_accepts_a_webhook_url(self):
+        SlackAdapter().validate_destination(SLACK_URL)
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            SLACK_URL.replace("https", "http", 1),
+            SLACK_URL.replace("hooks.slack.com", "hooks.slack.com.evil.test"),
+            SLACK_URL.replace("hooks.slack.com", "hooksXslack.com"),
+            SLACK_URL + "/extra",
+            SLACK_URL + "\n",
+        ],
+    )
+    def test_rejects_lookalikes(self, value: str):
+        with pytest.raises(InvalidDestinationError):
+            SlackAdapter().validate_destination(value)
+
+    def test_escapes_ampersand_first(self):
+        assert escape("A&B <!channel>") == "A&amp;B &lt;!channel&gt;"
+
+    def test_posts_escaped_text_with_a_timeout(self):
+        request = httpx.Request("POST", SLACK_URL)
+        with patch(
+            "notifications.adapters.slack.httpx.post",
+            return_value=httpx.Response(200, text="ok", request=request),
+        ) as post:
+            result = SlackAdapter().send(SLACK_URL, "<!channel> scored")
+        assert post.call_args.args[0] == SLACK_URL
+        assert post.call_args.kwargs["json"] == {
+            "text": "&lt;!channel&gt; scored",
+            "mrkdwn": False,
+        }
+        assert post.call_args.kwargs["timeout"] > 0
+        assert result == DeliveryResult(message_ref=None)
+
+    def test_does_not_claim_threads(self):
+        assert SlackAdapter().capabilities == frozenset()
+
+    def test_failure_does_not_leak_the_webhook(self):
+        request = httpx.Request("POST", SLACK_URL)
+        with (
+            patch(
+                "notifications.adapters.slack.httpx.post",
+                return_value=httpx.Response(404, request=request),
+            ),
+            pytest.raises(DeliveryError) as exc,
+        ):
+            SlackAdapter().send(SLACK_URL, "text")
+        assert "abc3" not in str(exc.value)
+        assert "HTTP 404" in str(exc.value)
+
+    def test_is_registered(self):
+        assert isinstance(registry.get_adapter("slack"), SlackAdapter)
 
 
 class TestSecretsStayOutOfErrors:
