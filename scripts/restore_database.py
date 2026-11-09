@@ -163,6 +163,7 @@ RESTORATION_ORDER = [
     "tournament_match_of_the_day",  # tournaments, matches
     "notification_channels",  # clubs, teams, age_groups
     "notification_deliveries",  # notification_channels
+    "channel_members",  # notification_channels, user_profiles
     "match_events",
     "match_lineups",
     "player_match_stats",
