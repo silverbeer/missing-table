@@ -162,6 +162,7 @@ RESTORATION_ORDER = [
     "match_of_the_week",
     "tournament_match_of_the_day",  # tournaments, matches
     "notification_channels",  # clubs, teams, age_groups
+    "notification_deliveries",  # notification_channels
     "match_events",
     "match_lineups",
     "player_match_stats",
