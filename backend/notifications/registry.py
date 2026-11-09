@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from notifications.adapters.base import ChannelAdapter, UnsupportedPlatformError
 from notifications.adapters.discord import DiscordAdapter
+from notifications.adapters.slack import SlackAdapter
 from notifications.adapters.telegram import TelegramAdapter
 
 _adapters: dict[str, ChannelAdapter] = {}
@@ -42,3 +43,4 @@ def platform_ids() -> list[str]:
 
 register(TelegramAdapter())
 register(DiscordAdapter())
+register(SlackAdapter())

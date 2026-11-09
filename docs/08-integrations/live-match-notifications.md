@@ -1,10 +1,10 @@
 # Live-Match Notifications
 
-Deliver live-match events (kickoff, goal, card, halftime, full-time) to each club's Telegram group and/or Discord channel as matches are scored.
+Deliver live-match events (kickoff, goal, card, halftime, full-time) to each club's Telegram group, Discord channel and/or Slack channel as matches are scored.
 
 - **Who it's for:** club managers who want their community to follow matches in real time, and admins onboarding new clubs.
 - **Per-club, opt-in:** a club receives notifications only if it has a row in `club_notification_channels`. Matches between two clubs with no config produce no external calls.
-- **Supported platforms:** Telegram and Discord. A club can enable either or both.
+- **Supported platforms:** Telegram, Discord and Slack. A club can enable any combination.
 - **Trigger points:** the live-scoring UI and `/api/matches/{match_id}/live/*` endpoints — `kickoff`, `goal`, `yellow_card`, `red_card`, `halftime`, `fulltime`.
 
 ---
@@ -34,7 +34,8 @@ Live-scoring UI  ──► POST /api/matches/{id}/live/{action}
                         ▼
                   backend/notifications/registry.py::get_adapter
                         ├─► adapters/telegram.py (bot_token from env) ──► api.telegram.org
-                        └─► adapters/discord.py  (webhook URL)        ──► discord.com
+                        ├─► adapters/discord.py  (webhook URL)        ──► discord.com
+                        └─► adapters/slack.py    (webhook URL)        ──► hooks.slack.com
 ```
 
 Best-effort delivery. The dispatcher catches all exceptions — notifications **never** block the user-facing live-scoring flow. Failures are logged, not retried.
@@ -108,6 +109,14 @@ The flow: create the platform destination (once per club), then paste the identi
 3. Name it (e.g. `Missing Table`), pick the channel, copy the **Webhook URL**.
 4. The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. Treat it like a password — anyone with this URL can post to your channel.
 
+### Slack
+
+1. In your workspace, [create a Slack app](https://api.slack.com/apps) and turn on **Incoming Webhooks**.
+2. Click **Add New Webhook to Workspace** and pick the channel. Each webhook posts to one channel.
+3. Copy the URL, which starts `https://hooks.slack.com/services/`. Treat it like a password.
+
+Slack's terms require users to be over 16, so don't use it for youth player rooms.
+
 ### Configure in Missing Table
 
 Two paths — both write to the same table, governed by RLS.
@@ -148,7 +157,7 @@ Environment variable `NOTIFICATIONS_ENABLED` (default `true`).
 - When **disabled**:
   - Dispatcher short-circuits and logs `notifications.skipped reason=disabled`.
   - Test-send endpoint returns **HTTP 503**.
-  - No external calls to Telegram or Discord.
+  - No external calls to any chat platform.
 
 In production it's wired from `helm/missing-table/values.yaml`:
 
