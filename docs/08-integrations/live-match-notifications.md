@@ -273,3 +273,18 @@ All carry `match_id` and `event_type` as keys. `notifications.send_failed` also 
 - Helm: `helm/missing-table/templates/backend.yaml`, `helm/missing-table/values.yaml`
 - Migrations: `supabase/migrations/20260421000000_add_club_notification_channels.sql`, `20261109120000_drop_notification_platform_check.sql`
 - Epic: [#315](https://github.com/silverbeer/missing-table/issues/315)
+
+## Delivery ledger
+
+Every chat post is recorded in `notification_deliveries`, one row per channel and event. The dispatcher inserts the row before it posts, and `UNIQUE (channel_id, event_key)` makes a second attempt for the same event skip the post.
+
+| Event | `event_key` | Effect |
+|-------|-------------|--------|
+| Goal, card | `match:<id>:event:<match_events.id>` | Each recorded event posts once |
+| Kickoff, halftime | `match:<id>:<event>` | Once per match |
+| Full time | `match:<id>:fulltime:<home>-<away>` | Same result posts once; a corrected score posts again |
+
+- A row stuck in `pending` means the process stopped mid-send: the message was missed, not doubled.
+- A `failed` row also blocks a repeat. Retrying is a separate change (SB-1604).
+- If the ledger is unreachable the post goes out unrecorded, because losing an update is worse than the small chance of repeating one.
+- The ledger holds no destination, and `error` is sanitized. Web Push, APNs and FCM keep using `push_send_log`.

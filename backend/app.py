@@ -21,10 +21,10 @@ from api.admin_emails import router as admin_emails_router
 from api.channel_requests import router as channel_requests_router
 from api.club_notifications import platforms_router as notification_platforms_router
 from api.club_notifications import router as club_notifications_router
-from api.notification_channels import router as notification_channels_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
 from api.moderation import router as moderation_router
+from api.notification_channels import router as notification_channels_router
 from api.push import router as push_router
 from api.webhooks_email import router as webhooks_email_router
 from auth import (
@@ -99,6 +99,7 @@ from models import (
     UserSignup,
 )
 from mt_ai.api import router as mt_ai_router
+from notifications.event_keys import clock_event_key, fulltime_event_key, recorded_event_key
 from notifications.score_change import is_new_final_score
 from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
@@ -3121,7 +3122,8 @@ def _maybe_notify_final_score(
     if match_id is None:
         return
     if is_new_final_score(before, after):
-        background_tasks.add_task(notify_event_task, "fulltime", match_id, None)
+        event_key = fulltime_event_key(match_id, after.get("home_score"), after.get("away_score"))
+        background_tasks.add_task(notify_event_task, "fulltime", match_id, None, event_key)
 
 
 @app.post("/api/matches")
@@ -3889,7 +3891,12 @@ async def update_match_clock(
         }
         notify_event = clock_to_event_type.get(clock.action)
         if notify_event:
-            background_tasks.add_task(notify_event_task, notify_event, match_id, None)
+            event_key = (
+                fulltime_event_key(match_id, current_match.get("home_score"), current_match.get("away_score"))
+                if notify_event == "fulltime"
+                else clock_event_key(match_id, notify_event)
+            )
+            background_tasks.add_task(notify_event_task, notify_event, match_id, None, event_key)
 
         return result
     except HTTPException:
@@ -4090,6 +4097,7 @@ async def post_goal(
                 "match_minute": match_minute,
                 "extra_time": extra_time,
             },
+            recorded_event_key(match_id, event["id"]),
         )
 
         return result
@@ -4206,6 +4214,7 @@ async def post_live_card(
                 "match_minute": match_minute,
                 "extra_time": extra_time,
             },
+            recorded_event_key(match_id, event["id"]),
         )
 
         return event

@@ -7,6 +7,8 @@ owns a given destination.
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import structlog
 
 from dao.club_notifications_dao import ClubNotificationsDAO  # noqa: TC001 — used at runtime for type check
@@ -15,17 +17,25 @@ from notifications.audience import players_allowed_at
 logger = structlog.get_logger(__name__)
 
 
+class ResolvedChannel(NamedTuple):
+    """Where one post goes. `channel_id` is the row the delivery is recorded against."""
+
+    platform: str
+    destination: str
+    channel_id: int
+
+
 def select_destinations(
     rows: list[dict], event_type: str, age_group_name: str | None
-) -> list[tuple[str, str]]:
-    """Filter candidate channels to de-duplicated (platform, destination) pairs.
+) -> list[ResolvedChannel]:
+    """Filter candidate channels to one per (platform, destination).
 
     Pure, so the routing rules are testable without a database. `event_types`
     of None means every event; an empty list means none.
     """
     players_allowed = players_allowed_at(age_group_name)
     seen: set[tuple[str, str]] = set()
-    ordered: list[tuple[str, str]] = []
+    ordered: list[ResolvedChannel] = []
     for row in rows:
         if not row.get("enabled"):
             continue
@@ -37,7 +47,7 @@ def select_destinations(
         key = (row["platform"], row["destination"])
         if key not in seen:
             seen.add(key)
-            ordered.append(key)
+            ordered.append(ResolvedChannel(row["platform"], row["destination"], row["id"]))
     return ordered
 
 
@@ -45,7 +55,7 @@ def resolve_destinations(
     match: dict,
     event_type: str,
     dao: ClubNotificationsDAO,
-) -> list[tuple[str, str]]:
+) -> list[ResolvedChannel]:
     """The channels that should hear about this match event.
 
     Both clubs' channels, both squads' channels (the team row plus the match's
