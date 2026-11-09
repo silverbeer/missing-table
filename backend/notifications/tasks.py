@@ -18,10 +18,11 @@ def notify_event_task(
     event_type: str,
     match_id: int,
     extra: dict | None = None,
+    event_key: str | None = None,
 ) -> None:
     """Fire a notification without ever raising."""
     try:
-        get_notifier().notify(event_type=event_type, match_id=match_id, extra=extra)
+        get_notifier().notify(event_type=event_type, match_id=match_id, extra=extra, event_key=event_key)
     except Exception as exc:
         logger.warning(
             "notifications.task_failed",

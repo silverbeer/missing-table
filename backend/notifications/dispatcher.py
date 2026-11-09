@@ -20,12 +20,15 @@ from dao.bracket_follow_dao import BracketFollowDAO
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.fcm_device_dao import FcmDeviceDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
+from dao.notification_deliveries_dao import DeliveryLedgerError, NotificationDeliveriesDAO
 from dao.push_send_log_dao import PushSendLogDAO
 from dao.push_subscription_dao import PushSubscriptionDAO
 from dao.team_follow_dao import TeamFollowDAO
+from notifications.adapters.base import DeliveryError, NotificationConfigError
 from notifications.apns_sender import is_configured as apns_is_configured
 from notifications.apns_sender import send_apns
 from notifications.channel_resolver import (
+    ResolvedChannel,
     fetch_club_timezone,
     resolve_destinations,
     resolve_user_push_subscriptions,
@@ -56,6 +59,13 @@ def is_notifications_enabled() -> bool:
         "no",
         "off",
     }
+
+
+def _safe_error(exc: Exception) -> str:
+    """Text safe to log and store: only our own errors are free of URLs and tokens."""
+    if isinstance(exc, DeliveryError | NotificationConfigError):
+        return str(exc)
+    return type(exc).__name__
 
 
 def _build_push_payload(event_type: str, match: dict, content: str) -> dict:
@@ -102,6 +112,7 @@ class Notifier:
         self._connection = connection
         self._match_dao: MatchDAO | None = None
         self._notif_dao: ClubNotificationsDAO | None = None
+        self._delivery_dao: NotificationDeliveriesDAO | None = None
         self._team_follow_dao: TeamFollowDAO | None = None
         self._bracket_follow_dao: BracketFollowDAO | None = None
         self._push_sub_dao: PushSubscriptionDAO | None = None
@@ -136,6 +147,12 @@ class Notifier:
         if self._notif_dao is None:
             self._notif_dao = ClubNotificationsDAO(self.connection)
         return self._notif_dao
+
+    @property
+    def delivery_dao(self) -> NotificationDeliveriesDAO:
+        if self._delivery_dao is None:
+            self._delivery_dao = NotificationDeliveriesDAO(self.connection)
+        return self._delivery_dao
 
     @property
     def team_follow_dao(self) -> TeamFollowDAO:
@@ -196,8 +213,11 @@ class Notifier:
         event_type: str,
         match_id: int,
         extra: dict | None = None,
+        event_key: str | None = None,
     ) -> None:
         """Deliver a notification for a single match event.
+
+        `event_key` makes chat posts idempotent; see `_post_to_channel`.
 
         Best-effort: logs and returns on any failure, never raises.
         """
@@ -255,29 +275,17 @@ class Notifier:
         is_test = bool(match.get("is_test"))
         destinations = [] if is_test else resolve_destinations(match, event_type, self.notif_dao)
         if destinations:
-            sent = 0
-            failed = 0
-            for platform, destination in destinations:
-                try:
-                    self.send_fn(platform, destination, content)
-                    sent += 1
-                except Exception as exc:
-                    failed += 1
-                    logger.warning(
-                        "notifications.send_failed",
-                        platform=platform,
-                        match_id=match_id,
-                        event_type=event_type,
-                        error_type=type(exc).__name__,
-                        error=str(exc),
-                    )
-
+            outcomes = [
+                self._post_to_channel(channel, content, event_key, match_id, event_type)
+                for channel in destinations
+            ]
             logger.info(
                 "notifications.dispatched",
                 match_id=match_id,
                 event_type=event_type,
-                sent=sent,
-                failed=failed,
+                sent=outcomes.count("sent"),
+                failed=outcomes.count("failed"),
+                duplicate=outcomes.count("duplicate"),
             )
         elif is_test:
             logger.info(
@@ -351,6 +359,55 @@ class Notifier:
                 error_type=type(exc).__name__,
                 error=str(exc),
             )
+
+    def _post_to_channel(
+        self,
+        channel: ResolvedChannel,
+        content: str,
+        event_key: str | None,
+        match_id: int,
+        event_type: str,
+    ) -> str:
+        """Post once to one channel. Returns "sent", "failed" or "duplicate".
+
+        The ledger row is claimed before the post, so a crash mid-send leaves a
+        missed message rather than a double one. If the ledger itself is down
+        the post goes ahead unrecorded: losing a goal update is worse than the
+        small chance of repeating one.
+        """
+        delivery_id = None
+        if event_key:
+            try:
+                delivery_id = self.delivery_dao.claim(channel.channel_id, event_key)
+                if delivery_id is None:
+                    return "duplicate"
+            except DeliveryLedgerError:
+                logger.warning(
+                    "notifications.ledger_unavailable",
+                    platform=channel.platform,
+                    match_id=match_id,
+                    event_type=event_type,
+                )
+
+        try:
+            result = self.send_fn(channel.platform, channel.destination, content)
+        except Exception as exc:
+            error = _safe_error(exc)
+            logger.warning(
+                "notifications.send_failed",
+                platform=channel.platform,
+                match_id=match_id,
+                event_type=event_type,
+                error_type=type(exc).__name__,
+                error=error,
+            )
+            if delivery_id is not None:
+                self.delivery_dao.mark_failed(delivery_id, error)
+            return "failed"
+
+        if delivery_id is not None:
+            self.delivery_dao.mark_sent(delivery_id, getattr(result, "message_ref", None))
+        return "sent"
 
     def _send_push_fanout(
         self, event_type: str, match: dict, content: str

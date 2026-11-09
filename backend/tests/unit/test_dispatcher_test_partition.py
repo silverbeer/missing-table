@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from notifications.channel_resolver import ResolvedChannel
 from notifications.dispatcher import Notifier
 from notifications.preferences import DEFAULT_PREFERENCES
 from notifications.web_push_sender import SendResult
@@ -53,7 +54,7 @@ def configured(monkeypatch):
     monkeypatch.setattr("notifications.dispatcher.fcm_is_configured", lambda: True)
     monkeypatch.setattr(
         "notifications.dispatcher.resolve_destinations",
-        lambda *_a: [("telegram", "chat-1")],
+        lambda *_a: [ResolvedChannel("telegram", "chat-1", 1)],
     )
 
 
