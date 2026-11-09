@@ -191,9 +191,7 @@ describe('GoldenBoot (SB-433)', () => {
     const wrapper = mountBoot();
     await flushPromises();
 
-    const headers = wrapper
-      .findAll('thead .gb-sort-button')
-      .map(b => b.text().replace(/\s*Beta$/, ''));
+    const headers = wrapper.findAll('thead .gb-sort-button').map(b => b.text());
     expect(headers).toEqual(['GP', 'GS', 'G', 'A', 'YC', 'RC']);
   });
 
@@ -354,35 +352,30 @@ describe('GoldenBoot (SB-433)', () => {
     });
   });
 
-  describe('beta columns (SB-1614)', () => {
-    it('tags GP and GS only', async () => {
+  describe('beta section (SB-1615)', () => {
+    it('tags the section title, not individual columns', async () => {
       const wrapper = mountBoot();
       await flushPromises();
 
-      const tagged = wrapper
-        .findAll('thead th')
-        .filter(th => th.find('.gb-beta-tag').exists())
-        .map(th => th.find('button').attributes('aria-label'));
-
-      expect(tagged).toEqual([
-        'Sort by games played (beta)',
-        'Sort by games started (beta)',
-      ]);
+      expect(wrapper.find('.gb-title .gb-beta-tag').text()).toBe('Beta');
+      expect(wrapper.find('thead .gb-beta-tag').exists()).toBe(false);
     });
 
-    it('explains the tag and links to support under the table', async () => {
+    it('says stats are user-entered and links to support', async () => {
       const wrapper = mountBoot();
       await flushPromises();
 
       const note = wrapper.find('[data-testid="gb-beta-note"]');
-      expect(note.text()).toContain('GP and GS are in beta');
+      expect(note.text()).toContain('club and team managers live scoring');
+      expect(note.text()).toContain('Fans and players');
       expect(note.find('a[href^="mailto:"]').exists()).toBe(true);
     });
 
-    it('omits the note when nothing is logged', async () => {
+    it('keeps the tag but omits the note when nothing is logged', async () => {
       const wrapper = mountBoot([]);
       await flushPromises();
 
+      expect(wrapper.find('.gb-title .gb-beta-tag').exists()).toBe(true);
       expect(wrapper.find('[data-testid="gb-beta-note"]').exists()).toBe(false);
     });
   });

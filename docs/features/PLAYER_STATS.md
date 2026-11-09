@@ -231,7 +231,7 @@ groups, coverage pinned by both the backend parity test and
   - [x] Update player_match_stats
 - [x] Add stats API endpoints
   - [x] `GET /api/roster/{player_id}/stats`
-  - [x] `GET /api/teams/{team_id}/stats` — optional `match_type_id` (SB-433; repeat it to total several, e.g. League + Flex, SB-1599) and `age_group_id` (SB-1258; filters on `players.age_group_id`, same rule as the roster). The Golden Boot shows GP and GS with a Beta tag and a contact-support note (SB-1614), because they depend on logged lineups; support corrects them through the post-match stats endpoint
+  - [x] `GET /api/teams/{team_id}/stats` — optional `match_type_id` (SB-433; repeat it to total several, e.g. League + Flex, SB-1599) and `age_group_id` (SB-1258; filters on `players.age_group_id`, same rule as the roster). The Golden Boot section is marked Beta with a contact-support note (SB-1615), because its stats are entered by managers live scoring matches; support corrects them through the post-match stats endpoint
 - [ ] Write backend tests for stats
 
 ### Phase 5: Frontend - Roster Manager
