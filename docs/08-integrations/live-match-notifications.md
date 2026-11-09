@@ -57,29 +57,33 @@ No migration, API change or frontend change. `GET /api/notifications/platforms` 
 
 ## 🗄️ Data Model
 
-Migration: `supabase/migrations/20260421000000_add_club_notification_channels.sql`
+Migration: `supabase/migrations/20261109130000_notification_channels.sql`
 
-**`club_notification_channels`**
+**`notification_channels`** says where match updates are posted.
 
-| Column        | Type      | Notes                                                            |
-| ------------- | --------- | ---------------------------------------------------------------- |
-| `id`          | SERIAL    | Primary key                                                      |
-| `club_id`     | INTEGER   | FK → `clubs(id) ON DELETE CASCADE`                               |
-| `platform`    | TEXT      | A registered adapter id; validated by the API, not the database  |
-| `destination` | TEXT      | Telegram `chat_id` or Discord webhook URL. Sensitive; not logged |
-| `enabled`     | BOOLEAN   | Default `true`                                                   |
-| `created_at`  | TIMESTAMP |                                                                  |
-| `updated_at`  | TIMESTAMP |                                                                  |
+| Column         | Type      | Notes                                                                        |
+| -------------- | --------- | ---------------------------------------------------------------------------- |
+| `id`           | SERIAL    | Primary key                                                                  |
+| `scope_type`   | TEXT      | `club`, `team` or `global`                                                   |
+| `club_id`      | INTEGER   | Set for `club` scope only                                                    |
+| `team_id`      | INTEGER   | Set for `team` scope only                                                    |
+| `age_group_id` | INTEGER   | Required with `team_id`: a team row is a club in one league, the age group makes it a squad |
+| `audience`     | TEXT      | `fans` or `players`; `global` is fans only                                   |
+| `platform`     | TEXT      | A registered adapter id; validated by the API, not the database              |
+| `destination`  | TEXT      | Chat id or webhook URL. Sensitive; never logged or returned in full          |
+| `event_types`  | TEXT[]    | `NULL` = every event, `{}` = none; never collapse the two                    |
+| `enabled`      | BOOLEAN   | Default `true`                                                               |
+| `created_by`   | UUID      | Who set it up; `NULL` for rows migrated from the old table                   |
 
-- `UNIQUE (club_id, platform)` — one row per club per platform
-- Index: `(club_id, enabled)`
+A match reaches both clubs' channels, both squads' channels at the match's age group, and every global channel, de-duplicated by destination. Test matches reach none.
 
-**RLS policies:**
-- `club_notification_channels_admin_all` — full CRUD for admins via `is_admin()`.
-- `club_notification_channels_club_manager_own_club` — full CRUD for a club manager on rows whose `club_id` matches their `user_profiles.club_id`.
-- No anonymous access.
+**Player channels** exist from U14 and only on platforms that allow it: each adapter sets `min_player_age` from the platform's terms (Discord 14, Slack 17, Telegram none, so fans only). A club player channel spans every age from U14, so only a platform that allows U14 can host it. An age group MT can't read as `U<number>` never qualifies. U13 matches skip player channels entirely.
 
-The same migration adds `clubs.timezone TEXT NOT NULL DEFAULT 'America/New_York'` — used to render match kickoff times in notification messages.
+`club_notification_channels` is the previous table: no longer read, kept until this has been verified in production.
+
+**RLS policies:** admins have full access; club managers manage their club's channels and its teams'; team managers manage their own team's. No access for anyone else, including fans and players.
+
+`20260421000000_add_club_notification_channels.sql` also added `clubs.timezone TEXT NOT NULL DEFAULT 'America/New_York'` — used to render match kickoff times in notification messages.
 
 ---
 
@@ -128,7 +132,7 @@ Two paths — both write to the same table, governed by RLS.
 4. Click **Send test** to verify delivery.
 
 **Admin (on behalf of any club):**
-1. Sign in → **Admin** tab → **Club Notifications** section.
+1. Sign in → **Admin** tab → **Access** → **Live Match Notifications**.
 2. Pick the club from the dropdown.
 3. Same Save / Send test flow as above.
 
@@ -143,6 +147,8 @@ API endpoints (defined in `backend/api/club_notifications.py`):
 | Delete       | DELETE | `/api/clubs/{club_id}/notifications/{platform}`       |
 | Send test    | POST   | `/api/clubs/{club_id}/notifications/{platform}/test`  |
 | Platforms    | GET    | `/api/notifications/platforms`                        |
+
+Those endpoints manage each club's oldest fan channel per platform. Scoped channels (squads, club players, global, several per platform) use `/api/notification-channels`: `GET` with `scope_type` plus its ids, `POST`, `PATCH /{id}`, `DELETE /{id}`. Global needs an admin, a club needs that club's manager, and a squad needs anyone who can manage the team.
 
 ---
 
@@ -260,7 +266,8 @@ All carry `match_id` and `event_type` as keys. `notifications.send_failed` also 
 - Platform adapters: `backend/notifications/adapters/`, registered in `backend/notifications/registry.py`
 - Send entry point: `backend/notifications/senders.py`
 - API: `backend/api/club_notifications.py`
-- DAO: `backend/dao/club_notifications_dao.py`
+- DAO: `backend/dao/notification_channels_dao.py`, `backend/dao/club_notifications_dao.py`
+- Scoped API and audience rules: `backend/api/notification_channels.py`, `backend/notifications/audience.py`
 - Admin UI: `frontend/src/components/notifications/ClubNotificationChannels.vue`, `frontend/src/components/admin/AdminClubNotifications.vue`
 - Club-manager UI: `frontend/src/components/profiles/ClubManagerProfile.vue`
 - Helm: `helm/missing-table/templates/backend.yaml`, `helm/missing-table/values.yaml`

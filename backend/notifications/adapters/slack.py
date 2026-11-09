@@ -33,6 +33,8 @@ class SlackAdapter(ChannelAdapter):
         r"^https://hooks\.slack\.com/services/[A-Za-z0-9]+/[A-Za-z0-9]+/[A-Za-z0-9]+$"
     )
     destination_error: ClassVar[str] = "Slack destination must be an incoming webhook URL"
+    # Slack's terms require users to be over 16.
+    min_player_age: ClassVar[int | None] = 17
     # No Capability.THREADS: a webhook does not return the `ts` a thread needs.
 
     def _deliver(self, destination: str, content: str) -> DeliveryResult:

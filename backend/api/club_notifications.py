@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from auth import get_current_user_required
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import SupabaseConnection
+from dao.notification_channels_dao import actor_id
 from notifications.adapters.base import InvalidDestinationError, UnsupportedPlatformError
 from notifications.registry import all_adapters, get_adapter, platform_ids
 
@@ -182,6 +183,7 @@ class PlatformInfo(BaseModel):
     destination_pattern: str
     destination_error: str
     capabilities: list[str]
+    min_player_age: int | None
 
 
 class TestSendResponse(BaseModel):
@@ -240,6 +242,7 @@ def list_platforms(
             destination_pattern=adapter.destination_pattern,
             destination_error=adapter.destination_error,
             capabilities=sorted(adapter.capabilities),
+            min_player_age=adapter.min_player_age,
         )
         for adapter in all_adapters()
     ]
@@ -272,7 +275,13 @@ def upsert_channel(
     _validate_platform(platform)
     _validate_destination(platform, body.destination)
 
-    row = _dao().upsert(club_id, platform, body.destination, body.enabled)
+    row = _dao().upsert(
+        club_id,
+        platform,
+        body.destination,
+        body.enabled,
+        created_by=actor_id(current_user),
+    )
     if row is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
