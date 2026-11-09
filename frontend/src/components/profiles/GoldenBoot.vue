@@ -24,6 +24,9 @@
           <option v-for="t in matchTypes" :key="t.id" :value="t.id">
             {{ t.name }}
           </option>
+          <option v-if="leagueFlexIds" :value="LEAGUE_FLEX">
+            League + Flex
+          </option>
           <option value="all">All</option>
         </select>
       </div>
@@ -118,6 +121,18 @@ const STAT_COLUMNS = [
 // model cannot disagree about which option is selected.
 const ALL_COMPETITIONS = 'all';
 
+// League and Flex totalled (SB-1599). Homegrown teams play both, and Flex is a
+// child league of Homegrown, so for them one without the other is half a season.
+const LEAGUE_FLEX = 'league-flex';
+
+// A team names its home league directly, and each mapping names its division's
+// league, so a team registered in Homegrown is found either way.
+const playsHomegrown = team =>
+  team?.league_name === 'Homegrown' ||
+  (team?.team_mappings || []).some(
+    m => m?.divisions?.leagues?.name === 'Homegrown'
+  );
+
 const FIELD_BY_KEY = Object.fromEntries(
   STAT_COLUMNS.map(c => [c.key, c.field])
 );
@@ -126,6 +141,8 @@ export default {
   name: 'GoldenBoot',
   props: {
     teamId: { type: [Number, String], required: true },
+    // The default competition depends on the whole club, not this squad.
+    clubId: { type: [Number, String], default: null },
   },
   setup(props) {
     const authStore = useAuthStore();
@@ -145,6 +162,15 @@ export default {
     const filtersReady = ref(false);
 
     const statColumns = STAT_COLUMNS;
+
+    // [leagueId, flexId], or null when either type is not configured.
+    const leagueFlexIds = computed(() => {
+      const idOf = name =>
+        matchTypes.value.find(t => (t.name || '').toLowerCase() === name)?.id;
+      const league = idOf('league');
+      const flex = idOf('flex');
+      return league != null && flex != null ? [league, flex] : null;
+    });
 
     const playerName = row => {
       const name = `${row.first_name || ''} ${row.last_name || ''}`.trim();
@@ -209,15 +235,34 @@ export default {
 
     // Defaults: current season, league games only. A leaderboard that silently
     // folds friendlies and tournaments into one total is not comparable with the
-    // league table beside it, so "All" has to be asked for.
+    // league table beside it, so "All" has to be asked for. A club with a team
+    // in Homegrown opens on League + Flex instead (SB-1599).
+    //
+    // A failed club lookup only costs that default, so it must not fail the
+    // board: the club endpoint also answers 404 for a club with no teams.
+    const fetchClubIsHomegrown = async () => {
+      if (!props.clubId) return false;
+      try {
+        const teams = await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/clubs/${props.clubId}/teams`,
+          { method: 'GET' }
+        );
+        return Array.isArray(teams) && teams.some(playsHomegrown);
+      } catch (err) {
+        console.error('Error loading club teams for Golden Boot:', err);
+        return false;
+      }
+    };
+
     const loadFilters = async () => {
-      const [seasonList, typeList] = await Promise.all([
+      const [seasonList, typeList, clubIsHomegrown] = await Promise.all([
         authStore.apiRequest(`${getApiBaseUrl()}/api/seasons`, {
           method: 'GET',
         }),
         authStore.apiRequest(`${getApiBaseUrl()}/api/match-types`, {
           method: 'GET',
         }),
+        fetchClubIsHomegrown(),
       ]);
 
       seasons.value = seasonList || [];
@@ -232,7 +277,10 @@ export default {
       );
       // No league type configured is not an error — fall back to every
       // competition rather than rendering an empty board.
-      selectedMatchTypeId.value = league?.id ?? ALL_COMPETITIONS;
+      selectedMatchTypeId.value =
+        clubIsHomegrown && leagueFlexIds.value
+          ? LEAGUE_FLEX
+          : (league?.id ?? ALL_COMPETITIONS);
 
       filtersReady.value = true;
       return !!currentSeason;
@@ -249,7 +297,11 @@ export default {
         const params = new URLSearchParams({
           season_id: String(selectedSeasonId.value),
         });
-        if (selectedMatchTypeId.value !== ALL_COMPETITIONS) {
+        if (selectedMatchTypeId.value === LEAGUE_FLEX) {
+          leagueFlexIds.value.forEach(id =>
+            params.append('match_type_id', String(id))
+          );
+        } else if (selectedMatchTypeId.value !== ALL_COMPETITIONS) {
           params.set('match_type_id', String(selectedMatchTypeId.value));
         }
 
@@ -301,6 +353,8 @@ export default {
       matchTypes,
       selectedSeasonId,
       selectedMatchTypeId,
+      leagueFlexIds,
+      LEAGUE_FLEX,
       sortKey,
       statColumns,
       playerName,
@@ -320,6 +374,8 @@ export default {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
@@ -327,7 +383,7 @@ export default {
   font-size: 1.1rem;
   font-weight: 700;
   margin: 0;
-  color: #111827;
+  color: rgb(var(--color-fg));
 }
 
 .gb-filters {
@@ -337,35 +393,39 @@ export default {
 
 .gb-filter {
   font-size: 0.8rem;
-  color: #374151;
-  background: #ffffff;
-  border: 1px solid #d1d5db;
+  color: rgb(var(--color-fg));
+  background: rgb(var(--color-card));
+  border: 1px solid rgb(var(--color-line));
   border-radius: 6px;
   padding: 3px 6px;
   cursor: pointer;
 }
 
 .gb-filter:hover {
-  border-color: #9ca3af;
+  border-color: rgb(var(--color-fg-muted));
 }
 
 .gb-state {
   padding: 16px;
   font-size: 0.9rem;
-  color: #6b7280;
-  background: #f9fafb;
+  color: rgb(var(--color-fg-muted));
+  background: rgb(var(--color-surface-alt));
   border-radius: 8px;
 }
 
 .gb-state-error {
   color: #b91c1c;
-  background: #fef2f2;
+  background: rgb(185 28 28 / 0.1);
+}
+
+:global(.dark) .gb-state-error {
+  color: #fca5a5;
 }
 
 .gb-empty-title {
   margin: 0 0 4px;
   font-weight: 600;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 
 .gb-empty-hint {
@@ -382,29 +442,29 @@ export default {
 
 .gb-table thead th {
   padding: 8px 10px;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid rgb(var(--color-line));
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   text-align: left;
 }
 
 .gb-row td {
   padding: 9px 10px;
-  border-bottom: 1px solid #f3f4f6;
-  color: #111827;
+  border-bottom: 1px solid rgb(var(--color-line));
+  color: rgb(var(--color-fg));
 }
 
 .gb-row:hover td {
-  background: #f9fafb;
+  background: rgb(var(--color-surface-alt));
 }
 
 .gb-rank-col {
   width: 42px;
   text-align: center;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-variant-numeric: tabular-nums;
 }
 
@@ -415,7 +475,7 @@ export default {
 .gb-jersey {
   display: inline-block;
   min-width: 30px;
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
   font-variant-numeric: tabular-nums;
 }
 
@@ -432,7 +492,7 @@ export default {
 /* A zero is a real measurement here, not a gap — but it should not compete with
    the numbers that carry the story. */
 .gb-row td.gb-stat-col {
-  color: #374151;
+  color: rgb(var(--color-fg-muted));
 }
 
 .gb-table thead th.gb-stat-col {
@@ -451,7 +511,7 @@ export default {
 }
 
 .gb-sort-button:hover {
-  color: #111827;
+  color: rgb(var(--color-fg));
 }
 
 /* Active sort column: shaded body cells and an accent rule under the header,
@@ -461,33 +521,41 @@ export default {
   box-shadow: inset 0 -2px 0 0 #b91c1c;
 }
 
+:global(.dark) .gb-table thead th.gb-col-active {
+  color: #f87171;
+  box-shadow: inset 0 -2px 0 0 #f87171;
+}
+
 .gb-row td.gb-col-active {
-  background: #fafafa;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
   font-weight: 700;
 }
 
 .gb-row:hover td.gb-col-active {
-  background: #f3f4f6;
+  background: rgb(var(--color-line));
 }
 
-.gb-medal-gold,
-.gb-medal-silver,
-.gb-medal-bronze {
+/* The tints stay light in both themes, so the text on them stays dark. Needs
+   .gb-row td specificity, or the themed row colour lands on the tint. */
+.gb-row td.gb-medal-gold,
+.gb-row td.gb-medal-silver,
+.gb-row td.gb-medal-bronze {
   font-weight: 700;
   color: #78350f;
   border-radius: 4px;
 }
 
-.gb-medal-gold {
+.gb-row td.gb-medal-gold {
   background: #fde68a;
 }
 
-.gb-medal-silver {
+.gb-row td.gb-medal-silver {
   background: #e5e7eb;
   color: #374151;
 }
 
-.gb-medal-bronze {
+.gb-row td.gb-medal-bronze {
   background: #f5d0a9;
 }
 

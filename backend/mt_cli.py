@@ -1508,7 +1508,7 @@ def resolve_match_type(client, name: str | None = None) -> dict | None:
 
     One competition only. `qualifying` spans several, so it belongs to
     resolve_match_types and to the commands that can filter a list client-side
-    — /api/team-stats takes a single match_type_id and cannot union.
+    — this returns one type; /api/teams/{id}/stats can total several (SB-1599).
     """
     if name and name.lower() == "all":
         return None
