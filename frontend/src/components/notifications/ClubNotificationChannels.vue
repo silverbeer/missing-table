@@ -4,9 +4,9 @@
       <h3 class="title">Live Match Notifications</h3>
       <p class="subtitle">
         When live match events happen, Missing Table can post updates to your
-        club's Telegram group and/or Discord channel. Configure each platform
-        below. Destinations are write-only: once saved, you can test or reset
-        them, but the full value is never displayed again.
+        club's chat channels. Configure each platform below. Destinations are
+        write-only: once saved, you can test or reset them, but the full value
+        is never displayed again.
       </p>
     </div>
 
@@ -25,7 +25,7 @@
 
     <div v-else-if="loadError" class="flash error">
       {{ loadError }}
-      <button class="link" @click="fetchChannels">Retry</button>
+      <button class="link" @click="load">Retry</button>
     </div>
 
     <div v-else class="rows">
@@ -132,43 +132,13 @@ const props = defineProps({
 
 const authStore = useAuthStore();
 
-// Mirrors backend validation in backend/api/club_notifications.py
-const TELEGRAM_RE = /^(@\w+|-?\d+)$/;
-const DISCORD_RE = /^https:\/\/discord(app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
-
-const platforms = [
-  {
-    id: 'telegram',
-    label: 'Telegram',
-    icon: '✈️',
-    placeholder: 'e.g. -1001234567890 or @channelname',
-    hint: 'Paste the chat_id for a group the Missing Table bot has been added to, or an @channel username.',
-    validator: v => {
-      if (!v) return 'Required';
-      if (!TELEGRAM_RE.test(v))
-        return 'Must be a numeric chat_id (e.g. -1001234567890) or @channelname';
-      return null;
-    },
-  },
-  {
-    id: 'discord',
-    label: 'Discord',
-    icon: '💬',
-    placeholder: 'https://discord.com/api/webhooks/…/…',
-    hint: 'Create a webhook on your Discord channel (Channel Settings → Integrations → Webhooks) and paste the full URL.',
-    validator: v => {
-      if (!v) return 'Required';
-      if (!DISCORD_RE.test(v))
-        return 'Must be a Discord webhook URL (discord.com/api/webhooks/{id}/{token})';
-      return null;
-    },
-  },
-];
+// Served by the adapter registry, so a new platform needs no change here.
+const platforms = ref([]);
 
 const channels = ref([]); // from GET
-const draft = reactive({ telegram: '', discord: '' });
-const busy = reactive({ telegram: false, discord: false });
-const validationError = reactive({ telegram: null, discord: null });
+const draft = reactive({});
+const busy = reactive({});
+const validationError = reactive({});
 const loading = ref(false);
 const loadError = ref(null);
 const flash = ref(null); // { kind: 'success'|'error'|'warning', text }
@@ -183,6 +153,16 @@ const showFlash = (kind, text, ttlMs = 5000) => {
 const urlBase = () =>
   `${getApiBaseUrl()}/api/clubs/${props.clubId}/notifications`;
 const authHeaders = () => authStore.getAuthHeaders();
+
+const findPlatform = platformId =>
+  platforms.value.find(p => p.id === platformId);
+
+const validate = (platform, value) => {
+  if (!value) return 'Required';
+  if (!new RegExp(platform.destination_pattern).test(value))
+    return platform.destination_error;
+  return null;
+};
 
 const configured = platformId =>
   channels.value.some(c => c.platform === platformId && c.configured);
@@ -199,8 +179,7 @@ const enabledFor = platformId => {
 
 const canSave = platformId => {
   const value = (draft[platformId] || '').trim();
-  const platform = platforms.find(p => p.id === platformId);
-  const err = platform.validator(value);
+  const err = validate(findPlatform(platformId), value);
   if (err && draft[platformId]) {
     // Validation happens only once the user has typed something.
     validationError[platformId] = err;
@@ -214,14 +193,39 @@ const clearValidationError = platformId => {
   validationError[platformId] = null;
 };
 
+const fetchPlatforms = async () => {
+  const resp = await fetch(`${getApiBaseUrl()}/api/notifications/platforms`, {
+    headers: authHeaders(),
+  });
+  if (!resp.ok)
+    throw new Error(`Failed to load platforms (HTTP ${resp.status})`);
+  platforms.value = await resp.json();
+};
+
+const fetchChannelRows = async () => {
+  const resp = await fetch(urlBase(), { headers: authHeaders() });
+  if (!resp.ok)
+    throw new Error(`Failed to load channels (HTTP ${resp.status})`);
+  channels.value = await resp.json();
+};
+
 const fetchChannels = async () => {
+  loadError.value = null;
+  try {
+    await fetchChannelRows();
+  } catch (err) {
+    loadError.value = err.message;
+  }
+};
+
+const load = async () => {
   loading.value = true;
   loadError.value = null;
   try {
-    const resp = await fetch(urlBase(), { headers: authHeaders() });
-    if (!resp.ok)
-      throw new Error(`Failed to load channels (HTTP ${resp.status})`);
-    channels.value = await resp.json();
+    await Promise.all([
+      platforms.value.length ? null : fetchPlatforms(),
+      fetchChannelRows(),
+    ]);
   } catch (err) {
     loadError.value = err.message;
   } finally {
@@ -231,8 +235,8 @@ const fetchChannels = async () => {
 
 const save = async platformId => {
   const value = (draft[platformId] || '').trim();
-  const platform = platforms.find(p => p.id === platformId);
-  const err = platform.validator(value);
+  const platform = findPlatform(platformId);
+  const err = validate(platform, value);
   if (err) {
     validationError[platformId] = err;
     return;
@@ -357,10 +361,10 @@ const testSend = async platformId => {
 
 watch(
   () => props.clubId,
-  () => fetchChannels()
+  () => load()
 );
 
-onMounted(fetchChannels);
+onMounted(load);
 </script>
 
 <style scoped>

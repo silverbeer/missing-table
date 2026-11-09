@@ -102,6 +102,27 @@ def other_club(club_dao):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/notifications/platforms
+# ---------------------------------------------------------------------------
+
+
+class TestListPlatforms:
+    def test_serves_each_registered_platform(self):
+        with as_user(_fake_user("club_manager", club_id=1)) as c:
+            r = c.get("/api/notifications/platforms")
+        assert r.status_code == 200
+        by_id = {p["id"]: p for p in r.json()}
+        assert {"telegram", "discord"} <= set(by_id)
+        assert by_id["telegram"]["destination_pattern"].startswith("^")
+        assert by_id["telegram"]["capabilities"] == []
+
+    def test_requires_login(self):
+        with TestClient(app) as c:
+            r = c.get("/api/notifications/platforms")
+        assert r.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
 # GET /api/clubs/{club_id}/notifications
 # ---------------------------------------------------------------------------
 

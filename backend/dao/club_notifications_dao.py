@@ -1,7 +1,7 @@
 """
 Club Notification Channels Data Access Object.
 
-Per-club destinations (Telegram chat_ids, Discord webhook URLs) used by the
+Per-club destinations (chat ids, webhook URLs) used by the
 live match notification dispatcher. The ``destination`` value is sensitive
 and is never logged or returned in full from the API layer.
 """
@@ -13,7 +13,6 @@ from dao.base_dao import BaseDAO
 logger = structlog.get_logger()
 
 TABLE = "club_notification_channels"
-VALID_PLATFORMS = frozenset({"telegram", "discord"})
 
 
 class ClubNotificationsDAO(BaseDAO):

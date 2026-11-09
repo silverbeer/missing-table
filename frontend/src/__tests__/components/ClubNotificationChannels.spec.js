@@ -29,10 +29,38 @@ const mockResponse = (status, body) => ({
   json: async () => body,
 });
 
+const PLATFORMS = [
+  {
+    id: 'telegram',
+    label: 'Telegram',
+    icon: '✈️',
+    placeholder: 'chat id',
+    hint: 'hint',
+    destination_pattern: '^(@\\w+|-?\\d+)$',
+    destination_error: 'Telegram destination is invalid',
+    capabilities: [],
+  },
+  {
+    id: 'discord',
+    label: 'Discord',
+    icon: '💬',
+    placeholder: 'webhook',
+    hint: 'hint',
+    destination_pattern:
+      '^https://discord(app)?\\.com/api/webhooks/\\d+/[\\w-]+$',
+    destination_error: 'Discord destination is invalid',
+    capabilities: [],
+  },
+];
+
 const mkMount = (initialChannels = []) => {
   globalThis.fetch = vi
     .fn()
-    .mockResolvedValue(mockResponse(200, initialChannels));
+    .mockImplementation(async url =>
+      String(url).endsWith('/api/notifications/platforms')
+        ? mockResponse(200, PLATFORMS)
+        : mockResponse(200, initialChannels)
+    );
   return mount(ClubNotificationChannels, {
     props: { clubId: 42 },
   });
@@ -58,6 +86,40 @@ describe('ClubNotificationChannels', () => {
 
       expect(wrapper.find('[data-testid="row-telegram"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="row-discord"]').exists()).toBe(true);
+    });
+
+    it('renders whatever platforms the registry serves', async () => {
+      globalThis.fetch = vi
+        .fn()
+        .mockImplementation(async url =>
+          String(url).endsWith('/api/notifications/platforms')
+            ? mockResponse(200, [{ ...PLATFORMS[0], id: 'newchat' }])
+            : mockResponse(200, [])
+        );
+      const wrapper = mount(ClubNotificationChannels, {
+        props: { clubId: 42 },
+      });
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="row-newchat"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="row-telegram"]').exists()).toBe(false);
+    });
+
+    it('shows an error with retry when platforms cannot load', async () => {
+      globalThis.fetch = vi
+        .fn()
+        .mockImplementation(async url =>
+          String(url).endsWith('/api/notifications/platforms')
+            ? mockResponse(500, {})
+            : mockResponse(200, [])
+        );
+      const wrapper = mount(ClubNotificationChannels, {
+        props: { clubId: 42 },
+      });
+      await flushPromises();
+
+      expect(wrapper.text()).toContain('Failed to load platforms');
+      expect(wrapper.find('button.link').exists()).toBe(true);
     });
 
     it('shows "Not configured" when the backend returns no channels', async () => {
@@ -100,8 +162,8 @@ describe('ClubNotificationChannels', () => {
       expect(wrapper.find('[data-testid="error-telegram"]').exists()).toBe(
         true
       );
-      // fetch was called once (the initial GET). No second fetch for PUT.
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      // Only the two load GETs (platforms, channels). No PUT.
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('rejects invalid discord input with inline error', async () => {
@@ -115,7 +177,7 @@ describe('ClubNotificationChannels', () => {
       await flushPromises();
 
       expect(wrapper.find('[data-testid="error-discord"]').exists()).toBe(true);
-      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('PUTs valid telegram destination and re-fetches', async () => {

@@ -1,6 +1,6 @@
 """Live-match notification subsystem.
 
-Dispatches Telegram / Discord messages when match events (kickoff, goal,
+Dispatches chat messages (see notifications/registry.py) when match events (kickoff, goal,
 card, halftime, fulltime) happen during a live match. Routes each match
 to the home + away clubs' configured channels.
 """
