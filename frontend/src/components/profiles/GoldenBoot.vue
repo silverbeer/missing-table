@@ -1,7 +1,10 @@
 <template>
   <section class="golden-boot">
     <header class="gb-header">
-      <h3 class="gb-title">Golden Boot</h3>
+      <h3 class="gb-title">
+        Golden Boot
+        <span class="gb-beta-tag" data-testid="gb-beta-tag">Beta</span>
+      </h3>
       <!-- Rendered only once the options exist. A <select> whose v-model is set
            before its v-for options have arrived keeps displaying the option that
            was there first, so the control would read "All" while the model — and
@@ -63,11 +66,10 @@
             <button
               type="button"
               class="gb-sort-button"
-              :aria-label="`Sort by ${col.label}${col.beta ? ' (beta)' : ''}`"
+              :aria-label="`Sort by ${col.label}`"
               @click="sortBy(col.key)"
             >
               {{ col.short }}
-              <span v-if="col.beta" class="gb-beta-tag">Beta</span>
             </button>
           </th>
         </tr>
@@ -98,7 +100,9 @@
       class="gb-beta-note"
       data-testid="gb-beta-note"
     >
-      GP and GS are in beta and may be incomplete. To correct a total,
+      Beta: these stats come from club and team managers live scoring matches,
+      so mistakes happen. Fans and players, spot something wrong? Help us fix
+      it:
       <SupportEmailLink
         subject="Golden Boot correction"
         :body="`Team ID: ${teamId}\nPlayer, match, and what should change:`"
@@ -118,24 +122,9 @@ import SupportEmailLink from '@/components/SupportEmailLink.vue';
 // logged silently understates a player, and a column that is quietly wrong is
 // worse than a column that is missing. Everything here is either counted from
 // an event (G, A, YC, RC) or from an appearance record (GP, GS).
-//
-// GP and GS are marked beta (SB-1614): they are only as good as the lineups that
-// were logged, unlike the event counts.
 const STAT_COLUMNS = [
-  {
-    key: 'gp',
-    short: 'GP',
-    label: 'games played',
-    field: 'games_played',
-    beta: true,
-  },
-  {
-    key: 'gs',
-    short: 'GS',
-    label: 'games started',
-    field: 'games_started',
-    beta: true,
-  },
+  { key: 'gp', short: 'GP', label: 'games played', field: 'games_played' },
+  { key: 'gs', short: 'GS', label: 'games started', field: 'games_started' },
   { key: 'goals', short: 'G', label: 'goals', field: 'total_goals' },
   { key: 'assists', short: 'A', label: 'assists', field: 'total_assists' },
   {
@@ -544,14 +533,14 @@ export default {
 /* Same amber as the nav's Beta badge. Fixed colours: the tint stays light in both
    themes, so the text on it stays dark. */
 .gb-beta-tag {
-  display: block;
-  width: fit-content;
-  margin: 2px auto 0;
-  padding: 0 3px;
-  font-size: 0.5625rem;
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 0.625rem;
   font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
   color: #92400e;
   background-color: #fef3c7;
   border-radius: 9999px;
@@ -629,11 +618,6 @@ export default {
 
   .gb-jersey {
     min-width: 26px;
-  }
-
-  .gb-beta-tag {
-    padding: 0 2px;
-    font-size: 0.5rem;
   }
 }
 </style>
