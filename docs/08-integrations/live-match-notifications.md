@@ -311,8 +311,26 @@ MT does not add people to chat rooms. It decides who may see a channel's **invit
 | Endpoint | Who |
 |----------|-----|
 | `GET /api/teams/{id}/channels/available` | any signed-in user; always 200 |
+| `GET /api/me/channels[?team_id=]` | any signed-in user: the profile card's view, with `has_team`, `managed` (claimed) and `can_manage` |
 | `POST /api/channels/{id}/join`, `POST`/`DELETE /api/channels/{id}/request` | the user |
 | `GET /api/channels/requests?team_id=` | admin, club manager, the team's manager |
 | `PUT /api/channels/{id}/members/{user_id}` (`active`, `denied`, `revoked`) | same |
 
-`channel_access_requests` and `/api/channel-requests` remain until the profile UI moves to these endpoints (SB-1609).
+### Team chat channels card (SB-1609)
+
+`components/notifications/TeamChannelsCard.vue` sits on every profile page (the viewer's own team and club) and on the My Club page (that team, via `team_id`). It renders only what `/api/me/channels` returns, so platform names and audience rules live on the server.
+
+| State | Shown |
+|-------|-------|
+| No club or team | "Channels show up here once you belong to a club or team" |
+| Unclaimed team (`managed: false`) | claim prompt |
+| No channels, viewer manages | channels appear once they have an invite link |
+| No channels, viewer is a member | ask your team manager |
+| `can_request` / `requested` | Request invite / Request pending, with Withdraw |
+| `can_join` | Join |
+| `member` | Open in <platform> |
+| `denied` / `revoked` | ask a manager |
+
+It never says "Joined": MT gives out a link and cannot tell whether it was used.
+
+Adding invite links in the UI comes with the setup screen (SB-1605); until then a channel's `invite_url` is set through `PATCH /api/notification-channels/{id}`. The old `channel_access_requests` table and `/api/channel-requests` (admin review screen) stay until that screen moves over.

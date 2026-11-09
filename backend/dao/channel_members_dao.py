@@ -153,6 +153,72 @@ class ChannelMembersDAO(BaseDAO):
             .order("created_at"),
         )
 
+    def channels_for_teams(self, team_ids: set[int], club_ids: set[int]) -> list[dict]:
+        """Squad channels of these teams and club channels of these clubs, in id order."""
+        rows: list[dict] = []
+        if team_ids:
+            rows += self._rows(
+                "my_team_channels",
+                lambda: self.client.table("notification_channels")
+                .select(CHANNEL_COLUMNS)
+                .eq("scope_type", "team")
+                .in_("team_id", sorted(team_ids))
+                .order("id"),
+            )
+        if club_ids:
+            rows += self._rows(
+                "my_club_channels",
+                lambda: self.client.table("notification_channels")
+                .select(CHANNEL_COLUMNS)
+                .eq("scope_type", "club")
+                .in_("club_id", sorted(club_ids))
+                .order("id"),
+            )
+        return rows
+
+    def team_clubs(self, team_ids: set[int]) -> dict[int, int | None]:
+        if not team_ids:
+            return {}
+        rows = self._rows(
+            "team_clubs", lambda: self.client.table("teams").select("id, club_id").in_("id", sorted(team_ids))
+        )
+        return {r["id"]: r.get("club_id") for r in rows}
+
+    def is_managed(self, team_ids: set[int], club_ids: set[int]) -> bool | None:
+        """Whether anyone on MT manages these teams or clubs: the claimed/unclaimed split.
+
+        None when the lookup failed, so "could not check" never reads as "unclaimed".
+        """
+        try:
+            if team_ids:
+                rows = (
+                    self.client.table("user_profiles")
+                    .select("id")
+                    .in_("role", ["team-manager", "team_manager"])
+                    .in_("team_id", sorted(team_ids))
+                    .limit(1)
+                    .execute()
+                    .data
+                )
+                if rows:
+                    return True
+            if club_ids:
+                rows = (
+                    self.client.table("user_profiles")
+                    .select("id")
+                    .eq("role", "club_manager")
+                    .in_("club_id", sorted(club_ids))
+                    .limit(1)
+                    .execute()
+                    .data
+                )
+                if rows:
+                    return True
+        except Exception as exc:
+            logger.error("dao_channel_members_read_failed", query="is_managed", error_type=type(exc).__name__)
+            return None
+        return False
+
     def profile(self, user_id: str) -> dict | None:
         """The fields channel access depends on, for someone other than the caller."""
         rows = self._rows(

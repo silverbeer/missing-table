@@ -72,7 +72,7 @@ beforeEach(() => {
 const mountProfile = async () => {
   const wrapper = mount(FanProfile, {
     global: {
-      stubs: { LiveUpdatesTeaser: true, LiveUpdatesSection: true },
+      stubs: { LiveUpdatesTeaser: true, TeamChannelsCard: true },
     },
   });
   await flushPromises();

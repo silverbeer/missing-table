@@ -2,6 +2,7 @@
 Channel access API (SB-1607): who may join which notification channel.
 
 - GET    /api/teams/{team_id}/channels/available     what the caller may see, always 200
+- GET    /api/me/channels[?team_id=]                  the same, with what the profile card needs
 - POST   /api/channels/{channel_id}/join             join a channel the caller is entitled to
 - POST   /api/channels/{channel_id}/request          ask a manager for access
 - DELETE /api/channels/{channel_id}/request          withdraw a pending request
@@ -62,6 +63,21 @@ class AvailableChannel(BaseModel):
     age_group_name: str | None
     state: State
     invite_url: str | None = None
+
+
+class MyChannels(BaseModel):
+    """What the profile card renders (SB-1609).
+
+    `has_team`: the caller has a team or club to have channels for.
+    `managed`: someone on MT manages that team or club (the claimed state);
+    None when that could not be checked.
+    `can_manage`: the caller manages it, so an empty card offers setup.
+    """
+
+    channels: list[AvailableChannel]
+    has_team: bool
+    managed: bool | None
+    can_manage: bool
 
 
 class MemberDecision(BaseModel):
@@ -172,8 +188,16 @@ def available_channels(team_id: int, current_user: dict = Depends(get_current_us
     dao = _dao()
     user_id = actor_id(current_user)
     viewer = _viewer(dao, current_user, user_id) if user_id else channel_viewer(current_user, None, [])
-    club_id = dao.team_club_id(team_id)
-    rows = [r for r in dao.channels_for_team(team_id, club_id) if _joinable_link(r)]
+    clubs = dao.team_clubs({team_id})
+    club_id = clubs.get(team_id)
+    return _visible(dao, viewer, user_id, dao.channels_for_team(team_id, club_id), clubs)
+
+
+def _visible(
+    dao: ChannelMembersDAO, viewer: ChannelViewer, user_id: str | None, rows: list[dict], clubs: dict[int, int | None]
+) -> list[AvailableChannel]:
+    """The rows this viewer may see, with their state. `clubs` maps team id to club id."""
+    rows = [r for r in rows if _joinable_link(r)]
     names = dao.age_group_names({r["age_group_id"] for r in rows if r.get("age_group_id")})
     statuses = dao.statuses(user_id, [r["id"] for r in rows]) if user_id else {}
     out: list[AvailableChannel] = []
@@ -181,7 +205,7 @@ def available_channels(team_id: int, current_user: dict = Depends(get_current_us
         facts = ChannelFacts(
             scope_type=row["scope_type"],
             audience=row["audience"],
-            club_id=club_id,
+            club_id=row.get("club_id") if row["scope_type"] == "club" else clubs.get(row.get("team_id")),
             team_id=row.get("team_id"),
             age_group_id=row.get("age_group_id"),
             age_group_name=names.get(row.get("age_group_id")),
@@ -190,6 +214,35 @@ def available_channels(team_id: int, current_user: dict = Depends(get_current_us
         if state is not None:
             out.append(_to_available(row, facts, state))
     return out
+
+
+@router.get("/me/channels", response_model=MyChannels)
+def my_channels(team_id: int | None = None, current_user: dict = Depends(get_current_user_required)) -> MyChannels:
+    """Channels for the caller's own teams and club, or for `team_id` (the My Club page)."""
+    dao = _dao()
+    user_id = actor_id(current_user)
+    viewer = _viewer(dao, current_user, user_id) if user_id else channel_viewer(current_user, None, [])
+    if team_id is not None:
+        team_ids = {team_id}
+        clubs = dao.team_clubs(team_ids)
+        club_ids = {c for c in clubs.values() if c is not None}
+        can_manage = _can_manage(current_user, {"scope_type": "team", "team_id": team_id})
+    else:
+        team_ids = {t for t in [current_user.get("team_id"), *(s.team_id for s in viewer.squads)] if t is not None}
+        clubs = dao.team_clubs(team_ids)
+        club_ids = {c for c in [viewer.club_id, *clubs.values(), *(s.club_id for s in viewer.squads)] if c is not None}
+        can_manage = viewer.kind == "admin" or (
+            viewer.kind in ("club_manager", "team_manager") and bool(team_ids or club_ids)
+        )
+    if not team_ids and not club_ids:
+        return MyChannels(channels=[], has_team=False, managed=None, can_manage=False)
+    rows = dao.channels_for_teams(team_ids, club_ids)
+    return MyChannels(
+        channels=_visible(dao, viewer, user_id, rows, clubs),
+        has_team=True,
+        managed=dao.is_managed(team_ids, club_ids),
+        can_manage=can_manage,
+    )
 
 
 @router.post("/channels/{channel_id}/join", response_model=AvailableChannel)
