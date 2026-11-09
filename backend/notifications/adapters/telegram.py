@@ -14,6 +14,8 @@ class TelegramAdapter(ChannelAdapter):
     id: ClassVar[str] = "telegram"
     label: ClassVar[str] = "Telegram"
     icon: ClassVar[str] = "✈️"
+    invite_pattern: ClassVar[str] = r"^https://t\.me/(\+|joinchat/)[A-Za-z0-9_-]{8,64}$"
+    invite_error: ClassVar[str] = "Must be a private Telegram invite link (https://t.me/+...)"
     placeholder: ClassVar[str] = "e.g. -1001234567890 or @channelname"
     hint: ClassVar[str] = (
         "Paste the chat_id for a group the Missing Table bot has been added to, or an @channel username."

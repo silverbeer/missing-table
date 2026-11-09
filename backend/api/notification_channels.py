@@ -65,12 +65,15 @@ class ChannelCreate(ChannelScope):
     # None = every event; [] = none. Never collapse the two.
     event_types: list[str] | None = None
     enabled: bool = True
+    # Shown to members, unlike destination; see api/channel_members.py.
+    invite_url: str | None = Field(None, max_length=500)
 
 
 class ChannelUpdate(BaseModel):
     destination: str | None = Field(None, min_length=1, max_length=500)
     event_types: list[str] | None = None
     enabled: bool | None = None
+    invite_url: str | None = Field(None, max_length=500)
 
 
 class ChannelOut(ChannelScope):
@@ -79,6 +82,7 @@ class ChannelOut(ChannelScope):
     platform: str
     event_types: list[str] | None
     enabled: bool
+    invite_url: str | None = None
     hint: str | None = Field(None, description="Last 4 chars of destination; full value never exposed")
 
 
@@ -98,6 +102,7 @@ def _to_out(row: dict) -> ChannelOut:
         platform=row["platform"],
         event_types=row.get("event_types"),
         enabled=bool(row["enabled"]),
+        invite_url=row.get("invite_url"),
         hint=destination[-4:] if destination else None,
     )
 
@@ -138,6 +143,16 @@ def _adapter(platform: str) -> ChannelAdapter:
 def _validate_destination(adapter: ChannelAdapter, destination: str) -> None:
     try:
         adapter.validate_destination(destination)
+    except InvalidDestinationError as exc:
+        raise _unprocessable(str(exc)) from None
+
+
+def _validate_invite_url(adapter: ChannelAdapter, invite_url: str | None) -> None:
+    """None clears the link; anything else must be the platform's private join link."""
+    if invite_url is None:
+        return
+    try:
+        adapter.validate_invite_url(invite_url)
     except InvalidDestinationError as exc:
         raise _unprocessable(str(exc)) from None
 
@@ -188,6 +203,7 @@ def create_channel(
     _ensure_scope_access(current_user, body)
     adapter = _adapter(body.platform)
     _validate_destination(adapter, body.destination)
+    _validate_invite_url(adapter, body.invite_url)
     _validate_event_types(body.event_types)
     _validate_audience(body, adapter)
     try:
@@ -232,6 +248,8 @@ def update_channel(
     if "enabled" in fields and fields["enabled"] is None:
         raise _unprocessable("enabled cannot be null")
     _validate_event_types(fields.get("event_types"))
+    if "invite_url" in fields:
+        _validate_invite_url(_adapter(row["platform"]), fields["invite_url"])
     if not fields:
         return _to_out(row)
     try:

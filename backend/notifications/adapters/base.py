@@ -69,6 +69,10 @@ class ChannelAdapter(ABC):
     # Python and JavaScript read the same way. Anchors are required.
     destination_pattern: ClassVar[str]
     destination_error: ClassVar[str]
+    # The link people use to join. Only private, access-controlled forms: a
+    # public link would make the grant meaningless. Same regex rules as above.
+    invite_pattern: ClassVar[str]
+    invite_error: ClassVar[str]
     capabilities: ClassVar[frozenset[Capability]] = frozenset()
     # Youngest U-number this platform may host as a player channel. None means
     # fans only. Set from the platform's terms, so a change is a one-line edit.
@@ -83,6 +87,11 @@ class ChannelAdapter(ABC):
         """
         if not re.fullmatch(self.destination_pattern, destination, flags=re.ASCII):
             raise InvalidDestinationError(self.destination_error)
+
+    def validate_invite_url(self, invite_url: str) -> None:
+        """Raise InvalidDestinationError unless `invite_url` is this platform's private join link."""
+        if not re.fullmatch(self.invite_pattern, invite_url, flags=re.ASCII):
+            raise InvalidDestinationError(self.invite_error)
 
     def check_config(self) -> None:  # noqa: B027 — optional hook; most platforms need no config
         """Raise NotificationConfigError if the platform cannot send right now."""

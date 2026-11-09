@@ -288,3 +288,31 @@ Every chat post is recorded in `notification_deliveries`, one row per channel an
 - A `failed` row also blocks a repeat. Retrying is a separate change (SB-1604).
 - If the ledger is unreachable the post goes out unrecorded, because losing an update is worse than the small chance of repeating one.
 - The ledger holds no destination, and `error` is sanitized. Web Push, APNs and FCM keep using `push_send_log`.
+
+## Channel access (SB-1607)
+
+MT does not add people to chat rooms. It decides who may see a channel's **invite link** (`notification_channels.invite_url`) and records each grant in `channel_members`. The link must be the platform's private join link (`t.me/+…`, `discord.gg/…`, `join.slack.com/t/…/shared_invite/…`); a public link would make the grant meaningless. Unlike `destination`, the link is shown, but only to an active member who is still eligible.
+
+| Channel | Who sees it | How they get in |
+|---------|-------------|-----------------|
+| Squad fans | fans of the club; the squad's managers | fan requests, a manager approves; or a manager invites |
+| Squad players (U14+) | players currently on the squad; its managers | join directly |
+| Club fans | fans and team managers whose My Club is the club; club managers | join directly |
+| Club players (U14+) | the club's players on a U14+ squad; club managers | join directly |
+| Global | nobody through this API | admin only |
+
+- Rules are pure functions in `notifications/membership.py`; the viewer's standing (role, club, current squads) comes from `channel_viewer` in `mt_tools/my_team.py`.
+- Players never see fan or club fan channels, and fans never see player channels. A hidden channel answers 404, so its existence does not leak.
+- Eligibility is re-checked on every read. A player who leaves a squad stops seeing its link without anyone revoking it. Removing them from the chat itself is still a manual step on the platform.
+- A manager can only grant access to someone the rules already allow to ask or join.
+- No handle is collected: the member uses the link themselves, so nothing about a minor's chat account is stored.
+- A fan cannot change their own club; only an admin or an invite sets `club_id`.
+
+| Endpoint | Who |
+|----------|-----|
+| `GET /api/teams/{id}/channels/available` | any signed-in user; always 200 |
+| `POST /api/channels/{id}/join`, `POST`/`DELETE /api/channels/{id}/request` | the user |
+| `GET /api/channels/requests?team_id=` | admin, club manager, the team's manager |
+| `PUT /api/channels/{id}/members/{user_id}` (`active`, `denied`, `revoked`) | same |
+
+`channel_access_requests` and `/api/channel-requests` remain until the profile UI moves to these endpoints (SB-1609).

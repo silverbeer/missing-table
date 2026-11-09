@@ -236,3 +236,55 @@ def _marked(index: TeamIndex, team: dict, active: bool) -> list[TeamCandidate]:
 def _club_ref(index: TeamIndex, club_id: int | None) -> ClubRef | None:
     club = index.visible_club(club_id)
     return ClubRef(id=club["id"], name=club["name"]) if club else None
+
+
+# --- channel membership (SB-1607) ---------------------------------------------
+
+ViewerKind = Literal["admin", "club_manager", "team_manager", "fan", "player", "none"]
+
+_KIND_BY_ROLE: dict[str, ViewerKind] = {
+    "admin": "admin",
+    "club_manager": "club_manager",
+    "team-manager": "team_manager",
+    "team_manager": "team_manager",
+    "team-player": "player",
+    "team_player": "player",
+    **dict.fromkeys(PICK_ROLES, "fan"),
+}
+
+
+class Squad(BaseModel):
+    """A squad a player is currently on: a team row at one age group."""
+
+    team_id: int
+    age_group_id: int | None
+    club_id: int | None
+    age_group_name: str | None
+
+
+class ChannelViewer(BaseModel):
+    """Who is asking, as far as notification channels care.
+
+    `club_id` is the profile's club, else the club of the profile's team (a team
+    manager's My Club). `squads` is only filled for players: where a player plays
+    is their current squad history, not their profile.
+    """
+
+    kind: ViewerKind
+    club_id: int | None = None
+    team_id: int | None = None
+    squads: list[Squad] = []
+
+
+def channel_viewer(user: dict[str, Any], team_club_id: int | None, squads: list[Squad]) -> ChannelViewer:
+    """The caller's channel standing. `team_club_id` is the club of `user['team_id']`."""
+    kind = _KIND_BY_ROLE.get(user.get("role") or "", "none")
+    club_id = user.get("club_id")
+    if club_id is None:
+        club_id = team_club_id
+    return ChannelViewer(
+        kind=kind,
+        club_id=club_id,
+        team_id=user.get("team_id"),
+        squads=squads if kind == "player" else [],
+    )
