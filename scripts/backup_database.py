@@ -133,6 +133,7 @@ TABLES_TO_BACKUP = [
     "match_of_the_week",
     "tournament_match_of_the_day",  # SB-1559; depends on tournaments, matches
     "notification_channels",  # SB-1602; depends on clubs, teams, age_groups
+    "notification_deliveries",  # SB-1603; depends on notification_channels
     "match_events",
     "match_lineups",
     "player_match_stats",
