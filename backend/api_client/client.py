@@ -1105,12 +1105,13 @@ class MissingTableClient:
         self,
         team_id: int,
         season_id: int | None = None,
-        match_type_id: int | None = None,
+        match_type_id: int | list[int] | None = None,
         age_group_id: int | None = None,
     ) -> dict[str, Any]:
         """Get team stats.
 
-        match_type_id narrows to one competition (SB-433); age_group_id to one
+        match_type_id narrows to a competition, or a list to total several
+        (SB-433, SB-1599); age_group_id to one
         age group's players (SB-1258). Omit either for all.
         """
         params = {}

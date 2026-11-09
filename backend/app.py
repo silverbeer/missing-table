@@ -6887,7 +6887,11 @@ async def get_player_stats(
 async def get_team_stats(
     team_id: int,
     season_id: int = Query(..., description="Season ID for stats"),
-    match_type_id: int | None = Query(None, description="Restrict to one competition; omit for all"),
+    # Repeatable (SB-1599): ?match_type_id=1&match_type_id=2 totals League +
+    # Flex. A single value behaves exactly as before.
+    match_type_id: list[int] | None = Query(
+        None, description="Restrict to a competition; repeat to combine; omit for all"
+    ),
     age_group_id: int | None = Query(None, description="Restrict to players in one age group; omit for all"),
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
@@ -6900,9 +6904,10 @@ async def get_team_stats(
     The viewer is resolved optionally (SB-591) so test matches never inflate a
     real player's totals for anonymous or real users.
 
-    match_type_id narrows to a single competition (SB-433) — a squad leaderboard
-    that silently mixes friendlies into league totals is not comparable with the
-    league table beside it.
+    match_type_id narrows to a competition (SB-433) — a squad leaderboard that
+    silently mixes friendlies into league totals is not comparable with the
+    league table beside it. Repeat it to total several, e.g. League + Flex
+    (SB-1599).
 
     age_group_id narrows a multi-age team (e.g. a Homegrown squad mapped to
     U13-U15) to one age group's players, matching the roster filter (SB-1258).
@@ -6913,12 +6918,18 @@ async def get_team_stats(
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
 
+        # One id stays a plain int so existing callers see the same response and
+        # cache key; several are sorted so 1,2 and 2,1 share a cache entry.
+        match_types: int | list[int] | None = None
+        if match_type_id:
+            match_types = match_type_id[0] if len(match_type_id) == 1 else sorted(set(match_type_id))
+
         # Get team stats
         stats = player_stats_dao.get_team_stats(
             team_id,
             season_id,
             include_test=viewer_sees_test_content(current_user),
-            match_type_id=match_type_id,
+            match_type_id=match_types,
             age_group_id=age_group_id,
         )
 
@@ -6926,7 +6937,7 @@ async def get_team_stats(
             "team_id": team_id,
             "team_name": team.get("name"),
             "season_id": season_id,
-            "match_type_id": match_type_id,
+            "match_type_id": match_types,
             "age_group_id": age_group_id,
             "players": stats,
         }

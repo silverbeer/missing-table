@@ -99,6 +99,20 @@ class TestMatchTypeFilter:
         with_test = _dao_with(rows).get_player_season_stats(1, 7, include_test=True, match_type_id=LEAGUE)
         assert with_test["total_goals"] == 11
 
+    def test_a_list_totals_several_competitions(self):
+        """League + Flex is one board (SB-1599)."""
+        stats = _dao_with(ROWS).get_player_season_stats(1, 7, match_type_id=[LEAGUE, FRIENDLY])
+
+        assert stats["total_goals"] == 6
+        assert stats["total_assists"] == 3
+        assert stats["games_played"] == 3
+
+    def test_a_single_item_list_matches_the_plain_id(self):
+        as_list = _dao_with(ROWS).get_player_season_stats(1, 7, match_type_id=[LEAGUE])
+        as_int = _dao_with(ROWS).get_player_season_stats(1, 7, match_type_id=LEAGUE)
+
+        assert as_list == as_int
+
     def test_match_type_is_selected_from_the_joined_match(self):
         """The filter is worthless if the column is not in the select."""
         dao = _dao_with(ROWS)

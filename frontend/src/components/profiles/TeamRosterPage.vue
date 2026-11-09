@@ -223,7 +223,11 @@
       <!-- Season leaders. Rendered outside the roster-empty branch on purpose:
            these stats come from logged match events, so they can exist for a
            squad whose roster cards have not been filled in. -->
-      <GoldenBoot v-if="resolvedTeamId" :team-id="resolvedTeamId" />
+      <GoldenBoot
+        v-if="resolvedTeamId"
+        :team-id="resolvedTeamId"
+        :club-id="team?.club?.id"
+      />
     </template>
   </div>
 </template>
