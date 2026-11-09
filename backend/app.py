@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 import r2_client
 from api.admin_attention import router as admin_attention_router
 from api.admin_emails import router as admin_emails_router
+from api.channel_members import router as channel_members_router
 from api.channel_requests import router as channel_requests_router
 from api.club_notifications import platforms_router as notification_platforms_router
 from api.club_notifications import router as club_notifications_router
@@ -358,6 +359,7 @@ app.include_router(channel_requests_router)
 app.include_router(club_notifications_router)
 app.include_router(notification_platforms_router)
 app.include_router(notification_channels_router)
+app.include_router(channel_members_router)
 app.include_router(push_router)
 app.include_router(webhooks_email_router)
 app.include_router(admin_emails_router)
@@ -2268,6 +2270,7 @@ _DELETE_CASCADES = [
     ("user_notification_preferences", "user_id", "notification preferences"),
     ("team_manager_assignments", "user_id", "team manager assignments"),
     ("channel_access_requests", "user_id", "channel access requests"),
+    ("channel_members", "user_id", "notification channel access"),
     ("ai_conversations", "user_id", "MT AI conversations"),
     ("user_blocks", "blocker_id", "users they blocked"),
     ("user_blocks", "blocked_id", "blocks against them"),
@@ -2282,6 +2285,7 @@ _DELETE_ORPHANS = [
     ("content_reports", "reported_user_id", "chat reports against them"),
     ("content_reports", "resolved_by", "chat reports they resolved"),
     ("notification_channels", "created_by", "notification channels they set up"),
+    ("channel_members", "decided_by", "channel access they decided"),
 ]
 
 _DELETE_BLOCKERS = [

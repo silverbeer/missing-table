@@ -146,19 +146,8 @@ async def create_channel_request(
         profile = profile_result.data[0]
         team_id = profile.get("team_id")
 
-        # Club managers may have club_id but no team_id — fall back to first team in their club
-        if not team_id and profile.get("club_id"):
-            teams_result = (
-                service_client.table("teams")
-                .select("id")
-                .eq("club_id", profile["club_id"])
-                .order("id")
-                .limit(1)
-                .execute()
-            )
-            if teams_result.data:
-                team_id = teams_result.data[0]["id"]
-
+        # No fallback to a club's first team: a request must name a squad, so a
+        # club-only profile is sent to the per-channel flow instead (SB-1607).
         if not team_id:
             raise HTTPException(
                 status_code=400,

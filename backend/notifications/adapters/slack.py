@@ -24,6 +24,8 @@ class SlackAdapter(ChannelAdapter):
     id: ClassVar[str] = "slack"
     label: ClassVar[str] = "Slack"
     icon: ClassVar[str] = "#️⃣"
+    invite_pattern: ClassVar[str] = r"^https://join\.slack\.com/t/[A-Za-z0-9-]{1,80}/shared_invite/[A-Za-z0-9_-]{4,200}$"
+    invite_error: ClassVar[str] = "Must be a Slack invite link (https://join.slack.com/t/.../shared_invite/...)"
     placeholder: ClassVar[str] = "https://hooks.slack.com/services/…"
     hint: ClassVar[str] = (
         "Add an Incoming Webhook to your Slack channel and paste the full webhook URL."

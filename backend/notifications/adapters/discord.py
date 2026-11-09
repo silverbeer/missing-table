@@ -13,6 +13,8 @@ class DiscordAdapter(ChannelAdapter):
     id: ClassVar[str] = "discord"
     label: ClassVar[str] = "Discord"
     icon: ClassVar[str] = "💬"
+    invite_pattern: ClassVar[str] = r"^https://(discord\.gg|discord\.com/invite)/[A-Za-z0-9_-]{2,64}$"
+    invite_error: ClassVar[str] = "Must be a Discord invite link (https://discord.gg/...)"
     placeholder: ClassVar[str] = "https://discord.com/api/webhooks/…/…"
     hint: ClassVar[str] = (
         "Create a webhook on your Discord channel (Channel Settings → Integrations → Webhooks) "
