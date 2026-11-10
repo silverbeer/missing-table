@@ -212,6 +212,8 @@ class PlatformInfo(BaseModel):
     invite_error: str
     capabilities: list[str]
     min_player_age: int | None
+    age_note: str | None = None
+    player_setup_steps: list[str] = []
 
 
 class TestSendResponse(BaseModel):
@@ -275,6 +277,8 @@ def list_platforms(
             invite_error=adapter.invite_error,
             capabilities=sorted(adapter.capabilities),
             min_player_age=adapter.min_player_age,
+            age_note=adapter.age_note,
+            player_setup_steps=list(adapter.player_setup_steps),
         )
         for adapter in all_adapters()
     ]

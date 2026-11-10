@@ -93,8 +93,8 @@
         {{ inviteError }}
       </small>
       <small v-else>
-        Shown only to people you approve, or who qualify to join. Use a private
-        link.
+        Shown only to people you approve, or who qualify to join. Anyone who has
+        the link can pass it on, so treat the room as open to them.
       </small>
     </label>
 
@@ -160,6 +160,29 @@
       <ol>
         <li v-for="(step, i) in platform.setup_steps" :key="i">{{ step }}</li>
       </ol>
+      <template
+        v-if="
+          form.audience === 'players' && platform.player_setup_steps?.length
+        "
+      >
+        <p class="setup-sub">For a player channel</p>
+        <ol data-testid="form-player-setup">
+          <li v-for="(step, i) in platform.player_setup_steps" :key="i">
+            {{ step }}
+          </li>
+        </ol>
+      </template>
+      <p
+        v-if="platform.age_note"
+        class="setup-note"
+        data-testid="form-age-note"
+      >
+        {{ platform.age_note }}
+      </p>
+      <p class="setup-note">
+        You own and moderate this room. Missing Table only posts match updates
+        to it.
+      </p>
     </details>
 
     <div class="flex gap-2 mt-1">
@@ -305,6 +328,14 @@ const submit = () => {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+.setup-sub {
+  margin: 0.75rem 0 0;
+  color: rgb(var(--color-fg));
+  font-weight: 500;
+}
+.setup-note {
+  margin: 0.5rem 0 0;
 }
 .btn {
   padding: 0.4rem 0.8rem;

@@ -44,6 +44,34 @@ class TestAdapterContract:
         assert all(step.strip() for step in adapter.setup_steps)
 
     @pytest.mark.parametrize("adapter", ADAPTERS, ids=IDS)
+    def test_never_calls_a_room_private_or_verified(self, adapter: ChannelAdapter):
+        """SB-1612: rooms are community-run and invite links can be forwarded."""
+        text = " ".join(
+            [
+                adapter.hint,
+                adapter.invite_error,
+                *adapter.setup_steps,
+                *adapter.player_setup_steps,
+                adapter.age_note or "",
+            ]
+        ).lower()
+        # "Create Private Threads" is a Discord permission name, not a claim.
+        for claim in ("private link", "private invite", "private channel", "private room", "private group", "verified"):
+            assert claim not in text, f"{adapter.id}: {claim!r}"
+
+    @pytest.mark.parametrize("adapter", ADAPTERS, ids=IDS)
+    def test_a_player_platform_explains_read_only_setup(self, adapter: ChannelAdapter):
+        """A platform that may host players says how to make the room read-only with reactions."""
+        if adapter.min_player_age is not None:
+            steps = " ".join(adapter.player_setup_steps).lower()
+            assert "react" in steps and ("post" in steps or "send messages" in steps)
+
+    def test_discord_states_its_minimum_age(self):
+        from notifications.adapters.discord import DiscordAdapter
+
+        assert "13" in (DiscordAdapter.age_note or "")
+
+    @pytest.mark.parametrize("adapter", ADAPTERS, ids=IDS)
     def test_pattern_is_anchored_and_compiles(self, adapter: ChannelAdapter):
         re.compile(adapter.destination_pattern)
         assert adapter.destination_pattern.startswith("^")

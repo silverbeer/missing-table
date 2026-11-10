@@ -15,7 +15,7 @@ class TelegramAdapter(ChannelAdapter):
     label: ClassVar[str] = "Telegram"
     icon: ClassVar[str] = "✈️"
     invite_pattern: ClassVar[str] = r"^https://t\.me/(\+|joinchat/)[A-Za-z0-9_-]{8,64}$"
-    invite_error: ClassVar[str] = "Must be a private Telegram invite link (https://t.me/+...)"
+    invite_error: ClassVar[str] = "Must be a Telegram invite link (https://t.me/+...)"
     destination_label: ClassVar[str] = "Chat ID"
     placeholder: ClassVar[str] = "e.g. -1001234567890 or @channelname"
     hint: ClassVar[str] = (

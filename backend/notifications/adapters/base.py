@@ -74,14 +74,20 @@ class ChannelAdapter(ABC):
     # Python and JavaScript read the same way. Anchors are required.
     destination_pattern: ClassVar[str]
     destination_error: ClassVar[str]
-    # The link people use to join. Only private, access-controlled forms: a
-    # public link would make the grant meaningless. Same regex rules as above.
+    # The link people use to join: the platform's invite form, never a public
+    # page link. The UI never calls a room private: invite links can be forwarded. Same regex rules as above.
     invite_pattern: ClassVar[str]
     invite_error: ClassVar[str]
     capabilities: ClassVar[frozenset[Capability]] = frozenset()
     # Youngest U-number this platform may host as a player channel. None means
     # fans only. Set from the platform's terms, so a change is a one-line edit.
     min_player_age: ClassVar[int | None] = None
+    # Shown wherever a channel on this platform is offered (SB-1612): the
+    # platform's own minimum age, from its terms. None: nothing to say.
+    age_note: ClassVar[str | None] = None
+    # Extra steps for a player channel, which is read-only with reactions.
+    # Empty: the platform has no such setting to describe.
+    player_setup_steps: ClassVar[tuple[str, ...]] = ()
 
     def validate_destination(self, destination: str) -> None:
         """Raise InvalidDestinationError unless `destination` fits this platform.

@@ -91,6 +91,11 @@ A match reaches both clubs' channels, both squads' channels at the match's age g
 
 The flow: create the platform destination (once per club), then paste the identifier into Missing Table.
 
+**Rooms are community-run (SB-1612).** Missing Table is independent community software, not affiliated with any club or league. MT posts match updates to a room; it does not run or moderate it. The manager who sets the room up owns it and moderates it.
+- The UI says so on the members' card, titled "Community channels for <club>", and on the setup screen.
+- The UI never calls a room private or verified, because invite links can be passed on.
+- Each platform's minimum age (`age_note` on the adapter, e.g. Discord 13+ and older in some countries) is shown wherever a channel on it is offered.
+
 ### Telegram
 
 1. **Create a Telegram group** for your club (or use an existing one).
@@ -111,6 +116,8 @@ The flow: create the platform destination (once per club), then paste the identi
 2. **Edit channel → Integrations → Webhooks → New Webhook.**
 3. Name it (e.g. `Missing Table`), pick the channel, copy the **Webhook URL**.
 4. The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. Treat it like a password — anyone with this URL can post to your channel.
+
+Full guide, including the forum layout for match threads and read-only player rooms: [discord-setup.md](discord-setup.md).
 
 ### Slack
 
