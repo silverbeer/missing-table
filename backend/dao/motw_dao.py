@@ -100,6 +100,7 @@ class MotwDAO(BaseDAO):
                 # null = never provided, [] = provided and empty (SB-1552).
                 "reasons": row.get("reasons"),
                 "selected_by": row.get("selected_by"),
+                "selected_by_service": row.get("selected_by_service"),
                 "created_at": row.get("created_at"),
                 "updated_at": row.get("updated_at"),
                 "match": match,
@@ -115,8 +116,13 @@ class MotwDAO(BaseDAO):
         blurb: str | None = None,
         reasons: list[dict[str, Any]] | None | object = KEEP,
         selected_by: str | None = None,
+        selected_by_service: str | None = None,
     ) -> dict[str, Any] | None:
         """Pick a match, replacing whatever held its week.
+
+        `selected_by` is the picking user's id; `selected_by_service` names the
+        service account instead when one picked (SB-1553). Every write sets both,
+        so an admin re-pick clears the agent's name and vice versa.
 
         `reasons` left as KEEP preserves the week's existing reasons when the
         same match is re-picked (a blurb edit), and clears them when a
@@ -141,6 +147,7 @@ class MotwDAO(BaseDAO):
             "week_start": week_start,
             "blurb": blurb,
             "selected_by": selected_by,
+            "selected_by_service": selected_by_service,
             "updated_at": "now()",
         }
         if reasons is KEEP:

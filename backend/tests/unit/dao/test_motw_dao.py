@@ -133,6 +133,16 @@ class TestSetForMatch:
         dao.set_for_match(77, selected_by="admin-uuid")
 
         assert dao._table.upsert.call_args.args[0]["selected_by"] == "admin-uuid"
+        assert dao._table.upsert.call_args.args[0]["selected_by_service"] is None
+
+    def test_records_a_service_account_pick(self):
+        """SB-1553: the MOTW agent has no user row, so its name goes in selected_by_service."""
+        dao = _dao(table_data=[ROW])
+        dao.set_for_match(77, selected_by_service="motw-agent")
+
+        payload = dao._table.upsert.call_args.args[0]
+        assert payload["selected_by"] is None
+        assert payload["selected_by_service"] == "motw-agent"
 
     def test_unknown_match_is_none_so_the_api_can_404(self):
         # Distinct from an unpicked week: a bad match id really is a bad
