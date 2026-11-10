@@ -25,6 +25,11 @@ It deliberately does NOT fire when:
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
+# A final score posted later than this is a backfill or a season load, not news.
+FINAL_ALERT_WINDOW_DAYS = 3
+
 
 def _status(match: dict) -> str | None:
     """Read the status under either key the row may expose.
@@ -69,3 +74,33 @@ def is_new_final_score(old: dict | None, new: dict | None) -> bool:
     # Same score, but only just marked completed → fire once. Otherwise it's an
     # unchanged score on an already-completed match — no-op.
     return old_status != "completed" and new_status == "completed"
+
+
+def final_alert_blocker(match: dict | None, today: date) -> str | None:
+    """Why a final-score alert must not go out for this match, or None if it may (SB-1619).
+
+    Used by POST /api/matches/{id}/final-score-alert, which the match-scraper
+    worker calls after writing a new score. Pure, so the rules are unit-tested:
+
+    - `not_found`: no such match.
+    - `no_score`: either score is missing.
+    - `not_completed`: a status is set and it is not `completed`.
+    - `too_old`: dated more than FINAL_ALERT_WINDOW_DAYS before today (a
+      backfill or season load must not alert anyone), or in the future.
+    """
+    if not match:
+        return "not_found"
+    home, away = _scores(match)
+    if home is None or away is None:
+        return "no_score"
+    status = _status(match)
+    if status is not None and status != "completed":
+        return "not_completed"
+    raw = str(match.get("match_date") or "")[:10]
+    try:
+        played = date.fromisoformat(raw)
+    except ValueError:
+        return "too_old"
+    if played > today or today - played > timedelta(days=FINAL_ALERT_WINDOW_DAYS):
+        return "too_old"
+    return None

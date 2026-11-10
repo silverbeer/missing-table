@@ -373,3 +373,30 @@ A team row spans several age groups, so a follow names the squad:
 | `POST /api/users/me/team-follows` `{team_id, age_group_id?}` | follow a whole team, or with `age_group_id` one squad (any club) |
 | `GET /api/users/me/team-follows` | every follow, with `age_group_id` and `age_group {id, name}` |
 | `DELETE /api/users/me/team-follows/{team_id}[?age_group_id=N]` | without `age_group_id`, removes every follow of the team (what the apps send); with it, removes only that squad |
+
+
+## Scraped scores (SB-1619)
+
+The match scraper's Celery worker writes scores straight to `matches`, so the API's own write-path alert (`_maybe_notify_final_score`) never runs for them. The worker also has none of the push credentials. Instead, after a write that `is_new_final_score` says set a new final score, the worker calls:
+
+`POST /api/matches/{id}/final-score-alert`. Only admins, or a service account with `manage_matches`, may call it.
+
+The API re-reads the match and sends the `fulltime` alert (followers' devices and chat channels) only when `final_alert_blocker` finds nothing:
+
+| Reason | Meaning |
+|---|---|
+| `no_score` / `not_completed` | not a final score |
+| `too_old` | dated more than 3 days ago, or in the future. A backfill or a season load must not alert anyone. |
+| `already_sent` | this match and score were already alerted. A Redis claim on `alert:sent:<event key>` lasts 5 days; with Redis down it fails open. |
+
+- The response is always 200 for a known match, with `queued` and `reason`.
+- The event key is the score, so a corrected score alerts again.
+- A live-scored match the scraper later confirms with the same score does not, because the worker sees no change.
+
+**Worker side.** `celery_tasks/final_score_alert.py` signs a 5-minute service token with `SERVICE_ACCOUNT_SECRET`, which must match the backend's, and posts to `MT_API_URL`. It is best-effort: a failure is logged (`final_score_alert_failed` / `_rejected`) and never fails or retries the ingest. Without `MT_API_URL` it logs `final_score_alert_dormant` and does nothing.
+
+**Deploying it.** The worker runs on rancher-desktop, outside GitOps. After merge:
+1. Tag the running image as a rollback: `docker tag missing-table-worker:latest missing-table-worker:pre-sb1619`.
+2. Add `MT_API_URL: "https://api.missingtable.com"` to the `missing-table-worker-prod-config` configmap.
+3. Run `k3s/worker/rebuild-and-deploy.sh`.
+4. Check the worker log for `final_score_alert_requested` after the next scored match. `final_score_alert_rejected` with `http_status=401` means the two `SERVICE_ACCOUNT_SECRET`s differ.

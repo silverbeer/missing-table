@@ -43,5 +43,7 @@ data:
   MT_INGEST_ALERT_MAX_PER_HOUR: "10"
 
   # Application settings
+  # Final-score alerts (SB-1619): the API the worker asks to send them.
+  MT_API_URL: "https://api.missingtable.com"
   ENVIRONMENT: "production"
   LOG_LEVEL: "INFO"

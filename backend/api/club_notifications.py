@@ -116,6 +116,22 @@ def check_rate_limit(key: str, max_per_minute: int) -> bool:
         return True
 
 
+def claim_once(key: str, ttl_seconds: int) -> bool:
+    """True the first time `key` is claimed within `ttl_seconds`, False after.
+
+    Fail-open like the limiter: with Redis down a repeat is possible, a missed
+    alert is not.
+    """
+    client = _get_redis()
+    if client is None:
+        return True
+    try:
+        return bool(client.set(key, "1", nx=True, ex=ttl_seconds))
+    except Exception as exc:
+        logger.warning("claim_once_failed", key=key, error=str(exc))
+        return True
+
+
 # ---------------------------------------------------------------------------
 # Permission guard
 # ---------------------------------------------------------------------------

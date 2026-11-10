@@ -101,7 +101,7 @@ from models import (
 )
 from mt_ai.api import router as mt_ai_router
 from notifications.event_keys import clock_event_key, fulltime_event_key, recorded_event_key
-from notifications.score_change import is_new_final_score
+from notifications.score_change import final_alert_blocker, is_new_final_score
 from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
 from services.content_filter import contains_objectionable_language
@@ -3138,6 +3138,57 @@ def _maybe_notify_final_score(
     if is_new_final_score(before, after):
         event_key = fulltime_event_key(match_id, after.get("home_score"), after.get("away_score"))
         background_tasks.add_task(notify_event_task, "fulltime", match_id, None, event_key)
+
+
+# How long a sent final-score alert is remembered, so a repeat call never
+# alerts twice. Longer than the alert window itself.
+FINAL_ALERT_CLAIM_TTL_SECONDS = 5 * 24 * 3600
+
+
+def require_alert_sender(current_user: dict[str, Any] = Depends(get_current_user_required)) -> dict[str, Any]:
+    """Admins, or a service account with manage_matches (the match-scraper worker)."""
+    if current_user.get("role") == "admin":
+        return current_user
+    if current_user.get("role") == "service_account" and "manage_matches" in (current_user.get("permissions") or []):
+        return current_user
+    raise HTTPException(status_code=403, detail="Not allowed to send match alerts")
+
+
+@app.post("/api/matches/{match_id}/final-score-alert")
+async def final_score_alert(
+    match_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: dict[str, Any] = Depends(require_alert_sender),
+):
+    """Send the full-time alert for a score written outside this API (SB-1619).
+
+    The match-scraper worker writes scores straight to the database, so it calls
+    this after a write that set a new final score. The match is re-read here:
+    only a completed match with both scores, dated in the last few days, alerts
+    (a backfill must not). The alert goes to followers' devices and the chat
+    channels, keyed by the score, and is claimed once so a repeat call never
+    alerts twice. Always 200 for a known match: `queued` says what happened.
+    """
+    from api.club_notifications import claim_once
+
+    match = await asyncio.to_thread(match_dao.get_match_by_id, match_id, True)
+    blocker = final_alert_blocker(match, datetime.now(UTC).date())
+    if blocker == "not_found":
+        raise HTTPException(status_code=404, detail="Match not found")
+    if blocker:
+        logger.info("final_score_alert_skipped", match_id=match_id, reason=blocker)
+        return {"match_id": match_id, "queued": False, "reason": blocker}
+    event_key = fulltime_event_key(match_id, match.get("home_score"), match.get("away_score"))
+    if not claim_once(f"alert:sent:{event_key}", FINAL_ALERT_CLAIM_TTL_SECONDS):
+        logger.info("final_score_alert_skipped", match_id=match_id, reason="already_sent")
+        return {"match_id": match_id, "queued": False, "reason": "already_sent"}
+    background_tasks.add_task(notify_event_task, "fulltime", match_id, None, event_key)
+    logger.info(
+        "final_score_alert_queued",
+        match_id=match_id,
+        sender=current_user.get("service_name") or current_user.get("username"),
+    )
+    return {"match_id": match_id, "queued": True, "reason": None}
 
 
 @app.post("/api/matches")
