@@ -15,9 +15,10 @@ Endpoints:
 - POST   /api/users/me/fcm-devices                       — register an Android device (SB-1463)
 - GET    /api/users/me/fcm-devices                       — list user's Android devices
 - DELETE /api/users/me/fcm-devices/{id}                  — revoke an Android device
-- POST   /api/users/me/team-follows                      — follow {team_id}
-- GET    /api/users/me/team-follows                      — list follows + team/club
-- DELETE /api/users/me/team-follows/{team_id}            — unfollow
+- POST   /api/users/me/team-follows                      — follow {team_id}, every age group
+- GET    /api/users/me/team-follows                      — list follows + team/club + age group
+- DELETE /api/users/me/team-follows/{team_id}            — unfollow the team (all rows), or
+                                                           ?age_group_id=N for one squad (SB-1608)
 - GET    /api/users/me/notification-preferences          — per-event opt-in flags (SB-57)
 - PUT    /api/users/me/notification-preferences          — update per-event opt-in flags (SB-57)
 - POST   /api/users/me/notifications/test                — send a test push (web + iOS + Android)
@@ -28,7 +29,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field, StringConstraints
 
 from auth import get_current_user_required
@@ -454,9 +455,12 @@ def list_team_follows(
 def unfollow_team(
     team_id: int,
     current_user: dict[str, Any] = Depends(get_current_user_required),
+    age_group_id: Annotated[int | None, Query(ge=1)] = None,
 ) -> Response:
+    """Without age_group_id, every follow of the team goes (what the mobile apps
+    send). With it, only that squad's follow does."""
     user_id = _user_id(current_user)
-    _follow_dao().unfollow(user_id, team_id)  # idempotent
+    _follow_dao().unfollow(user_id, team_id, age_group_id)  # idempotent
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

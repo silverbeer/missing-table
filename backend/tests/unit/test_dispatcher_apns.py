@@ -103,8 +103,14 @@ class TestApnsFanout:
         assert payload["data"]["matchId"] == 555
         assert payload["data"]["eventType"] == "goal"
         assert payload["tag"] == "match-555-goal"
-        notifier._team_follow_dao.list_user_ids_for_team_ids.assert_called_once_with([10, 20])
+        notifier._team_follow_dao.list_user_ids_for_team_ids.assert_called_once_with([10, 20], None)
         notifier._apns_device_dao.list_for_user_ids.assert_called_once_with(["u-1"])
+
+    def test_follower_lookup_carries_the_match_age_group(self, configured):
+        """SB-1608: squad follows are filtered by the match's age group."""
+        notifier, _, _ = _notifier(match={**_MATCH, "age_group_id": 4})
+        notifier.notify("goal", 555, {"team": "home"})
+        notifier._team_follow_dao.list_user_ids_for_team_ids.assert_called_once_with([10, 20], 4)
 
     def test_send_is_logged_as_apns(self, configured):
         notifier, _, _ = _notifier()

@@ -427,7 +427,7 @@ class Notifier:
         match_id = match.get("id")
 
         subscriptions = resolve_user_push_subscriptions(
-            home_team_id, away_team_id, self.team_follow_dao
+            home_team_id, away_team_id, self.team_follow_dao, match.get("age_group_id")
         )
 
         # Bracket followers: users who follow this match's tournament bracket
@@ -517,15 +517,16 @@ class Notifier:
         plus their preferences — one follow lookup and one preferences batch
         shared by the APNs and FCM fan-outs.
 
-        Mirrors _send_push_fanout's resolution: followers of either team, plus
-        bracket followers at fulltime, deduped by user.
+        Mirrors _send_push_fanout's resolution: followers of either team at the
+        match's age group (squad follows, SB-1608), plus bracket followers at
+        fulltime, deduped by user.
         """
         home_team_id = match.get("home_team_id")
         away_team_id = match.get("away_team_id")
 
         team_ids = [t for t in (home_team_id, away_team_id) if t is not None]
         user_ids: set[str] = set(
-            self.team_follow_dao.list_user_ids_for_team_ids(team_ids)
+            self.team_follow_dao.list_user_ids_for_team_ids(team_ids, match.get("age_group_id"))
         )
 
         # Bracket followers get the final score only, as on the web path.

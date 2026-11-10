@@ -260,7 +260,7 @@ class TestSharedAudience:
 
         apns_fn.assert_called_once()
         fcm_fn.assert_called_once()
-        notifier._team_follow_dao.list_user_ids_for_team_ids.assert_called_once_with([10, 20])
+        notifier._team_follow_dao.list_user_ids_for_team_ids.assert_called_once_with([10, 20], None)
         notifier._prefs_dao.get_preferences_batch.assert_called_once()
 
     def test_bracket_lookup_runs_once_at_fulltime(self, configured):

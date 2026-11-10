@@ -73,8 +73,11 @@ def resolve_user_push_subscriptions(
     home_team_id: int | None,
     away_team_id: int | None,
     team_follow_dao,
+    age_group_id: int | None,
 ) -> list[dict]:
-    """Find push subscriptions for users following either team.
+    """Find push subscriptions for users following either team at this age group.
+
+    Whole-team follows always match; squad follows only at their age group (SB-1608).
 
     Returns subscription rows (id, endpoint, p256dh_key, auth_key, user_id),
     deduplicated by subscription id. A user with two devices appears twice
@@ -85,7 +88,7 @@ def resolve_user_push_subscriptions(
     if not team_ids:
         return []
     try:
-        return team_follow_dao.list_subscriptions_for_team_ids(team_ids)
+        return team_follow_dao.list_subscriptions_for_team_ids(team_ids, age_group_id)
     except Exception as exc:
         logger.warning(
             "resolve_push_subscriptions_failed",

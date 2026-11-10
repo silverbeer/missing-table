@@ -176,16 +176,24 @@
       <ul v-else class="follows-list">
         <li
           v-for="f in follows"
-          :key="f.team_id"
+          :key="`${f.team_id}:${f.age_group_id ?? 'all'}`"
           class="follow-item"
-          :data-testid="`follow-item-${f.team_id}`"
+          :data-testid="
+            f.age_group_id
+              ? `follow-item-${f.team_id}-${f.age_group_id}`
+              : `follow-item-${f.team_id}`
+          "
         >
           <div class="follow-item-main">
             <span class="follow-team" data-testid="follow-label-primary">{{
               followPrimaryLabel(f)
             }}</span>
             <span class="follow-item-sub" data-testid="follow-label-sub">
-              Showing all age groups
+              {{
+                f.age_group?.name
+                  ? `${f.age_group.name} only`
+                  : 'Showing all age groups'
+              }}
             </span>
           </div>
           <span
