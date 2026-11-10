@@ -164,6 +164,7 @@ RESTORATION_ORDER = [
     "notification_channels",  # clubs, teams, age_groups
     "notification_deliveries",  # notification_channels
     "channel_members",  # notification_channels, user_profiles
+    "notification_threads",  # notification_channels, matches
     "match_events",
     "match_lineups",
     "player_match_stats",
