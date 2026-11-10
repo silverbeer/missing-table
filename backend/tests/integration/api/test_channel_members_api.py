@@ -233,7 +233,13 @@ def test_channel_api_rejects_a_public_invite_link(world):
     body = {
         "scope_type": "team",
         "team_id": world["team"],
-        "age_group_id": SupabaseConnection().get_client().table("age_groups").select("id").eq("name", "U16").execute().data[0]["id"],
+        "age_group_id": SupabaseConnection()
+        .get_client()
+        .table("age_groups")
+        .select("id")
+        .eq("name", "U16")
+        .execute()
+        .data[0]["id"],
         "platform": "telegram",
         "destination": "-1001234567890",
         "invite_url": "https://t.me/publicchannel",
@@ -249,7 +255,7 @@ class TestMyChannels:
         nobody = {**world["fan"], "club_id": None, "team_id": None}
         with as_user(nobody) as c:
             body = c.get("/api/me/channels").json()
-        assert body == {"channels": [], "has_team": False, "managed": None, "can_manage": False}
+        assert body == {"channels": [], "has_team": False, "managed": None, "can_manage": False, "age_groups": None}
 
     def test_club_only_fan_sees_club_channel(self, world):
         club = world["channel"]("club")
@@ -264,11 +270,22 @@ class TestMyChannels:
         conn = SupabaseConnection()
         club = ClubDAO(conn).create_club(name=f"Unclaimed-{uuid.uuid4().hex[:8]}", city="Boston")
         client = conn.get_client()
-        team = client.table("teams").insert({"name": f"U-{uuid.uuid4().hex[:8]}", "city": "Boston", "club_id": club["id"]}).execute().data[0]
+        team = (
+            client.table("teams")
+            .insert({"name": f"U-{uuid.uuid4().hex[:8]}", "city": "Boston", "club_id": club["id"]})
+            .execute()
+            .data[0]
+        )
         try:
             with as_user(world["fan"]) as c:
                 body = c.get("/api/me/channels", params={"team_id": team["id"]}).json()
-            assert body == {"channels": [], "has_team": True, "managed": False, "can_manage": False}
+            assert body == {
+                "channels": [],
+                "has_team": True,
+                "managed": False,
+                "can_manage": False,
+                "age_groups": None,
+            }
         finally:
             client.table("teams").delete().eq("id", team["id"]).execute()
             ClubDAO(conn).delete_club(club["id"])
@@ -277,3 +294,23 @@ class TestMyChannels:
         with as_user(world["manager"]) as c:
             body = c.get("/api/me/channels", params={"team_id": world["team"]}).json()
         assert body["can_manage"] is True
+
+    def test_manager_gets_the_teams_squads_youngest_first(self, world):
+        client = SupabaseConnection().get_client()
+        ages = {r["name"]: r["id"] for r in client.table("age_groups").select("id,name").execute().data}
+        rows = [{"team_id": world["team"], "age_group_id": ages[a]} for a in ("U17", "U14", "U15")]
+        client.table("team_mappings").insert(rows).execute()
+        try:
+            with as_user(world["manager"]) as c:
+                body = c.get("/api/me/channels", params={"team_id": world["team"]}).json()
+            assert [a["name"] for a in body["age_groups"]] == ["U14", "U15", "U17"]
+            with as_user(world["fan"]) as c:
+                fan_body = c.get("/api/me/channels", params={"team_id": world["team"]}).json()
+            assert fan_body["age_groups"] is None
+        finally:
+            client.table("team_mappings").delete().eq("team_id", world["team"]).execute()
+
+    def test_registered_in_no_age_group_is_empty_not_none(self, world):
+        with as_user(world["manager"]) as c:
+            body = c.get("/api/me/channels", params={"team_id": world["team"]}).json()
+        assert body["age_groups"] == []

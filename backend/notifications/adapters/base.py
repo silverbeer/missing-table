@@ -64,6 +64,8 @@ class ChannelAdapter(ABC):
     label: ClassVar[str]
     icon: ClassVar[str]
     placeholder: ClassVar[str]
+    # What the destination is called on a setup form.
+    destination_label: ClassVar[str] = "Webhook URL"
     hint: ClassVar[str]
     # Numbered how-to the setup UI shows under "How to set up". Plain text,
     # one action per step, ending with what to paste.

@@ -229,7 +229,11 @@
         :club-id="team?.club?.id"
       />
 
-      <TeamChannelsCard v-if="resolvedTeamId" :team-id="resolvedTeamId" />
+      <TeamChannelsCard
+        v-if="resolvedTeamId"
+        :team-id="resolvedTeamId"
+        :age-group-id="team?.age_group?.id ?? null"
+      />
     </template>
   </div>
 </template>

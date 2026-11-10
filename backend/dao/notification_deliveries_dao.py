@@ -40,6 +40,32 @@ class NotificationDeliveriesDAO(BaseDAO):
             logger.error("dao_notification_deliveries_claim_failed", error_type=type(exc).__name__)
             raise DeliveryLedgerError("Could not claim notification delivery") from None
 
+    def latest_for(self, channel_ids: list[int]) -> dict[int, dict] | None:
+        """Each channel's most recent delivery, keyed by channel id.
+
+        A channel with none is absent from the result. None means the ledger
+        could not be read, which is not the same as "nothing delivered yet".
+        One indexed query per channel: a scope holds a handful.
+        """
+        latest: dict[int, dict] = {}
+        try:
+            for channel_id in channel_ids:
+                rows = (
+                    self.client.table(TABLE)
+                    .select("channel_id, status, error, created_at, updated_at")
+                    .eq("channel_id", channel_id)
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                    .data
+                )
+                if rows:
+                    latest[channel_id] = rows[0]
+        except Exception as exc:
+            logger.error("dao_notification_deliveries_read_failed", error_type=type(exc).__name__)
+            return None
+        return latest
+
     def mark_sent(self, delivery_id: int, message_ref: str | None) -> None:
         """Record a successful post."""
         self._finish(delivery_id, {"status": "sent", "provider_message_ref": message_ref})

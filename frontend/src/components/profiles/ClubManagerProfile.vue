@@ -170,9 +170,14 @@
         to get assigned.
       </p>
     </div>
-    <!-- Live Match Notification Channels (Telegram / Discord per club) -->
+    <!-- Club-wide chat channels (SB-1605). Squad channels are set up from
+         each team's page. -->
     <div v-if="club?.id" class="notifications-section">
-      <ClubNotificationChannels :club-id="club.id" />
+      <ChannelManager
+        scope-type="club"
+        :club-id="club.id"
+        heading="Club chat channels"
+      />
     </div>
 
     <TeamChannelsCard />
@@ -185,14 +190,14 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
 import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
-import ClubNotificationChannels from '@/components/notifications/ClubNotificationChannels.vue';
+import ChannelManager from '@/components/notifications/ChannelManager.vue';
 
 export default {
   name: 'ClubManagerProfile',
   components: {
     LiveUpdatesTeaser,
     TeamChannelsCard,
-    ClubNotificationChannels,
+    ChannelManager,
   },
   emits: ['switch-tab'],
   setup(props, { emit }) {

@@ -11,11 +11,16 @@ from contextlib import contextmanager
 import pytest
 from fastapi.testclient import TestClient
 
+from api import notification_channels as channels_api
 from app import app
 from auth import get_current_user_required
 from dao.club_dao import ClubDAO
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import SupabaseConnection
+from dao.notification_deliveries_dao import NotificationDeliveriesDAO
+from notifications.adapters.base import DeliveryError, NotificationConfigError
+from notifications.adapters.discord import DiscordAdapter
+from notifications.preferences import EVENT_TYPES
 
 pytestmark = [pytest.mark.integration, pytest.mark.api]
 
@@ -55,7 +60,12 @@ def world(conn):
     client = conn.get_client()
     club = ClubDAO(conn).create_club(name=_unique("ChanClub"), city="Boston")
     other = ClubDAO(conn).create_club(name=_unique("ChanOther"), city="NYC")
-    team = client.table("teams").insert({"name": _unique("ChanTeam"), "city": "Boston", "club_id": club["id"]}).execute().data[0]
+    team = (
+        client.table("teams")
+        .insert({"name": _unique("ChanTeam"), "city": "Boston", "club_id": club["id"]})
+        .execute()
+        .data[0]
+    )
     ages = {r["name"]: r["id"] for r in client.table("age_groups").select("id,name").execute().data}
     yield {"club": club["id"], "other": other["id"], "team": team["id"], "ages": ages}
     client.table("notification_channels").delete().eq("team_id", team["id"]).execute()
@@ -83,14 +93,18 @@ def club_body(world, **extra):
 class TestList:
     def test_no_channels_is_200_and_empty(self, world):
         with as_user(ADMIN) as c:
-            r = c.get(BASE, params={"scope_type": "team", "team_id": world["team"], "age_group_id": world["ages"]["U15"]})
+            r = c.get(
+                BASE, params={"scope_type": "team", "team_id": world["team"], "age_group_id": world["ages"]["U15"]}
+            )
         assert r.status_code == 200
         assert r.json() == []
 
     def test_destination_is_never_returned(self, world):
         with as_user(ADMIN) as c:
             c.post(BASE, json=team_body(world))
-            r = c.get(BASE, params={"scope_type": "team", "team_id": world["team"], "age_group_id": world["ages"]["U15"]})
+            r = c.get(
+                BASE, params={"scope_type": "team", "team_id": world["team"], "age_group_id": world["ages"]["U15"]}
+            )
         row = r.json()[0]
         assert "destination" not in row
         assert row["hint"] == "/abc"
@@ -106,7 +120,9 @@ class TestScopeRules:
     def test_squads_are_separate(self, world):
         with as_user(ADMIN) as c:
             assert c.post(BASE, json=team_body(world, age="U15")).status_code == 201
-            r = c.get(BASE, params={"scope_type": "team", "team_id": world["team"], "age_group_id": world["ages"]["U16"]})
+            r = c.get(
+                BASE, params={"scope_type": "team", "team_id": world["team"], "age_group_id": world["ages"]["U16"]}
+            )
         assert r.json() == []
 
     def test_several_channels_per_scope_and_platform(self, world):
@@ -213,10 +229,161 @@ class TestUpdate:
             assert c.delete(f"{BASE}/99999999").status_code == 404
 
 
+class TestLabel:
+    def test_label_is_trimmed_and_returned(self, world):
+        with as_user(ADMIN) as c:
+            r = c.post(BASE, json=club_body(world, label="  #ifa-live  "))
+        assert r.status_code == 201
+        assert r.json()["label"] == "#ifa-live"
+
+    def test_blank_label_is_stored_as_none(self, world):
+        with as_user(ADMIN) as c:
+            channel = c.post(BASE, json=club_body(world, label="#a")).json()
+            r = c.patch(f"{BASE}/{channel['id']}", json={"label": "   "})
+        assert r.status_code == 200
+        assert r.json()["label"] is None
+
+    def test_no_label_is_none_not_empty(self, world):
+        with as_user(ADMIN) as c:
+            r = c.post(BASE, json=club_body(world))
+        assert r.json()["label"] is None
+
+    def test_too_long_label_rejected(self, world):
+        with as_user(ADMIN) as c:
+            r = c.post(BASE, json=club_body(world, label="x" * 81))
+        assert r.status_code == 422
+
+
+class TestLastDelivery:
+    def _channel(self, world) -> int:
+        with as_user(ADMIN) as c:
+            return c.post(BASE, json=club_body(world)).json()["id"]
+
+    def _list(self, world) -> list[dict]:
+        with as_user(ADMIN) as c:
+            return c.get(BASE, params={"scope_type": "club", "club_id": world["club"]}).json()
+
+    def test_new_channel_has_posted_nothing(self, world):
+        self._channel(world)
+        [row] = self._list(world)
+        assert row["last_delivery"] is None
+        assert row["last_delivery_known"] is True
+
+    def test_latest_delivery_wins(self, world, conn):
+        channel_id = self._channel(world)
+        ledger = NotificationDeliveriesDAO(conn)
+        ledger.mark_sent(ledger.claim(channel_id, "match:1:kickoff"), "m1")
+        ledger.mark_failed(ledger.claim(channel_id, "match:1:goal:2"), "discord send failed: HTTP 404")
+        [row] = self._list(world)
+        assert row["last_delivery"]["status"] == "failed"
+        assert row["last_delivery"]["error"] == "discord send failed: HTTP 404"
+        assert row["last_delivery"]["at"]
+
+    def test_sent_carries_no_error(self, world, conn):
+        channel_id = self._channel(world)
+        ledger = NotificationDeliveriesDAO(conn)
+        ledger.mark_sent(ledger.claim(channel_id, "match:1:kickoff"), None)
+        [row] = self._list(world)
+        assert row["last_delivery"] == {"status": "sent", "at": row["last_delivery"]["at"], "error": None}
+
+    def test_unreadable_ledger_is_unknown_not_empty(self, world, monkeypatch):
+        self._channel(world)
+        monkeypatch.setattr(NotificationDeliveriesDAO, "latest_for", lambda self, ids: None)
+        [row] = self._list(world)
+        assert row["last_delivery"] is None
+        assert row["last_delivery_known"] is False
+
+
+class TestSendTest:
+    @pytest.fixture(autouse=True)
+    def _open_gates(self, monkeypatch):
+        monkeypatch.setattr(channels_api, "is_notifications_enabled", lambda: True)
+        monkeypatch.setattr(channels_api, "check_rate_limit", lambda key, max_per_minute: True)
+
+    def _channel(self, world) -> int:
+        with as_user(ADMIN) as c:
+            return c.post(BASE, json=club_body(world)).json()["id"]
+
+    def test_success(self, world, monkeypatch):
+        sent = []
+        monkeypatch.setattr(DiscordAdapter, "send", lambda self, dest, text: sent.append(dest))
+        channel_id = self._channel(world)
+        with as_user(ADMIN) as c:
+            r = c.post(f"{BASE}/{channel_id}/test")
+        assert r.json() == {"success": True, "error": None}
+        assert sent == [DISCORD]
+
+    def test_delivery_error_is_shown(self, world, monkeypatch):
+        def boom(self, dest, text):
+            raise DeliveryError("discord send failed: HTTP 404")
+
+        monkeypatch.setattr(DiscordAdapter, "send", boom)
+        channel_id = self._channel(world)
+        with as_user(ADMIN) as c:
+            body = c.post(f"{BASE}/{channel_id}/test").json()
+        assert body == {"success": False, "error": "discord send failed: HTTP 404"}
+
+    def test_config_error_names_no_setting(self, world, monkeypatch):
+        def boom(self, dest, text):
+            raise NotificationConfigError("SOME_TOKEN is not set")
+
+        monkeypatch.setattr(DiscordAdapter, "send", boom)
+        channel_id = self._channel(world)
+        with as_user(ADMIN) as c:
+            body = c.post(f"{BASE}/{channel_id}/test").json()
+        assert body["success"] is False
+        assert "TOKEN" not in body["error"]
+
+    def test_unexpected_error_leaks_nothing(self, world, monkeypatch):
+        def boom(self, dest, text):
+            raise RuntimeError(f"failed posting to {dest}")
+
+        monkeypatch.setattr(DiscordAdapter, "send", boom)
+        channel_id = self._channel(world)
+        with as_user(ADMIN) as c:
+            body = c.post(f"{BASE}/{channel_id}/test").json()
+        assert DISCORD not in body["error"]
+
+    def test_another_clubs_manager_is_refused(self, world):
+        channel_id = self._channel(world)
+        with as_user(user("club_manager", club_id=world["other"])) as c:
+            assert c.post(f"{BASE}/{channel_id}/test").status_code == 403
+
+    def test_missing_channel_is_404(self):
+        with as_user(ADMIN) as c:
+            assert c.post(f"{BASE}/999999999/test").status_code == 404
+
+    def test_kill_switch_is_503(self, world, monkeypatch):
+        channel_id = self._channel(world)
+        monkeypatch.setattr(channels_api, "is_notifications_enabled", lambda: False)
+        with as_user(ADMIN) as c:
+            r = c.post(f"{BASE}/{channel_id}/test")
+        assert r.status_code == 503
+        assert "NOTIFICATIONS_ENABLED" not in r.text
+
+    def test_rate_limited_is_429(self, world, monkeypatch):
+        channel_id = self._channel(world)
+        monkeypatch.setattr(channels_api, "check_rate_limit", lambda key, max_per_minute: False)
+        with as_user(ADMIN) as c:
+            assert c.post(f"{BASE}/{channel_id}/test").status_code == 429
+
+
+class TestEventTypes:
+    def test_lists_every_event_with_a_name(self):
+        with as_user(user("team_manager")) as c:
+            r = c.get(f"{BASE}/event-types")
+        assert r.status_code == 200
+        assert [e["id"] for e in r.json()] == list(EVENT_TYPES)
+        assert all(e["label"] for e in r.json())
+
+
 class TestOriginalClubEndpoints:
     def test_they_read_and_write_the_same_rows(self, world, conn):
         with as_user(ADMIN) as c:
-            assert c.put(f"/api/clubs/{world['club']}/notifications/discord", json={"destination": DISCORD}).status_code == 200
+            assert (
+                c.put(f"/api/clubs/{world['club']}/notifications/discord", json={"destination": DISCORD}).status_code
+                == 200
+            )
             scoped = c.get(BASE, params={"scope_type": "club", "club_id": world["club"]}).json()
         assert len(scoped) == 1
         assert scoped[0]["audience"] == "fans"

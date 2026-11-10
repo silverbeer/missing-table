@@ -65,6 +65,11 @@ class AvailableChannel(BaseModel):
     invite_url: str | None = None
 
 
+class SquadAgeGroup(BaseModel):
+    id: int
+    name: str
+
+
 class MyChannels(BaseModel):
     """What the profile card renders (SB-1609).
 
@@ -72,12 +77,16 @@ class MyChannels(BaseModel):
     `managed`: someone on MT manages that team or club (the claimed state);
     None when that could not be checked.
     `can_manage`: the caller manages it, so an empty card offers setup.
+    `age_groups`: with `team_id` and `can_manage`, the squads the team is
+    registered in, each of which can have channels. None when not asked for
+    or when the lookup failed.
     """
 
     channels: list[AvailableChannel]
     has_team: bool
     managed: bool | None
     can_manage: bool
+    age_groups: list[SquadAgeGroup] | None = None
 
 
 class MemberDecision(BaseModel):
@@ -237,11 +246,13 @@ def my_channels(team_id: int | None = None, current_user: dict = Depends(get_cur
     if not team_ids and not club_ids:
         return MyChannels(channels=[], has_team=False, managed=None, can_manage=False)
     rows = dao.channels_for_teams(team_ids, club_ids)
+    squads = dao.team_age_groups(team_id) if team_id is not None and can_manage else None
     return MyChannels(
         channels=_visible(dao, viewer, user_id, rows, clubs),
         has_team=True,
         managed=dao.is_managed(team_ids, club_ids),
         can_manage=can_manage,
+        age_groups=None if squads is None else [SquadAgeGroup(**s) for s in squads],
     )
 
 
