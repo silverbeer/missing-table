@@ -4,6 +4,7 @@ Club notification channels API.
 Per-club chat destinations for live-match notifications.
 - GET    /api/clubs/{club_id}/notifications
 - PUT    /api/clubs/{club_id}/notifications/{platform}
+- PATCH  /api/clubs/{club_id}/notifications/{platform}   (enabled only)
 - DELETE /api/clubs/{club_id}/notifications/{platform}
 - POST   /api/clubs/{club_id}/notifications/{platform}/test
 - GET    /api/notifications/platforms
@@ -18,6 +19,7 @@ from __future__ import annotations
 
 import os
 import time
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -69,7 +71,8 @@ def is_notifications_enabled() -> bool:
 # Redis-backed rate limiter (fail-open)
 # ---------------------------------------------------------------------------
 
-_redis_client = None
+# Typed so mypy does not narrow it to None and call the cache branch unreachable.
+_redis_client: Any = None
 
 
 def _get_redis():
@@ -135,6 +138,7 @@ def ensure_club_access(current_user: dict, club_id: int) -> None:
 # Validation
 # ---------------------------------------------------------------------------
 
+
 def _validate_platform(platform: str) -> None:
     try:
         get_adapter(platform)
@@ -172,6 +176,10 @@ class ChannelUpsert(BaseModel):
     enabled: bool = True
 
 
+class ChannelEnabled(BaseModel):
+    enabled: bool
+
+
 class PlatformInfo(BaseModel):
     """What the setup UI needs to render and validate one platform."""
 
@@ -180,6 +188,7 @@ class PlatformInfo(BaseModel):
     icon: str
     placeholder: str
     hint: str
+    setup_steps: list[str]
     destination_pattern: str
     destination_error: str
     capabilities: list[str]
@@ -239,6 +248,7 @@ def list_platforms(
             icon=adapter.icon,
             placeholder=adapter.placeholder,
             hint=adapter.hint,
+            setup_steps=list(adapter.setup_steps),
             destination_pattern=adapter.destination_pattern,
             destination_error=adapter.destination_error,
             capabilities=sorted(adapter.capabilities),
@@ -287,6 +297,25 @@ def upsert_channel(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save notification channel",
         )
+    return _to_response(row)
+
+
+@router.patch(
+    "/{club_id}/notifications/{platform}",
+    response_model=ChannelResponse,
+)
+def set_channel_enabled(
+    club_id: int,
+    platform: str,
+    body: ChannelEnabled,
+    current_user: dict = Depends(get_current_user_required),
+) -> ChannelResponse:
+    """Pause or resume a channel without re-entering its destination."""
+    ensure_club_access(current_user, club_id)
+    _validate_platform(platform)
+    row = _dao().set_enabled(club_id, platform, body.enabled)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No channel configured")
     return _to_response(row)
 
 

@@ -55,6 +55,13 @@ class ClubNotificationsDAO(NotificationChannelsDAO):
             }
         )
 
+    def set_enabled(self, club_id: int, platform: str, enabled: bool) -> dict | None:
+        """Flip `enabled` on an existing channel. None when there is none."""
+        existing = self.get(club_id, platform)
+        if not existing:
+            return None
+        return self.update(existing["id"], {"enabled": enabled})
+
     def delete(self, club_id: int, platform: str) -> bool:
         """Remove a (club, platform) channel. Returns True if a row was deleted."""
         existing = self.get(club_id, platform)

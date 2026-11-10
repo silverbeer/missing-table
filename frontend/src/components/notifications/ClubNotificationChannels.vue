@@ -1,12 +1,12 @@
 <template>
   <div class="club-notifications" data-testid="club-notifications">
     <div class="header">
-      <h3 class="title">Live Match Notifications</h3>
+      <h3 v-if="showTitle" class="title">Live Match Notifications</h3>
       <p class="subtitle">
-        When live match events happen, Missing Table can post updates to your
-        club's chat channels. Configure each platform below. Destinations are
-        write-only: once saved, you can test or reset them, but the full value
-        is never displayed again.
+        When live match events happen, Missing Table posts updates to your
+        club's chat channels. A webhook URL or chat ID works like a password —
+        anyone holding it can post to your channel — so once saved only its last
+        four characters are shown. To change one, Reset and paste it again.
       </p>
     </div>
 
@@ -42,10 +42,14 @@
           </span>
           <span
             v-if="configured(platform.id)"
-            class="status configured"
+            :class="[
+              'status',
+              enabledFor(platform.id) ? 'configured' : 'paused',
+            ]"
             :data-testid="`status-${platform.id}`"
           >
-            ✓ Configured (ends …{{ hintFor(platform.id) }})
+            {{ enabledFor(platform.id) ? '✓ Configured' : 'Paused' }} · ends in
+            {{ hintFor(platform.id) }}
           </span>
           <span v-else class="status unconfigured">Not configured</span>
         </div>
@@ -87,6 +91,7 @@
           <input
             v-model="draft[platform.id]"
             :placeholder="platform.placeholder"
+            :aria-label="`${platform.label} destination`"
             :data-testid="`input-${platform.id}`"
             class="input"
             :disabled="busy[platform.id]"
@@ -111,7 +116,20 @@
           {{ validationError[platform.id] }}
         </div>
 
-        <p class="hint-text">{{ platform.hint }}</p>
+        <details
+          v-if="platform.setup_steps?.length"
+          class="setup"
+          :open="!configured(platform.id)"
+          :data-testid="`setup-${platform.id}`"
+        >
+          <summary>How to set up {{ platform.label }}</summary>
+          <ol>
+            <li v-for="(step, i) in platform.setup_steps" :key="i">
+              {{ step }}
+            </li>
+          </ol>
+        </details>
+        <p v-else class="hint-text">{{ platform.hint }}</p>
       </div>
     </div>
   </div>
@@ -127,6 +145,11 @@ const props = defineProps({
   clubId: {
     type: Number,
     required: true,
+  },
+  // Off where the page already carries the heading (Admin → Access).
+  showTitle: {
+    type: Boolean,
+    default: true,
   },
 });
 
@@ -264,33 +287,31 @@ const save = async platformId => {
 };
 
 const toggleEnabled = async (platformId, nextEnabled) => {
-  // Enabling/disabling requires the destination again. We don't have it, so
-  // we PUT with a placeholder — but the API requires the real value. Instead,
-  // we explicitly disable by calling DELETE, and require the user to re-save
-  // to re-enable. Simpler contract; no storing destinations in the client.
-  if (nextEnabled) {
-    // Revert the toggle visually by refreshing state.
-    await fetchChannels();
-    showFlash(
-      'warning',
-      'Re-saving required. Use Reset, then Save with the destination again to re-enable.'
-    );
-    return;
-  }
+  // PATCH flips `enabled` only; the saved destination is kept.
   busy[platformId] = true;
   try {
     const resp = await fetch(`${urlBase()}/${platformId}`, {
-      method: 'DELETE',
-      headers: authHeaders(),
+      method: 'PATCH',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: nextEnabled }),
     });
-    if (!resp.ok) throw new Error(`Disable failed (HTTP ${resp.status})`);
-    showFlash('success', 'Channel disabled.');
-    await fetchChannels();
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(
+        errorMessage(body, `Update failed (HTTP ${resp.status})`)
+      );
+    }
+    showFlash(
+      'success',
+      nextEnabled
+        ? `${findPlatform(platformId).label} channel resumed.`
+        : `${findPlatform(platformId).label} channel paused. Its destination is kept.`
+    );
   } catch (err) {
     showFlash('error', err.message);
-    await fetchChannels();
   } finally {
     busy[platformId] = false;
+    await fetchChannels();
   }
 };
 
@@ -368,6 +389,9 @@ onMounted(load);
 </script>
 
 <style scoped>
+/* Neutral colours come from the SB-146 theme tokens, so they flip with .dark.
+   Tinted ones get an explicit dark pair: write `:global(.dark .x)`, never
+   `:global(.dark) .x`, which compiles to a bare `.dark` rule. */
 .club-notifications {
   max-width: 720px;
 }
@@ -377,16 +401,16 @@ onMounted(load);
 .title {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #111827;
+  color: rgb(var(--color-fg));
 }
 .subtitle {
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   font-size: 0.875rem;
   margin-top: 0.25rem;
 }
 .loading {
   padding: 1rem;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
   text-align: center;
 }
 .rows {
@@ -395,10 +419,10 @@ onMounted(load);
   gap: 1rem;
 }
 .row {
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 0.5rem;
   padding: 1rem;
-  background: #fff;
+  background: rgb(var(--color-card));
 }
 .row-header {
   display: flex;
@@ -409,7 +433,7 @@ onMounted(load);
 }
 .platform-name {
   font-weight: 500;
-  color: #111827;
+  color: rgb(var(--color-fg));
   display: flex;
   align-items: center;
   gap: 0.375rem;
@@ -421,11 +445,15 @@ onMounted(load);
   font-size: 0.8125rem;
 }
 .status.configured {
-  color: #059669;
+  color: #047857;
+  font-weight: 500;
+}
+.status.paused {
+  color: #b45309;
   font-weight: 500;
 }
 .status.unconfigured {
-  color: #9ca3af;
+  color: rgb(var(--color-fg-muted));
 }
 .row-actions {
   margin-top: 0.75rem;
@@ -441,10 +469,16 @@ onMounted(load);
 }
 .input {
   flex: 1;
+  min-width: 0;
   padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid rgb(var(--color-line));
   border-radius: 0.375rem;
   font-size: 0.875rem;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
+}
+.input::placeholder {
+  color: rgb(var(--color-fg-muted));
 }
 .input:focus {
   outline: 2px solid #3b82f6;
@@ -471,15 +505,15 @@ onMounted(load);
   background: #1d4ed8;
 }
 .btn.secondary {
-  background: #f3f4f6;
-  color: #111827;
-  border-color: #d1d5db;
+  background: rgb(var(--color-surface-alt));
+  color: rgb(var(--color-fg));
+  border-color: rgb(var(--color-line));
 }
 .btn.secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+  border-color: rgb(var(--color-fg-muted));
 }
 .btn.danger {
-  background: #fff;
+  background: transparent;
   color: #b91c1c;
   border-color: #fecaca;
 }
@@ -491,12 +525,29 @@ onMounted(load);
   gap: 0.375rem;
   align-items: center;
   font-size: 0.875rem;
-  color: #374151;
+  color: rgb(var(--color-fg));
 }
 .hint-text {
   margin-top: 0.5rem;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: rgb(var(--color-fg-muted));
+}
+.setup {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: rgb(var(--color-fg-muted));
+}
+.setup summary {
+  cursor: pointer;
+  color: rgb(var(--color-fg));
+  font-weight: 500;
+}
+.setup ol {
+  margin: 0.5rem 0 0 1.25rem;
+  list-style: decimal;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 .field-error {
   color: #b91c1c;
@@ -534,5 +585,40 @@ onMounted(load);
   font-size: 0.875rem;
   text-decoration: underline;
   padding: 0;
+}
+
+:global(.dark .club-notifications .status.configured) {
+  color: #6ee7b7;
+}
+:global(.dark .club-notifications .status.paused) {
+  color: #fcd34d;
+}
+:global(.dark .club-notifications .btn.danger) {
+  color: #fca5a5;
+  border-color: rgb(248 113 113 / 0.4);
+}
+:global(.dark .club-notifications .btn.danger:hover:not(:disabled)) {
+  background: rgb(248 113 113 / 0.12);
+}
+:global(.dark .club-notifications .field-error) {
+  color: #fca5a5;
+}
+:global(.dark .club-notifications .flash.success) {
+  background: rgb(16 185 129 / 0.15);
+  color: #6ee7b7;
+  border-color: rgb(16 185 129 / 0.35);
+}
+:global(.dark .club-notifications .flash.error) {
+  background: rgb(248 113 113 / 0.12);
+  color: #fca5a5;
+  border-color: rgb(248 113 113 / 0.35);
+}
+:global(.dark .club-notifications .flash.warning) {
+  background: rgb(245 158 11 / 0.15);
+  color: #fcd34d;
+  border-color: rgb(245 158 11 / 0.35);
+}
+:global(.dark .club-notifications .link) {
+  color: #93c5fd;
 }
 </style>
