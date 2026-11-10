@@ -115,6 +115,7 @@ class TestListPlatforms:
         assert {"telegram", "discord"} <= set(by_id)
         assert by_id["telegram"]["destination_pattern"].startswith("^")
         assert by_id["telegram"]["capabilities"] == []
+        assert all(p["setup_steps"] for p in by_id.values())
 
     def test_requires_login(self):
         with TestClient(app) as c:
@@ -284,14 +285,46 @@ class TestDeleteChannel:
 
 
 # ---------------------------------------------------------------------------
+# PATCH /api/clubs/{club_id}/notifications/{platform}
+# ---------------------------------------------------------------------------
+
+
+class TestSetEnabled:
+    def test_disable_keeps_the_destination(self, club, notif_dao):
+        notif_dao.upsert(club["id"], "telegram", "-1001234567890")
+        with as_user(_fake_user("admin")) as c:
+            r = c.patch(f"/api/clubs/{club['id']}/notifications/telegram", json={"enabled": False})
+        assert r.status_code == 200
+        assert r.json() == {"platform": "telegram", "enabled": False, "configured": True, "hint": "7890"}
+        row = notif_dao.get(club["id"], "telegram")
+        assert row["enabled"] is False
+        assert row["destination"] == "-1001234567890"
+
+    def test_re_enable_needs_no_destination(self, club, notif_dao):
+        notif_dao.upsert(club["id"], "telegram", "-1001234567890", enabled=False)
+        with as_user(_fake_user("club_manager", club_id=club["id"])) as c:
+            r = c.patch(f"/api/clubs/{club['id']}/notifications/telegram", json={"enabled": True})
+        assert r.status_code == 200
+        assert notif_dao.get(club["id"], "telegram")["enabled"] is True
+
+    def test_404_when_no_channel_configured(self, club):
+        with as_user(_fake_user("admin")) as c:
+            r = c.patch(f"/api/clubs/{club['id']}/notifications/telegram", json={"enabled": False})
+        assert r.status_code == 404
+
+    def test_club_manager_denied_other_club(self, club, other_club):
+        with as_user(_fake_user("club_manager", club_id=club["id"])) as c:
+            r = c.patch(f"/api/clubs/{other_club['id']}/notifications/telegram", json={"enabled": False})
+        assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
 # POST /api/clubs/{club_id}/notifications/{platform}/test
 # ---------------------------------------------------------------------------
 
 
 class TestTestSend:
-    def test_surfaces_config_error_when_telegram_token_missing(
-        self, club, notif_dao, monkeypatch
-    ):
+    def test_surfaces_config_error_when_telegram_token_missing(self, club, notif_dao, monkeypatch):
         """Without TELEGRAM_BOT_TOKEN, the sender raises NotificationConfigError.
 
         The endpoint catches it and returns 200 with success=False so the UI
@@ -338,9 +371,7 @@ class TestTestSend:
             r = c.post(f"/api/clubs/{club['id']}/notifications/telegram/test")
         assert r.status_code == 429
 
-    def test_reports_sender_exception_without_leaking_destination(
-        self, club, notif_dao, caplog
-    ):
+    def test_reports_sender_exception_without_leaking_destination(self, club, notif_dao, caplog):
         notif_dao.upsert(club["id"], "telegram", "-100shouldNotAppearInLogs")
 
         def _boom(platform, destination):

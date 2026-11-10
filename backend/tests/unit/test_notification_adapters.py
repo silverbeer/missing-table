@@ -39,6 +39,11 @@ class TestAdapterContract:
             assert getattr(adapter, field), f"{adapter.id} has no {field}"
 
     @pytest.mark.parametrize("adapter", ADAPTERS, ids=IDS)
+    def test_has_setup_steps(self, adapter: ChannelAdapter):
+        assert len(adapter.setup_steps) >= 2, f"{adapter.id} needs a how-to"
+        assert all(step.strip() for step in adapter.setup_steps)
+
+    @pytest.mark.parametrize("adapter", ADAPTERS, ids=IDS)
     def test_pattern_is_anchored_and_compiles(self, adapter: ChannelAdapter):
         re.compile(adapter.destination_pattern)
         assert adapter.destination_pattern.startswith("^")

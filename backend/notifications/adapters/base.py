@@ -65,6 +65,9 @@ class ChannelAdapter(ABC):
     icon: ClassVar[str]
     placeholder: ClassVar[str]
     hint: ClassVar[str]
+    # Numbered how-to the setup UI shows under "How to set up". Plain text,
+    # one action per step, ending with what to paste.
+    setup_steps: ClassVar[tuple[str, ...]]
     # Served to the browser and used in `new RegExp(...)`, so keep it to syntax
     # Python and JavaScript read the same way. Anchors are required.
     destination_pattern: ClassVar[str]

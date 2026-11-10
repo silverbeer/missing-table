@@ -1,7 +1,7 @@
 <template>
   <div data-testid="admin-club-notifications">
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold text-fg">Club Notifications</h2>
+      <h2 class="text-xl font-bold text-fg">Live Match Notifications</h2>
       <!-- Admins pick a club; club_managers are auto-scoped to their own -->
       <div v-if="isAdmin" class="flex items-center gap-3">
         <label class="text-sm text-fg-muted" for="club-picker">Club:</label>
@@ -23,7 +23,7 @@
 
     <div
       v-else-if="!isAdmin && !selectedClubId"
-      class="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800"
+      class="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-sm text-yellow-800 dark:bg-yellow-500/10 dark:border-yellow-500/30 dark:text-yellow-200"
       data-testid="no-club-assigned"
     >
       No club is assigned to your account. Contact an administrator to have one
@@ -31,7 +31,7 @@
     </div>
 
     <div v-else-if="selectedClubId">
-      <ClubNotificationChannels :club-id="selectedClubId" />
+      <ClubNotificationChannels :club-id="selectedClubId" :show-title="false" />
     </div>
 
     <div v-else class="text-sm text-fg-muted" data-testid="no-club-selected">

@@ -95,14 +95,13 @@ The flow: create the platform destination (once per club), then paste the identi
 
 1. **Create a Telegram group** for your club (or use an existing one).
 2. **Add the bot** (`@missingtable_bot`, display name "MTBot") to the group and promote it to admin (sending messages does not require admin, but admin prevents accidental removal).
-3. **Get the `chat_id`:**
-   - Send any message in the group.
-   - From a terminal with the bot token handy, fetch updates:
+3. **Get the `chat_id`:** open the group at [web.telegram.org](https://web.telegram.org) and copy the number after `#` in the address bar (e.g. `-1001234567890`). A public group or channel can use its `@username` instead.
+   - If **Send test** fails and the number does not start with `-100`, add `-100` in front: supergroups and channels need it, and Telegram Web does not always show it.
+   - Admins can also read it from the bot directly:
      ```bash
      curl "https://api.telegram.org/bot<BOT_TOKEN>/getUpdates" | jq '.result[].message.chat'
      ```
-   - Look for the group's `id` — it's a negative integer, typically 13 digits (e.g. `-1001234567890`).
-4. Copy the `chat_id` — you'll paste it into Missing Table below.
+4. Paste the `chat_id` into Missing Table below.
 
 > Don't have the bot token? An admin does. Rotation steps are in [Operations](#-operations).
 
@@ -127,14 +126,16 @@ Two paths — both write to the same table, governed by RLS.
 
 **Club manager (self-serve):**
 1. Sign in → **Profile** tab.
-2. Scroll to the **Notifications** card.
-3. For each platform, paste the `chat_id` / webhook URL, toggle **Enabled**, click **Save**.
+2. Scroll to the **Live Match Notifications** card.
+3. For each platform, open **How to set up**, paste the `chat_id` / webhook URL and click **Save**.
 4. Click **Send test** to verify delivery.
 
 **Admin (on behalf of any club):**
 1. Sign in → **Admin** tab → **Access** → **Live Match Notifications**.
 2. Pick the club from the dropdown.
 3. Same Save / Send test flow as above.
+
+Each platform's numbered steps come from its adapter's `setup_steps`, served by `GET /api/notifications/platforms`, so the UI and the platform stay in one place. A destination is write-only: once saved, only its last four characters show. The **Enabled** box pauses and resumes delivery (`PATCH /api/clubs/{id}/notifications/{platform}` with `{"enabled": …}`) and keeps the destination; **Reset** deletes it.
 
 Component: `frontend/src/components/notifications/ClubNotificationChannels.vue` (reused in both contexts).
 
@@ -144,6 +145,7 @@ API endpoints (defined in `backend/api/club_notifications.py`):
 | ------------ | ------ | ----------------------------------------------------- |
 | List         | GET    | `/api/clubs/{club_id}/notifications`                  |
 | Upsert       | PUT    | `/api/clubs/{club_id}/notifications/{platform}`       |
+| Pause/resume | PATCH  | `/api/clubs/{club_id}/notifications/{platform}`       |
 | Delete       | DELETE | `/api/clubs/{club_id}/notifications/{platform}`       |
 | Send test    | POST   | `/api/clubs/{club_id}/notifications/{platform}/test`  |
 | Platforms    | GET    | `/api/notifications/platforms`                        |

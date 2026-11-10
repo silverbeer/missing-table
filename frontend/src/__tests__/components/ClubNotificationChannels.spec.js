@@ -4,6 +4,8 @@
  * Covers:
  * - Render both rows (telegram, discord) from GET response
  * - Configured state shows hint + reset/test/toggle controls
+ * - Toggle PATCHes `enabled` and never deletes the destination
+ * - Setup steps from the registry, open until configured
  * - Unconfigured state shows input + save with client-side validation
  * - PUT on save; DELETE on reset; POST on test-send
  * - Rate limit (429), kill switch (503), Phase 3 stub (501) surface as warnings
@@ -36,6 +38,7 @@ const PLATFORMS = [
     icon: '✈️',
     placeholder: 'chat id',
     hint: 'hint',
+    setup_steps: ['Add the bot to your group.', 'Paste the chat ID.'],
     destination_pattern: '^(@\\w+|-?\\d+)$',
     destination_error: 'Telegram destination is invalid',
     capabilities: [],
@@ -145,6 +148,128 @@ describe('ClubNotificationChannels', () => {
         true
       );
       expect(wrapper.find('[data-testid="test-telegram"]').exists()).toBe(true);
+    });
+  });
+
+  describe('setup steps', () => {
+    it('shows numbered steps, open while the platform is unconfigured', async () => {
+      const wrapper = mkMount([]);
+      await flushPromises();
+
+      const setup = wrapper.find('[data-testid="setup-telegram"]');
+      expect(setup.attributes('open')).toBeDefined();
+      expect(setup.findAll('li').map(li => li.text())).toEqual([
+        'Add the bot to your group.',
+        'Paste the chat ID.',
+      ]);
+    });
+
+    it('collapses the steps once configured', async () => {
+      const wrapper = mkMount([
+        { platform: 'telegram', enabled: true, configured: true, hint: '7890' },
+      ]);
+      await flushPromises();
+
+      expect(
+        wrapper.find('[data-testid="setup-telegram"]').attributes('open')
+      ).toBeUndefined();
+    });
+
+    it('falls back to the one-line hint when a platform has no steps', async () => {
+      const wrapper = mkMount([]);
+      await flushPromises();
+
+      const row = wrapper.find('[data-testid="row-discord"]');
+      expect(row.find('[data-testid="setup-discord"]').exists()).toBe(false);
+      expect(row.find('.hint-text').text()).toBe('hint');
+    });
+  });
+
+  describe('enable toggle (PATCH)', () => {
+    it('pauses with PATCH and keeps the destination', async () => {
+      const wrapper = mkMount([
+        { platform: 'telegram', enabled: true, configured: true, hint: '7890' },
+      ]);
+      await flushPromises();
+
+      await wrapper.find('[data-testid="toggle-telegram"]').setValue(false);
+      await flushPromises();
+
+      const patch = fetch.mock.calls.find(c => c[1]?.method === 'PATCH');
+      expect(patch[0]).toBe(
+        'http://localhost:8000/api/clubs/42/notifications/telegram'
+      );
+      expect(JSON.parse(patch[1].body)).toEqual({ enabled: false });
+      expect(fetch.mock.calls.some(c => c[1]?.method === 'DELETE')).toBe(false);
+    });
+
+    it('resumes with PATCH, no destination needed', async () => {
+      const wrapper = mkMount([
+        {
+          platform: 'telegram',
+          enabled: false,
+          configured: true,
+          hint: '7890',
+        },
+      ]);
+      await flushPromises();
+
+      await wrapper.find('[data-testid="toggle-telegram"]').setValue(true);
+      await flushPromises();
+
+      const patch = fetch.mock.calls.find(c => c[1]?.method === 'PATCH');
+      expect(JSON.parse(patch[1].body)).toEqual({ enabled: true });
+    });
+
+    it('labels a disabled channel as paused, not configured', async () => {
+      const wrapper = mkMount([
+        {
+          platform: 'telegram',
+          enabled: false,
+          configured: true,
+          hint: '7890',
+        },
+      ]);
+      await flushPromises();
+
+      const status = wrapper.find('[data-testid="status-telegram"]').text();
+      expect(status).toContain('Paused');
+      expect(status).toContain('7890');
+    });
+
+    it('shows the server error when the PATCH fails', async () => {
+      const wrapper = mkMount([
+        { platform: 'telegram', enabled: true, configured: true, hint: '7890' },
+      ]);
+      await flushPromises();
+      fetch.mockImplementation(async (url, opts) =>
+        opts?.method === 'PATCH'
+          ? mockResponse(404, { detail: 'No channel configured' })
+          : mockResponse(200, [])
+      );
+
+      await wrapper.find('[data-testid="toggle-telegram"]').setValue(false);
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="flash-error"]').text()).toContain(
+        'No channel configured'
+      );
+    });
+  });
+
+  describe('heading', () => {
+    it('can hide its own title where the page has one', async () => {
+      globalThis.fetch = vi.fn(async url =>
+        String(url).endsWith('/api/notifications/platforms')
+          ? mockResponse(200, PLATFORMS)
+          : mockResponse(200, [])
+      );
+      const wrapper = mount(ClubNotificationChannels, {
+        props: { clubId: 42, showTitle: false },
+      });
+      await flushPromises();
+
+      expect(wrapper.find('.title').exists()).toBe(false);
     });
   });
 
