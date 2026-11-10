@@ -101,6 +101,8 @@ class DeliveryResult:
     """
 
     message_ref: str | None = None
+    # The thread the message went into, when posted as a match thread (SB-1606).
+    thread_ref: str | None = None
 
 
 class ChannelAdapter(ABC):
@@ -169,6 +171,30 @@ class ChannelAdapter(ABC):
                 detail = f"HTTP {exc.response.status_code}"
             retryable, retry_after = classify_failure(exc)
             raise DeliveryError(f"{self.id} send failed: {detail}", retryable, retry_after) from None
+
+    def send_in_thread(
+        self, destination: str, content: str, thread_ref: str | None, thread_name: str | None
+    ) -> DeliveryResult:
+        """Post into a match thread (SB-1606): a new one named `thread_name`, or `thread_ref`.
+
+        Only for platforms with Capability.THREADS; the result carries the
+        thread's id. Same error handling as `send`.
+        """
+        try:
+            return self._deliver_in_thread(destination, content, thread_ref, thread_name)
+        except NotificationConfigError:
+            raise
+        except Exception as exc:
+            detail = type(exc).__name__
+            if isinstance(exc, httpx.HTTPStatusError):
+                detail = f"HTTP {exc.response.status_code}"
+            retryable, retry_after = classify_failure(exc)
+            raise DeliveryError(f"{self.id} send failed: {detail}", retryable, retry_after) from None
+
+    def _deliver_in_thread(
+        self, destination: str, content: str, thread_ref: str | None, thread_name: str | None
+    ) -> DeliveryResult:
+        raise NotImplementedError(f"{self.id} has no threads")
 
     @abstractmethod
     def _deliver(self, destination: str, content: str) -> DeliveryResult:

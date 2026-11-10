@@ -9,7 +9,7 @@ This guide is for the manager who runs the Discord server. Missing Table is inde
 | Channel | Type | Who | What posts there |
 |---|---|---|---|
 | `#match-updates` | Text | everyone in the room | Missing Table, through a webhook |
-| `#match-threads` | Forum | everyone in the room | One post per match for discussion |
+| `#match-threads` | Forum | everyone in the room | Missing Table: one post per match, updates as replies |
 | `#players` (U14+) | Text, read-only | players | Missing Table + managers; players react |
 
 Fans and players are kept in separate rooms. MT's access rules never show a player channel to a fan, or a fan channel to a player.
@@ -21,13 +21,20 @@ Fans and players are kept in separate rooms. MT's access rules never show a play
 3. Name it `Missing Table`, check the channel, and **Copy Webhook URL**. It works like a password: anyone with it can post.
 4. In Missing Table, open your club or team page → **Manage chat channels** → add a Discord channel and paste the URL. Click **Send test**.
 
-Point the webhook at a **text** channel. A webhook into a forum channel needs a thread name on every post, which MT does not send yet. Posting each match as its own forum thread is SB-1606.
+Point this webhook at a **text** channel. For one post per match, use a forum channel instead (section 2).
 
-## 2. Forum channel for match threads
+## 2. Forum channel for match threads (SB-1606)
 
-1. **Create Channel → Forum**, name it `#match-threads`.
-2. Add tags if you like (e.g. `League`, `Flex`, `Tournament`).
-3. Until SB-1606 ships, a manager starts one post per match ("IFA U15 vs NEFC — Sat 10:00") and members reply in it. MT's live updates keep going to `#match-updates`.
+With a forum channel, each match gets its own post ("IFA vs NEFC · U15 · Sat Nov 14"), and kickoff, goals and the final score go into it as replies.
+
+1. **Create Channel → Forum**, name it `#match-threads`. Add tags if you like (`League`, `Flex`, `Tournament`).
+2. In the forum channel: gear icon → **Integrations → Webhooks → New Webhook**, and copy its URL.
+3. In Missing Table, add a Discord channel with that URL and tick **One post per match**.
+4. Click **Send test**. MT creates a post called "Missing Table test", then replies inside it using the thread id Discord sent back. If both appear in the same post, threads work. Delete the test post afterwards.
+
+A webhook into a forum channel needs **One post per match** ticked. Without it Discord rejects every post, and the channel's Last post shows the error. A text channel must leave it unticked: Discord only accepts `thread_name` in forum and media channels.
+
+A club players room always posts flat, because read-only permissions are not confirmed to work with forum posts.
 
 ## 3. Read-only player channel with reactions
 

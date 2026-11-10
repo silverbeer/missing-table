@@ -18,13 +18,14 @@ from dao.club_dao import ClubDAO
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import SupabaseConnection
 from dao.notification_deliveries_dao import NotificationDeliveriesDAO
-from notifications.adapters.base import DeliveryError, NotificationConfigError
+from notifications.adapters.base import DeliveryError, DeliveryResult, NotificationConfigError
 from notifications.adapters.discord import DiscordAdapter
 from notifications.preferences import CHANNEL_EVENT_TYPES
 
 pytestmark = [pytest.mark.integration, pytest.mark.api]
 
 DISCORD = "https://discord.com/api/webhooks/123/abc"
+SLACK_HOOK = "https://hooks.slack.com/services/T000/B000/XXXX"
 BASE = "/api/notification-channels"
 
 
@@ -236,6 +237,19 @@ class TestUpdate:
         assert r.status_code == 422
         assert "player channel" in r.json()["detail"]
 
+    def test_match_threads_need_a_platform_with_threads(self, world):
+        """SB-1606: Discord forum channels; club players rooms stay flat."""
+        with as_user(ADMIN) as c:
+            ok = c.post(BASE, json=team_body(world, post_as_threads=True))
+            assert ok.status_code == 201, ok.text
+            assert ok.json()["post_as_threads"] is True
+            slack = team_body(world, age="U17", post_as_threads=True, platform="slack", destination=SLACK_HOOK)
+            assert c.post(BASE, json=slack).status_code == 422
+            assert c.post(BASE, json=club_body(world, audience="players", post_as_threads=True)).status_code == 422
+            flat = c.post(BASE, json=club_body(world)).json()["id"]
+            assert c.patch(f"{BASE}/{flat}", json={"post_as_threads": True}).json()["post_as_threads"] is True
+            assert c.patch(f"{BASE}/{flat}", json={"post_as_threads": None}).status_code == 422
+
     def test_bad_destination_rejected(self, world):
         with as_user(ADMIN) as c:
             channel_id = c.post(BASE, json=team_body(world)).json()["id"]
@@ -329,6 +343,30 @@ class TestSendTest:
             r = c.post(f"{BASE}/{channel_id}/test")
         assert r.json() == {"success": True, "error": None}
         assert sent == [DISCORD]
+
+    def test_a_forum_channel_proves_follow_ups_find_the_thread(self, world, monkeypatch):
+        """SB-1606: create a test post, then reply into it with the id that came back."""
+        calls = []
+
+        def threaded(self, dest, text, thread_ref, thread_name):
+            calls.append((thread_ref, thread_name))
+            return DeliveryResult(message_ref="m", thread_ref="777")
+
+        monkeypatch.setattr(DiscordAdapter, "send_in_thread", threaded)
+        with as_user(ADMIN) as c:
+            channel_id = c.post(BASE, json=club_body(world, post_as_threads=True)).json()["id"]
+            r = c.post(f"{BASE}/{channel_id}/test")
+        assert r.json() == {"success": True, "error": None}
+        assert calls == [(None, "Missing Table test"), ("777", None)]
+
+    def test_a_forum_post_without_a_thread_id_is_reported(self, world, monkeypatch):
+        monkeypatch.setattr(
+            DiscordAdapter, "send_in_thread", lambda self, d, t, ref, name: DeliveryResult(message_ref="m")
+        )
+        with as_user(ADMIN) as c:
+            channel_id = c.post(BASE, json=club_body(world, post_as_threads=True)).json()["id"]
+            body = c.post(f"{BASE}/{channel_id}/test").json()
+        assert body["success"] is False and "thread id" in body["error"]
 
     def test_delivery_error_is_shown(self, world, monkeypatch):
         def boom(self, dest, text):

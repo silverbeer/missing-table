@@ -32,6 +32,7 @@ from dao.notification_channels_dao import (
 )
 from dao.notification_deliveries_dao import NotificationDeliveriesDAO
 from notifications.adapters.base import (
+    Capability,
     ChannelAdapter,
     DeliveryError,
     InvalidDestinationError,
@@ -45,6 +46,8 @@ from notifications.registry import get_adapter
 logger = structlog.get_logger(__name__)
 
 TEST_MESSAGE = "✅ Missing Table notification test: this channel is set up correctly."
+TEST_THREAD_NAME = "Missing Table test"
+TEST_THREAD_REPLY = "✅ Match updates will be posted as replies in each match's thread, like this one."
 
 router = APIRouter(prefix="/api/notification-channels", tags=["notification-channels"])
 
@@ -87,6 +90,8 @@ class ChannelCreate(ChannelScope):
     invite_url: str | None = Field(None, max_length=500)
     # A manager's own name for the channel; blank is stored as NULL.
     label: str | None = Field(None, max_length=80)
+    # One post per match, updates inside it (SB-1606). Discord forum channels.
+    post_as_threads: bool = False
 
 
 class ChannelUpdate(BaseModel):
@@ -96,6 +101,7 @@ class ChannelUpdate(BaseModel):
     invite_url: str | None = Field(None, max_length=500)
     # A manager's own name for the channel; blank is stored as NULL.
     label: str | None = Field(None, max_length=80)
+    post_as_threads: bool | None = None
 
 
 class LastDelivery(BaseModel):
@@ -125,6 +131,7 @@ class ChannelOut(ChannelScope):
     enabled: bool
     invite_url: str | None = None
     label: str | None = None
+    post_as_threads: bool = False
     hint: str | None = Field(None, description="Last 4 chars of destination; full value never exposed")
     # None with last_delivery_known=True: nothing posted yet. With False: the
     # ledger could not be read, so the UI must not claim "nothing yet".
@@ -161,6 +168,7 @@ def _to_out(row: dict, deliveries: dict[int, dict] | None) -> ChannelOut:
         enabled=bool(row["enabled"]),
         invite_url=row.get("invite_url"),
         label=row.get("label"),
+        post_as_threads=bool(row.get("post_as_threads")),
         hint=destination[-4:] if destination else None,
         last_delivery=_last_delivery((deliveries or {}).get(row["id"])),
         last_delivery_known=deliveries is not None,
@@ -240,6 +248,20 @@ def _validate_event_types(
         raise _unprocessable(f"{labels} can only go to a squad's player channel")
 
 
+def _validate_threads(post_as_threads: bool | None, platform: str, scope_type: str, audience: str | None) -> None:
+    """Match threads need a platform that has them (SB-1606).
+
+    A club players room stays flat: read-only permissions are not confirmed to
+    work with forum posts.
+    """
+    if not post_as_threads:
+        return
+    if Capability.THREADS not in _adapter(platform).capabilities:
+        raise _unprocessable(f"{_adapter(platform).label} channels can't post match threads")
+    if scope_type == "club" and audience == "players":
+        raise _unprocessable("A club players channel posts flat; match threads are for squad and fan channels")
+
+
 def _age_group_name(age_group_id: int) -> str:
     rows = _conn().get_client().table("age_groups").select("name").eq("id", age_group_id).limit(1).execute().data
     if not rows:
@@ -291,6 +313,7 @@ def create_channel(
     _validate_destination(adapter, body.destination)
     _validate_invite_url(adapter, body.invite_url)
     _validate_event_types(body.event_types, body.scope_type, body.audience)
+    _validate_threads(body.post_as_threads, body.platform, body.scope_type, body.audience)
     _validate_audience(body, adapter)
     fields = body.model_dump()
     _clean_label(fields)
@@ -337,6 +360,10 @@ def update_channel(
     if "enabled" in fields and fields["enabled"] is None:
         raise _unprocessable("enabled cannot be null")
     _validate_event_types(fields.get("event_types"), row["scope_type"], row.get("audience"))
+    if "post_as_threads" in fields:
+        if fields["post_as_threads"] is None:
+            raise _unprocessable("post_as_threads cannot be null")
+        _validate_threads(fields["post_as_threads"], row["platform"], row["scope_type"], row.get("audience"))
     if "invite_url" in fields:
         _validate_invite_url(_adapter(row["platform"]), fields["invite_url"])
     _clean_label(fields)
@@ -392,8 +419,17 @@ def test_channel(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many test messages. Wait a minute and try again.",
         )
+    adapter = _adapter(row["platform"])
     try:
-        _adapter(row["platform"]).send(row["destination"], TEST_MESSAGE)
+        if row.get("post_as_threads") and Capability.THREADS in adapter.capabilities:
+            # A forum channel: create a test post, then reply into it with the
+            # id that came back, which proves follow-ups find their thread.
+            first = adapter.send_in_thread(row["destination"], TEST_MESSAGE, None, TEST_THREAD_NAME)
+            if not first.thread_ref:
+                return TestSendResult(success=False, error="The post was created, but its thread id did not come back")
+            adapter.send_in_thread(row["destination"], TEST_THREAD_REPLY, first.thread_ref, None)
+        else:
+            adapter.send(row["destination"], TEST_MESSAGE)
     except Exception as exc:
         logger.warning("channel_test_send_failed", channel_id=channel_id, error_type=type(exc).__name__)
         return TestSendResult(success=False, error=_test_error(exc))

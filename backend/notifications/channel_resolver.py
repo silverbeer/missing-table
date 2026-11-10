@@ -24,6 +24,8 @@ class ResolvedChannel(NamedTuple):
     platform: str
     destination: str
     channel_id: int
+    # Post each match as its own thread (SB-1606).
+    post_as_threads: bool = False
 
 
 def select_destinations(
@@ -61,7 +63,9 @@ def select_destinations(
         key = (row["platform"], row["destination"])
         if key not in seen:
             seen.add(key)
-            ordered.append(ResolvedChannel(row["platform"], row["destination"], row["id"]))
+            ordered.append(
+                ResolvedChannel(row["platform"], row["destination"], row["id"], bool(row.get("post_as_threads")))
+            )
     return ordered
 
 
