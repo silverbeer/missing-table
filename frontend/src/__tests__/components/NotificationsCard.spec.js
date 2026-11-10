@@ -193,7 +193,25 @@ describe('NotificationsCard "Teams you follow" labels (SB-65)', () => {
     expect(primary.text()).toBe('IFA · Homegrown · Northeast');
   });
 
-  it('shows the "Showing all age groups" subtitle on every follow row', async () => {
+  it('names the squad on a squad follow, one row per squad (SB-1608)', async () => {
+    const team = { id: 19, name: 'IFA', club: { id: 1, name: 'IFA' } };
+    mockFollows.value = [
+      { team_id: 19, age_group_id: 3, age_group: { id: 3, name: 'U15' }, team },
+      { team_id: 19, age_group_id: 4, age_group: { id: 4, name: 'U16' }, team },
+    ];
+
+    const wrapper = mount(NotificationsCard);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="follow-item-19-3"]').exists()).toBe(
+      true
+    );
+    expect(
+      wrapper.findAll('[data-testid="follow-label-sub"]').map(s => s.text())
+    ).toEqual(['U15 only', 'U16 only']);
+  });
+
+  it('shows the "Showing all age groups" subtitle on a whole-team follow', async () => {
     mockFollows.value = [
       {
         team_id: 19,

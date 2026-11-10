@@ -143,6 +143,7 @@ RESTORATION_ORDER = [
     "team_mappings",
     "team_match_types",
     "team_aliases",
+    "division_guests",  # teams, divisions, age_groups, seasons
     "qop_snapshots",  # divisions, age_groups
     "qop_rankings",  # qop_snapshots, teams
     # 4. Team management
@@ -160,6 +161,10 @@ RESTORATION_ORDER = [
     # 9. Tables that depend on matches/teams/clubs/players
     "match_of_the_week",
     "tournament_match_of_the_day",  # tournaments, matches
+    "notification_channels",  # clubs, teams, age_groups
+    "notification_deliveries",  # notification_channels
+    "channel_members",  # notification_channels, user_profiles
+    "notification_threads",  # notification_channels, matches
     "match_events",
     "match_lineups",
     "player_match_stats",

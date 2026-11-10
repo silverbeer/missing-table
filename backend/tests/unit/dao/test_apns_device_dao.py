@@ -140,19 +140,32 @@ class TestTeamFollowerUserIds:
         client.table.return_value.select.return_value.in_.return_value.execute.return_value = _result(
             [{"user_id": "u-1"}, {"user_id": "u-1"}, {"user_id": "u-2"}, {"user_id": None}]
         )
-        assert sorted(dao.list_user_ids_for_team_ids([10, 20])) == ["u-1", "u-2"]
+        assert sorted(dao.list_user_ids_for_team_ids([10, 20], 5)) == ["u-1", "u-2"]
         client.table.assert_called_with("user_team_follows")
         client.table.return_value.select.return_value.in_.assert_called_with("team_id", [10, 20])
 
+    def test_squad_follows_hear_only_their_age_group(self):
+        """SB-1608: NULL follows every age group; a squad follow only its own."""
+        dao, client = _make(TeamFollowDAO)
+        client.table.return_value.select.return_value.in_.return_value.execute.return_value = _result(
+            [
+                {"user_id": "whole", "age_group_id": None},
+                {"user_id": "u15", "age_group_id": 5},
+                {"user_id": "u16", "age_group_id": 6},
+            ]
+        )
+        assert sorted(dao.list_user_ids_for_team_ids([10], 5)) == ["u15", "whole"]
+        assert sorted(dao.list_user_ids_for_team_ids([10], None)) == ["whole"]
+
     def test_no_teams_skips_the_query(self):
         dao, client = _make(TeamFollowDAO)
-        assert dao.list_user_ids_for_team_ids([]) == []
+        assert dao.list_user_ids_for_team_ids([], 5) == []
         client.table.assert_not_called()
 
     def test_error_returns_empty(self):
         dao, client = _make(TeamFollowDAO)
         client.table.side_effect = RuntimeError("down")
-        assert dao.list_user_ids_for_team_ids([10]) == []
+        assert dao.list_user_ids_for_team_ids([10], 5) == []
 
     def test_web_subscriptions_fanout_still_uses_two_queries(self):
         """The refactor must not change the web fan-out's result."""
@@ -167,7 +180,7 @@ class TestTeamFollowerUserIds:
         subs.select.return_value.in_.return_value.execute.return_value = _result(sub_rows)
         client.table.side_effect = lambda name: {"user_team_follows": follows, "push_subscriptions": subs}[name]
 
-        assert dao.list_subscriptions_for_team_ids([10]) == [sub_rows[0]]
+        assert dao.list_subscriptions_for_team_ids([10], 5) == [sub_rows[0]]
         subs.select.return_value.in_.assert_called_with("user_id", ["u-1"])
 
 

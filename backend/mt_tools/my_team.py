@@ -1,8 +1,9 @@
 """Which team is "mine" (SB-1317): the one place a caller's team membership is read.
 
 Today membership is the caller's profile — `team_id`, or `club_id` alone for club
-managers and club fans — plus, for fans, the age group they picked
-(`assigned_age_group_id`, SB-1543). A team row is a club in one league (IFA
+managers and club fans — plus, for fans, the age group they were assigned
+(`assigned_age_group_id`, SB-1543). Since SB-1608 only an invite or an admin
+writes those; a fan's own squad choices are follows (alerts), not membership. A team row is a club in one league (IFA
 Homegrown, IFA Academy); the age group makes it the squad a fan means. This is
 the one place my-tier and team-write tools read membership. auth.py's
 `can_manage_team` reads the profile itself, and must change together with this
@@ -169,10 +170,10 @@ PICK_ROLES = frozenset({"team-fan", "club-fan", "team_fan", "club_fan"})
 
 
 class TeamPickOptions(BaseModel):
-    """What a fan may pick as "my team": their club's teams, one entry per age group.
+    """The squads a fan may follow: their club's teams, one entry per age group.
 
     `status` "no_club" means the profile has no club (or one this viewer can't see):
-    nothing to pick from. `current` is the stored pick, if any.
+    nothing to pick from. `current_*` is the team a manager or admin assigned, if any.
     """
 
     status: Literal["ok", "no_club"]
@@ -215,8 +216,8 @@ def age_number_of(candidate: TeamCandidate) -> int:
 
 
 def is_valid_pick(options: TeamPickOptions, team_id: int, age_group_id: int) -> bool:
-    """Only a team in the fan's own club, at an age group it plays. Keeps a pick from
-    widening anything team_id feeds (roster visibility derives the club from it)."""
+    """Only a team in the fan's own club, at an age group it plays (SB-1608: the
+    multi-squad picker is limited to the fan's club)."""
     return options.status == "ok" and any(
         c.team_id == team_id and c.age_group is not None and c.age_group.id == age_group_id for c in options.options
     )
@@ -236,3 +237,55 @@ def _marked(index: TeamIndex, team: dict, active: bool) -> list[TeamCandidate]:
 def _club_ref(index: TeamIndex, club_id: int | None) -> ClubRef | None:
     club = index.visible_club(club_id)
     return ClubRef(id=club["id"], name=club["name"]) if club else None
+
+
+# --- channel membership (SB-1607) ---------------------------------------------
+
+ViewerKind = Literal["admin", "club_manager", "team_manager", "fan", "player", "none"]
+
+_KIND_BY_ROLE: dict[str, ViewerKind] = {
+    "admin": "admin",
+    "club_manager": "club_manager",
+    "team-manager": "team_manager",
+    "team_manager": "team_manager",
+    "team-player": "player",
+    "team_player": "player",
+    **dict.fromkeys(PICK_ROLES, "fan"),
+}
+
+
+class Squad(BaseModel):
+    """A squad a player is currently on: a team row at one age group."""
+
+    team_id: int
+    age_group_id: int | None
+    club_id: int | None
+    age_group_name: str | None
+
+
+class ChannelViewer(BaseModel):
+    """Who is asking, as far as notification channels care.
+
+    `club_id` is the profile's club, else the club of the profile's team (a team
+    manager's My Club). `squads` is only filled for players: where a player plays
+    is their current squad history, not their profile.
+    """
+
+    kind: ViewerKind
+    club_id: int | None = None
+    team_id: int | None = None
+    squads: list[Squad] = []
+
+
+def channel_viewer(user: dict[str, Any], team_club_id: int | None, squads: list[Squad]) -> ChannelViewer:
+    """The caller's channel standing. `team_club_id` is the club of `user['team_id']`."""
+    kind = _KIND_BY_ROLE.get(user.get("role") or "", "none")
+    club_id = user.get("club_id")
+    if club_id is None:
+        club_id = team_club_id
+    return ChannelViewer(
+        kind=kind,
+        club_id=club_id,
+        team_id=user.get("team_id"),
+        squads=squads if kind == "player" else [],
+    )

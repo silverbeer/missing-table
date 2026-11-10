@@ -168,6 +168,7 @@
             v-if="team?.id"
             :team-id="team.id"
             :team-name="team.name || ''"
+            :age-group-id="team?.age_group?.id ?? null"
           />
         </div>
 
@@ -223,7 +224,17 @@
       <!-- Season leaders. Rendered outside the roster-empty branch on purpose:
            these stats come from logged match events, so they can exist for a
            squad whose roster cards have not been filled in. -->
-      <GoldenBoot v-if="resolvedTeamId" :team-id="resolvedTeamId" />
+      <GoldenBoot
+        v-if="resolvedTeamId"
+        :team-id="resolvedTeamId"
+        :club-id="team?.club?.id"
+      />
+
+      <TeamChannelsCard
+        v-if="resolvedTeamId"
+        :team-id="resolvedTeamId"
+        :age-group-id="team?.age_group?.id ?? null"
+      />
     </template>
   </div>
 </template>
@@ -235,6 +246,7 @@ import { getApiBaseUrl } from '@/config/api';
 import { hasAnyRole } from '@/utils/roles';
 import PlayerCard from './PlayerCard.vue';
 import GoldenBoot from './GoldenBoot.vue';
+import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
 
 export default {
@@ -242,6 +254,7 @@ export default {
   components: {
     PlayerCard,
     GoldenBoot,
+    TeamChannelsCard,
     FollowButton,
   },
   emits: ['viewPlayer'],

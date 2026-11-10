@@ -1,11 +1,13 @@
 """
 Club notification channels API.
 
-Per-club Telegram / Discord destinations for live-match notifications.
+Per-club chat destinations for live-match notifications.
 - GET    /api/clubs/{club_id}/notifications
 - PUT    /api/clubs/{club_id}/notifications/{platform}
+- PATCH  /api/clubs/{club_id}/notifications/{platform}   (enabled only)
 - DELETE /api/clubs/{club_id}/notifications/{platform}
 - POST   /api/clubs/{club_id}/notifications/{platform}/test
+- GET    /api/notifications/platforms
 
 Permissions: admin OR (club_manager AND user_club_id == club_id).
 The `destination` value is never returned in full — callers only see the last
@@ -16,21 +18,24 @@ write-only from the API's perspective.
 from __future__ import annotations
 
 import os
-import re
 import time
-from typing import Literal
+from typing import Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from auth import get_current_user_required
-from dao.club_notifications_dao import VALID_PLATFORMS, ClubNotificationsDAO
+from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.match_dao import SupabaseConnection
+from dao.notification_channels_dao import actor_id
+from notifications.adapters.base import InvalidDestinationError, UnsupportedPlatformError
+from notifications.registry import all_adapters, get_adapter, platform_ids
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/clubs", tags=["club-notifications"])
+platforms_router = APIRouter(prefix="/api/notifications", tags=["club-notifications"])
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +71,8 @@ def is_notifications_enabled() -> bool:
 # Redis-backed rate limiter (fail-open)
 # ---------------------------------------------------------------------------
 
-_redis_client = None
+# Typed so mypy does not narrow it to None and call the cache branch unreachable.
+_redis_client: Any = None
 
 
 def _get_redis():
@@ -110,6 +116,22 @@ def check_rate_limit(key: str, max_per_minute: int) -> bool:
         return True
 
 
+def claim_once(key: str, ttl_seconds: int) -> bool:
+    """True the first time `key` is claimed within `ttl_seconds`, False after.
+
+    Fail-open like the limiter: with Redis down a repeat is possible, a missed
+    alert is not.
+    """
+    client = _get_redis()
+    if client is None:
+        return True
+    try:
+        return bool(client.set(key, "1", nx=True, ex=ttl_seconds))
+    except Exception as exc:
+        logger.warning("claim_once_failed", key=key, error=str(exc))
+        return True
+
+
 # ---------------------------------------------------------------------------
 # Permission guard
 # ---------------------------------------------------------------------------
@@ -132,31 +154,25 @@ def ensure_club_access(current_user: dict, club_id: int) -> None:
 # Validation
 # ---------------------------------------------------------------------------
 
-_TELEGRAM_RE = re.compile(r"^(@\w+|-?\d+)$")
-_DISCORD_RE = re.compile(r"^https://discord(app)?\.com/api/webhooks/\d+/[\w-]+$")
+
+def _validate_platform(platform: str) -> None:
+    try:
+        get_adapter(platform)
+    except UnsupportedPlatformError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"platform must be one of {sorted(platform_ids())}",
+        ) from None
 
 
 def _validate_destination(platform: str, destination: str) -> None:
-    if platform == "telegram":
-        if not _TELEGRAM_RE.match(destination):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Telegram destination must be a numeric chat_id (e.g. -1001234567890) or @channel",
-            )
-    elif platform == "discord":
-        if not _DISCORD_RE.match(destination):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Discord destination must be a webhook URL",
-            )
-
-
-def _validate_platform(platform: str) -> None:
-    if platform not in VALID_PLATFORMS:
+    try:
+        get_adapter(platform).validate_destination(destination)
+    except InvalidDestinationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"platform must be one of {sorted(VALID_PLATFORMS)}",
-        )
+            detail=str(exc),
+        ) from None
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +181,7 @@ def _validate_platform(platform: str) -> None:
 
 
 class ChannelResponse(BaseModel):
-    platform: Literal["telegram", "discord"]
+    platform: str
     enabled: bool
     configured: bool
     hint: str | None = Field(None, description="Last 4 chars of destination; full value never exposed")
@@ -174,6 +190,30 @@ class ChannelResponse(BaseModel):
 class ChannelUpsert(BaseModel):
     destination: str = Field(..., min_length=1, max_length=500)
     enabled: bool = True
+
+
+class ChannelEnabled(BaseModel):
+    enabled: bool
+
+
+class PlatformInfo(BaseModel):
+    """What the setup UI needs to render and validate one platform."""
+
+    id: str
+    label: str
+    icon: str
+    placeholder: str
+    destination_label: str
+    hint: str
+    setup_steps: list[str]
+    destination_pattern: str
+    destination_error: str
+    invite_pattern: str
+    invite_error: str
+    capabilities: list[str]
+    min_player_age: int | None
+    age_note: str | None = None
+    player_setup_steps: list[str] = []
 
 
 class TestSendResponse(BaseModel):
@@ -193,7 +233,7 @@ def _to_response(row: dict) -> ChannelResponse:
 
 
 # ---------------------------------------------------------------------------
-# Test-send stub (Phase 5 replaces this with real Telegram / Discord calls)
+# Test-send
 # ---------------------------------------------------------------------------
 
 
@@ -215,6 +255,33 @@ def _send_test_message(platform: str, destination: str) -> None:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+@platforms_router.get("/platforms", response_model=list[PlatformInfo])
+def list_platforms(
+    current_user: dict = Depends(get_current_user_required),
+) -> list[PlatformInfo]:
+    """Every platform a channel can be configured for, in display order."""
+    return [
+        PlatformInfo(
+            id=adapter.id,
+            label=adapter.label,
+            icon=adapter.icon,
+            placeholder=adapter.placeholder,
+            destination_label=adapter.destination_label,
+            hint=adapter.hint,
+            setup_steps=list(adapter.setup_steps),
+            destination_pattern=adapter.destination_pattern,
+            destination_error=adapter.destination_error,
+            invite_pattern=adapter.invite_pattern,
+            invite_error=adapter.invite_error,
+            capabilities=sorted(adapter.capabilities),
+            min_player_age=adapter.min_player_age,
+            age_note=adapter.age_note,
+            player_setup_steps=list(adapter.player_setup_steps),
+        )
+        for adapter in all_adapters()
+    ]
 
 
 @router.get(
@@ -244,12 +311,37 @@ def upsert_channel(
     _validate_platform(platform)
     _validate_destination(platform, body.destination)
 
-    row = _dao().upsert(club_id, platform, body.destination, body.enabled)
+    row = _dao().upsert(
+        club_id,
+        platform,
+        body.destination,
+        body.enabled,
+        created_by=actor_id(current_user),
+    )
     if row is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save notification channel",
         )
+    return _to_response(row)
+
+
+@router.patch(
+    "/{club_id}/notifications/{platform}",
+    response_model=ChannelResponse,
+)
+def set_channel_enabled(
+    club_id: int,
+    platform: str,
+    body: ChannelEnabled,
+    current_user: dict = Depends(get_current_user_required),
+) -> ChannelResponse:
+    """Pause or resume a channel without re-entering its destination."""
+    ensure_club_access(current_user, club_id)
+    _validate_platform(platform)
+    row = _dao().set_enabled(club_id, platform, body.enabled)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No channel configured")
     return _to_response(row)
 
 

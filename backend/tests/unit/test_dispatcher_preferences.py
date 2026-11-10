@@ -205,3 +205,10 @@ class TestNoFanoutWhenPushUnconfigured:
         push_send_fn.assert_not_called()
         # And no batch query when nothing's getting sent.
         notifier._prefs_dao.get_preferences_batch.assert_not_called()
+
+
+def test_every_event_type_has_a_setup_label():
+    from notifications.preferences import CHANNEL_EVENT_TYPES, EVENT_LABELS
+
+    assert list(EVENT_LABELS) == list(CHANNEL_EVENT_TYPES)
+    assert all(label.strip() for label in EVENT_LABELS.values())

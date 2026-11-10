@@ -1,63 +1,102 @@
 """Resolve the set of (platform, destination) channels for a given match.
 
-The home + away club configurations are unioned and deduplicated. Home
-club's timezone is always used for message timestamps, regardless of
-which club owns a given destination.
+Club, squad and global channels are unioned and deduplicated. Home club's
+timezone is always used for message timestamps, regardless of which club
+owns a given destination.
 """
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import structlog
 
 from dao.club_notifications_dao import ClubNotificationsDAO  # noqa: TC001 — used at runtime for type check
+from notifications.audience import players_allowed_at
+from notifications.preferences import is_player_only
 
 logger = structlog.get_logger(__name__)
 
 
-def resolve_destinations(
-    home_club_id: int | None,
-    away_club_id: int | None,
-    dao: ClubNotificationsDAO,
-) -> list[tuple[str, str]]:
-    """Return a de-duplicated list of (platform, destination) tuples.
+class ResolvedChannel(NamedTuple):
+    """Where one post goes. `channel_id` is the row the delivery is recorded against."""
 
-    Rows are filtered to enabled=true. Order is stable (telegram first,
-    then discord) within a given club.
+    platform: str
+    destination: str
+    channel_id: int
+    # Post each match as its own thread (SB-1606).
+    post_as_threads: bool = False
+
+
+def select_destinations(
+    rows: list[dict], event_type: str, age_group_name: str | None, team_id: int | None = None
+) -> list[ResolvedChannel]:
+    """Filter candidate channels to one per (platform, destination).
+
+    Pure, so the routing rules are testable without a database. `event_types`
+    of None means every event; an empty list means none.
+
+    A player-only event (SB-1610) reaches only the player channel of the squad
+    it is about (`team_id`): never a fan channel, a club channel, the other
+    team's squad, or a global channel, whatever their `event_types` say.
     """
+    players_allowed = players_allowed_at(age_group_name)
+    if is_player_only(event_type):
+        rows = [
+            r
+            for r in rows
+            if r.get("audience") == "players"
+            and r.get("scope_type") == "team"
+            and team_id is not None
+            and r.get("team_id") == team_id
+        ]
     seen: set[tuple[str, str]] = set()
-    ordered: list[tuple[str, str]] = []
-
-    for club_id in (home_club_id, away_club_id):
-        if club_id is None:
+    ordered: list[ResolvedChannel] = []
+    for row in rows:
+        if not row.get("enabled"):
             continue
-        try:
-            rows = dao.list_by_club(club_id)
-        except Exception as exc:
-            logger.warning(
-                "resolve_destinations_lookup_failed",
-                club_id=club_id,
-                error=str(exc),
-            )
+        if row.get("audience") == "players" and not players_allowed:
             continue
-
-        for row in rows:
-            if not row.get("enabled"):
-                continue
-            key = (row["platform"], row["destination"])
-            if key in seen:
-                continue
+        event_types = row.get("event_types")
+        if event_types is not None and event_type not in event_types:
+            continue
+        key = (row["platform"], row["destination"])
+        if key not in seen:
             seen.add(key)
-            ordered.append(key)
-
+            ordered.append(
+                ResolvedChannel(row["platform"], row["destination"], row["id"], bool(row.get("post_as_threads")))
+            )
     return ordered
+
+
+def resolve_destinations(
+    match: dict,
+    event_type: str,
+    dao: ClubNotificationsDAO,
+    team_id: int | None = None,
+) -> list[ResolvedChannel]:
+    """The channels that should hear about this match event.
+
+    Both clubs' channels, both squads' channels (the team row plus the match's
+    age group), and global channels.
+    """
+    home_club = match.get("home_team_club") or {}
+    away_club = match.get("away_team_club") or {}
+    club_ids = [c for c in (home_club.get("id"), away_club.get("id")) if c is not None]
+    team_ids = [t for t in (match.get("home_team_id"), match.get("away_team_id")) if t is not None]
+    rows = dao.list_for_match(club_ids, team_ids, match.get("age_group_id"))
+    return select_destinations(rows, event_type, match.get("age_group_name"), team_id)
 
 
 def resolve_user_push_subscriptions(
     home_team_id: int | None,
     away_team_id: int | None,
     team_follow_dao,
+    age_group_id: int | None,
 ) -> list[dict]:
-    """Find push subscriptions for users following either team.
+    """Find push subscriptions for users following either team at this age group.
+
+    Whole-team follows always match; squad follows only at their age group (SB-1608).
 
     Returns subscription rows (id, endpoint, p256dh_key, auth_key, user_id),
     deduplicated by subscription id. A user with two devices appears twice
@@ -68,7 +107,7 @@ def resolve_user_push_subscriptions(
     if not team_ids:
         return []
     try:
-        return team_follow_dao.list_subscriptions_for_team_ids(team_ids)
+        return team_follow_dao.list_subscriptions_for_team_ids(team_ids, age_group_id)
     except Exception as exc:
         logger.warning(
             "resolve_push_subscriptions_failed",

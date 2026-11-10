@@ -16,6 +16,7 @@ from celery import Task
 
 from celery_app import app
 from celery_tasks.exceptions import UnresolvedNameError
+from celery_tasks.final_score_alert import alert_if_new_final_score
 from celery_tasks.validation_tasks import validate_match_data
 from dao.club_dao import ClubDAO
 from dao.ingest_failures_dao import IngestFailuresDAO
@@ -508,9 +509,13 @@ class DatabaseTask(Task):
         away_team_id: int | None = None,
         match_type_id: int | None = None,
         division_id: int | None = None,
-    ) -> bool:
+    ) -> dict[str, Any] | bool:
         """
         Update an existing match's scores, status, team assignments and filing.
+
+        Returns the fields written (truthy) on success, False when nothing
+        changed or the write failed. The caller compares them with the row
+        before to decide whether a final-score alert is due (SB-1619).
 
         Updates scores, status, match_date, scheduled_kickoff,
         home_team_id/away_team_id when a home/away swap is detected, and
@@ -596,7 +601,7 @@ class DatabaseTask(Task):
 
             if response.data:
                 logger.info(f"Successfully updated match {match_id}: {update_data}")
-                return True
+                return update_data
             else:
                 logger.error(f"Update returned no data for match {match_id}")
                 return False
@@ -842,6 +847,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 )
 
                 if success:
+                    written = success if isinstance(success, dict) else {}
+                    alert_if_new_final_score(existing_match, {**existing_match, **written})
                     result = {
                         "db_id": existing_match["id"],
                         "mls_id": external_match_id,
@@ -894,6 +901,15 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 away_penalty_score=away_pens,
             )
             if match_id:
+                alert_if_new_final_score(
+                    None,
+                    {
+                        "id": match_id,
+                        "home_score": match_data.get("home_score"),
+                        "away_score": match_data.get("away_score"),
+                        "match_status": match_data.get("match_status", "scheduled"),
+                    },
+                )
                 result = {
                     "db_id": match_id,
                     "mls_id": external_match_id,

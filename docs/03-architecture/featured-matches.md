@@ -49,6 +49,37 @@ They are separate tables on purpose: MOTW's global uniqueness and its pick ordin
   max 6, 200 chars each. Save re-POSTs `{match_id, blurb, reasons}` — the blurb rides
   along, since omitting it would clear it. Removing every row saves `[]`, not `null`.
 
+### Suggesting candidates (SB-1550)
+
+`backend/mt_tools/motw_candidates.py` ranks a week's fixtures for the pick. Pure scoring
+functions plus one gathering function, `suggest_motw_candidates(deps, week, picks=...)`,
+over the MT AI `ToolDeps` protocols and public data only.
+
+- **Pool**: Homegrown Northeast and Northeast (Pro Player Pathway), Flex Empire, New
+  England and Turnpike; U15, U16, U17, U19; League and Flex; status scheduled/tbd; dated
+  in the week and not before today (New York time). A pool name MT does not have is an
+  error, never a smaller pool.
+- **Score** = 0.40 quality + 0.25 closeness + 0.20 stakes + 0.15 form, ×0.5 when a team
+  was in either of the last two picks. Strength is a team's percentile in the fixture's
+  own table (PPG and GD per game), so tables of different ages compare; under 3 games it
+  is damped towards 0.5 and flagged `low_sample`. Stakes: adjacent, top of table, or both
+  in contention at a rank a **qualification rule** selects. Only a Flex conference table
+  has such a line (conference winner); the Northeast table has none, because no source
+  ties a league finish to a Cup place. Form: last five League/Flex results at that age.
+- **History is per age group.** A team row is a club in a league and plays every age,
+  so IFA U16's results must not leak into IFA U15's form.
+- **Facts**: ids `<match_id>:<slug>` for position, points gap, streaks, scoring rate,
+  last meeting, common opponents, games left and each applicable rule (unconfirmed
+  rules are prefixed "Unconfirmed:"). Every reason the agent writes cites one. No player
+  facts: goals are user data.
+- **Coverage**: fixtures in the week, how many were eligible, and how many teams had too
+  few games. An empty week is `candidates: []` with a `reason`; a failed read is an
+  `error`, never an empty list. An existing pick is returned as `current_pick`.
+- **Where to get them** (SB-1551): mt-mcp tool `suggest_motw_candidates(week, limit)`
+  (read tier, so the sb-agents MOTW agent's public account can call it), the admin API
+  `GET /api/admin/motw/candidates?week=&limit=`, and `mt motw suggest [--week] [--facts]
+  [--json]`. All three return the same result.
+
 ## Match of the Day specifics
 
 - The match must belong to the tournament (`matches.tournament_id`), else **400**. An

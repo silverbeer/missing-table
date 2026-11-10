@@ -1,43 +1,21 @@
-"""Thin adapters around telegram-notify and discord-notify.
+"""Single entry point for sending text to a (platform, destination).
 
-The notification subsystem's only outbound IO path. Errors are raised to
-the caller; the caller (dispatcher / API test-send endpoint) decides what
-to log or surface to the user.
+The notification subsystem's only outbound IO path. Platform behavior lives in
+the adapters; this delegates so callers that hold a platform id need no more.
+Errors are raised to the caller (dispatcher, alerts, API test-send), which
+decides what to log or surface; adapters make them safe to log.
 
 Destination values are never logged by these helpers.
 """
 
 from __future__ import annotations
 
-import os
+from notifications.adapters.base import DeliveryResult, NotificationConfigError
+from notifications.registry import get_adapter
 
-from discord_notify import DiscordWebhookClient
-from telegram_notify import TelegramClient, escape
-
-
-class NotificationConfigError(RuntimeError):
-    """Raised when the subsystem is missing required config (e.g. bot token)."""
+__all__ = ["NotificationConfigError", "send_to"]
 
 
-def send_to(platform: str, destination: str, content: str) -> None:
-    """Deliver `content` to a single (platform, destination).
-
-    For Telegram, `content` is escaped for MarkdownV2 here. For Discord,
-    the content is sent as-is (Discord-flavored markdown is permissive).
-    """
-    if platform == "telegram":
-        bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-        if not bot_token:
-            raise NotificationConfigError(
-                "TELEGRAM_BOT_TOKEN is not set — cannot send Telegram notifications."
-            )
-        client = TelegramClient(bot_token=bot_token, chat_id=destination)
-        client.send(escape(content))
-        return
-
-    if platform == "discord":
-        client = DiscordWebhookClient(webhook_url=destination)
-        client.send(content)
-        return
-
-    raise ValueError(f"Unsupported platform: {platform}")
+def send_to(platform: str, destination: str, content: str) -> DeliveryResult:
+    """Deliver `content` to a single (platform, destination)."""
+    return get_adapter(platform).send(destination, content)

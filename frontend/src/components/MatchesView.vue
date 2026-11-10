@@ -364,6 +364,7 @@
             <FollowButton
               :team-id="Number(selectedTeam)"
               :team-name="getSelectedTeamName()"
+              :age-group-id="selectedAgeGroupId"
               variant="light"
             />
           </div>

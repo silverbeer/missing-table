@@ -11,6 +11,7 @@ user-facing live-scoring flow.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import structlog
@@ -20,20 +21,26 @@ from dao.bracket_follow_dao import BracketFollowDAO
 from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.fcm_device_dao import FcmDeviceDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
+from dao.notification_deliveries_dao import DeliveryLedgerError, NotificationDeliveriesDAO
+from dao.notification_threads_dao import NotificationThreadsDAO
 from dao.push_send_log_dao import PushSendLogDAO
 from dao.push_subscription_dao import PushSubscriptionDAO
 from dao.team_follow_dao import TeamFollowDAO
+from notifications.adapters.base import DeliveryError, NotificationConfigError
 from notifications.apns_sender import is_configured as apns_is_configured
 from notifications.apns_sender import send_apns
 from notifications.channel_resolver import (
+    ResolvedChannel,
     fetch_club_timezone,
     resolve_destinations,
     resolve_user_push_subscriptions,
 )
 from notifications.fcm_sender import is_configured as fcm_is_configured
 from notifications.fcm_sender import send_fcm
-from notifications.formatters import format_event
-from notifications.preferences import DEFAULT_PREFERENCES
+from notifications.formatters import format_event, thread_title
+from notifications.preferences import DEFAULT_PREFERENCES, is_player_only
+from notifications.retry_policy import next_attempt
+from notifications.threads import send as thread_send
 from notifications.web_push_sender import is_configured as push_is_configured
 from notifications.web_push_sender import send_push
 
@@ -56,6 +63,13 @@ def is_notifications_enabled() -> bool:
         "no",
         "off",
     }
+
+
+def _safe_error(exc: Exception) -> str:
+    """Text safe to log and store: only our own errors are free of URLs and tokens."""
+    if isinstance(exc, DeliveryError | NotificationConfigError):
+        return str(exc)
+    return type(exc).__name__
 
 
 def _build_push_payload(event_type: str, match: dict, content: str) -> dict:
@@ -102,6 +116,8 @@ class Notifier:
         self._connection = connection
         self._match_dao: MatchDAO | None = None
         self._notif_dao: ClubNotificationsDAO | None = None
+        self._delivery_dao: NotificationDeliveriesDAO | None = None
+        self._threads_dao: NotificationThreadsDAO | None = None
         self._team_follow_dao: TeamFollowDAO | None = None
         self._bracket_follow_dao: BracketFollowDAO | None = None
         self._push_sub_dao: PushSubscriptionDAO | None = None
@@ -136,6 +152,18 @@ class Notifier:
         if self._notif_dao is None:
             self._notif_dao = ClubNotificationsDAO(self.connection)
         return self._notif_dao
+
+    @property
+    def delivery_dao(self) -> NotificationDeliveriesDAO:
+        if self._delivery_dao is None:
+            self._delivery_dao = NotificationDeliveriesDAO(self.connection)
+        return self._delivery_dao
+
+    @property
+    def threads_dao(self) -> NotificationThreadsDAO:
+        if self._threads_dao is None:
+            self._threads_dao = NotificationThreadsDAO(self.connection)
+        return self._threads_dao
 
     @property
     def team_follow_dao(self) -> TeamFollowDAO:
@@ -196,8 +224,11 @@ class Notifier:
         event_type: str,
         match_id: int,
         extra: dict | None = None,
+        event_key: str | None = None,
     ) -> None:
         """Deliver a notification for a single match event.
+
+        `event_key` makes chat posts idempotent; see `_post_to_channel`.
 
         Best-effort: logs and returns on any failure, never raises.
         """
@@ -244,7 +275,7 @@ class Notifier:
             )
             return
 
-        # Club notification channels (Telegram/Discord). A match may have none
+        # Chat channels (club, squad, global). A match may have none
         # — e.g. tournament teams whose clubs have no channel config — in which
         # case we skip the club sends but STILL run the Web Push fan-out below.
         # Push to team followers must not depend on the clubs having channels
@@ -253,31 +284,23 @@ class Notifier:
         # A test match never reaches a club channel: those are public rooms,
         # and the SB-591 partition exists so a rehearsal stays out of them.
         is_test = bool(match.get("is_test"))
-        destinations = [] if is_test else resolve_destinations(home_club_id, away_club_id, self.notif_dao)
+        player_only = is_player_only(event_type)
+        target_team_id = (extra or {}).get("team_id") if player_only else None
+        destinations = [] if is_test else resolve_destinations(match, event_type, self.notif_dao, target_team_id)
         if destinations:
-            sent = 0
-            failed = 0
-            for platform, destination in destinations:
-                try:
-                    self.send_fn(platform, destination, content)
-                    sent += 1
-                except Exception as exc:
-                    failed += 1
-                    logger.warning(
-                        "notifications.send_failed",
-                        platform=platform,
-                        match_id=match_id,
-                        event_type=event_type,
-                        error_type=type(exc).__name__,
-                        error=str(exc),
-                    )
-
+            title = thread_title(match, tz)
+            outcomes = [
+                self._post_to_channel(channel, content, event_key, match_id, event_type, title)
+                for channel in destinations
+            ]
             logger.info(
                 "notifications.dispatched",
                 match_id=match_id,
                 event_type=event_type,
-                sent=sent,
-                failed=failed,
+                sent=outcomes.count("sent"),
+                failed=outcomes.count("failed"),
+                duplicate=outcomes.count("duplicate"),
+                retrying=outcomes.count("retrying"),
             )
         elif is_test:
             logger.info(
@@ -293,6 +316,11 @@ class Notifier:
                 home_club_id=home_club_id,
                 away_club_id=away_club_id,
             )
+
+        # Player-only events (SB-1610) are content for a squad's player room.
+        # Followers are fans, so no personal push of any kind.
+        if player_only:
+            return
 
         # --- Web Push fan-out -------------------------------------------------
         # Independent of club-channel sends above; failures don't affect each
@@ -352,6 +380,77 @@ class Notifier:
                 error=str(exc),
             )
 
+    def _post_to_channel(
+        self,
+        channel: ResolvedChannel,
+        content: str,
+        event_key: str | None,
+        match_id: int,
+        event_type: str,
+        thread_name: str | None = None,
+    ) -> str:
+        """Post once to one channel. Returns "sent", "failed", "retrying" or "duplicate".
+
+        The ledger row is claimed before the post, so a crash mid-send leaves a
+        missed message rather than a double one. If the ledger itself is down
+        the post goes ahead unrecorded: losing a goal update is worse than the
+        small chance of repeating one.
+        """
+        delivery_id = None
+        if event_key:
+            try:
+                delivery_id = self.delivery_dao.claim(channel.channel_id, event_key, content, match_id, event_type)
+                if delivery_id is None:
+                    return "duplicate"
+            except DeliveryLedgerError:
+                logger.warning(
+                    "notifications.ledger_unavailable",
+                    platform=channel.platform,
+                    match_id=match_id,
+                    event_type=event_type,
+                )
+
+        try:
+            result = thread_send(
+                self.send_fn,
+                channel.platform,
+                channel.destination,
+                content,
+                post_as_threads=channel.post_as_threads,
+                channel_id=channel.channel_id,
+                match_id=match_id,
+                thread_name=thread_name,
+                threads=self.threads_dao if channel.post_as_threads else None,
+            )
+        except Exception as exc:
+            error = _safe_error(exc)
+            logger.warning(
+                "notifications.send_failed",
+                platform=channel.platform,
+                match_id=match_id,
+                event_type=event_type,
+                error_type=type(exc).__name__,
+                error=error,
+            )
+            if delivery_id is not None:
+                # A rate limit, server error or network failure is retried by
+                # the delivery worker (SB-1604); anything else is final.
+                retry_at = next_attempt(
+                    1,
+                    bool(getattr(exc, "retryable", False)),
+                    getattr(exc, "retry_after", None),
+                    datetime.now(UTC),
+                )
+                if retry_at is not None:
+                    self.delivery_dao.mark_retry(delivery_id, error, retry_at.isoformat())
+                    return "retrying"
+                self.delivery_dao.mark_failed(delivery_id, error)
+            return "failed"
+
+        if delivery_id is not None:
+            self.delivery_dao.mark_sent(delivery_id, getattr(result, "message_ref", None))
+        return "sent"
+
     def _send_push_fanout(
         self, event_type: str, match: dict, content: str
     ) -> None:
@@ -370,7 +469,7 @@ class Notifier:
         match_id = match.get("id")
 
         subscriptions = resolve_user_push_subscriptions(
-            home_team_id, away_team_id, self.team_follow_dao
+            home_team_id, away_team_id, self.team_follow_dao, match.get("age_group_id")
         )
 
         # Bracket followers: users who follow this match's tournament bracket
@@ -460,15 +559,16 @@ class Notifier:
         plus their preferences — one follow lookup and one preferences batch
         shared by the APNs and FCM fan-outs.
 
-        Mirrors _send_push_fanout's resolution: followers of either team, plus
-        bracket followers at fulltime, deduped by user.
+        Mirrors _send_push_fanout's resolution: followers of either team at the
+        match's age group (squad follows, SB-1608), plus bracket followers at
+        fulltime, deduped by user.
         """
         home_team_id = match.get("home_team_id")
         away_team_id = match.get("away_team_id")
 
         team_ids = [t for t in (home_team_id, away_team_id) if t is not None]
         user_ids: set[str] = set(
-            self.team_follow_dao.list_user_ids_for_team_ids(team_ids)
+            self.team_follow_dao.list_user_ids_for_team_ids(team_ids, match.get("age_group_id"))
         )
 
         # Bracket followers get the final score only, as on the web path.

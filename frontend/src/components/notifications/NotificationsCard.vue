@@ -166,26 +166,34 @@
       </p>
     </div>
 
-    <!-- Followed teams (read-only summary) -->
+    <!-- Match alerts (read-only summary; same follows as the profile card) -->
     <div v-if="isSupported" class="follows-section">
-      <h4>Teams you follow</h4>
+      <h4>Your match alerts</h4>
       <p v-if="!follows.length" class="follows-empty">
-        You aren't following any teams yet. Open a team page and tap "Follow" to
-        start getting notifications for them.
+        No match alerts yet. Tap "Follow" on a team's page in the Matches tab,
+        or choose squads on your profile.
       </p>
       <ul v-else class="follows-list">
         <li
           v-for="f in follows"
-          :key="f.team_id"
+          :key="`${f.team_id}:${f.age_group_id ?? 'all'}`"
           class="follow-item"
-          :data-testid="`follow-item-${f.team_id}`"
+          :data-testid="
+            f.age_group_id
+              ? `follow-item-${f.team_id}-${f.age_group_id}`
+              : `follow-item-${f.team_id}`
+          "
         >
           <div class="follow-item-main">
             <span class="follow-team" data-testid="follow-label-primary">{{
               followPrimaryLabel(f)
             }}</span>
             <span class="follow-item-sub" data-testid="follow-label-sub">
-              Showing all age groups
+              {{
+                f.age_group?.name
+                  ? `${f.age_group.name} only`
+                  : 'Showing all age groups'
+              }}
             </span>
           </div>
           <span

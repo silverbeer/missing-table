@@ -5,17 +5,17 @@
 namespace: missing-table
 
 # Version information - updated by CI workflow
-version: "1.86.0" # version-tag
-buildId: "1789" # build-id
-commitSha: "2ddda90a1d7359d46af199b8a9c0ced013ad1c20" # commit-sha  #pragma: allowlist secret
-buildDate: "2026-11-07T14:08:29Z" # build-date
+version: "1.101.0" # version-tag
+buildId: "1854" # build-id
+commitSha: "525638daf7bc529bad9a958e1f157da8ed96e3c1" # commit-sha  #pragma: allowlist secret
+buildDate: "2026-11-10T14:54:05Z" # build-date
 
 backend:
   replicaCount: 1
 
   image:
     repository: ghcr.io/silverbeer/missing-table-backend
-    tag: "2ddda90" # backend-tag
+    tag: "525638d" # backend-tag
     pullPolicy: IfNotPresent
 
   env:
@@ -53,6 +53,8 @@ backend:
 # Until then, the dispatcher logs NotificationConfigError and skips telegram.
 notifications:
   enabled: true
+  # SB-1604: background retry of failed chat posts.
+  retryWorker: "on"
 
 # Redis for caching (deployed by this Helm chart)
 redis:
@@ -63,7 +65,7 @@ frontend:
 
   image:
     repository: ghcr.io/silverbeer/missing-table-frontend
-    tag: "2ddda90" # frontend-tag
+    tag: "525638d" # frontend-tag
     pullPolicy: IfNotPresent
 
   # Production image uses nginx, not npm - override default command

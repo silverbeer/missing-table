@@ -113,7 +113,7 @@
         :saving="saving"
       ></slot>
 
-      <LiveUpdatesSection />
+      <TeamChannelsCard />
 
       <div v-if="authStore.state.error" class="error-message">
         {{ authStore.state.error }}
@@ -127,11 +127,11 @@ import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
-import LiveUpdatesSection from './LiveUpdatesSection.vue';
+import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
 
 export default {
   name: 'BaseProfile',
-  components: { LiveUpdatesTeaser, LiveUpdatesSection },
+  components: { LiveUpdatesTeaser, TeamChannelsCard },
   props: {
     title: {
       type: String,

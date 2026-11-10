@@ -1,58 +1,35 @@
 """
-Club Notification Channels Data Access Object.
+Per-club, per-platform view of notification channels.
 
-Per-club destinations (Telegram chat_ids, Discord webhook URLs) used by the
-live match notification dispatcher. The ``destination`` value is sensitive
-and is never logged or returned in full from the API layer.
+Serves the original /api/clubs/{id}/notifications endpoints: one fan channel for
+each club and platform. Rows live in `notification_channels`; when a club has
+several for a platform, these methods act on the oldest.
 """
 
 import structlog
 
-from dao.base_dao import BaseDAO
+from dao.notification_channels_dao import TABLE, NotificationChannelsDAO
 
 logger = structlog.get_logger()
 
-TABLE = "club_notification_channels"
-VALID_PLATFORMS = frozenset({"telegram", "discord"})
 
+class ClubNotificationsDAO(NotificationChannelsDAO):
+    """Club fan channels, addressed by (club, platform)."""
 
-class ClubNotificationsDAO(BaseDAO):
-    """Data access for per-club notification channel config."""
+    def _club_fans(self, query, club_id: int):
+        return query.eq("scope_type", "club").eq("club_id", club_id).eq("audience", "fans")
 
     def list_by_club(self, club_id: int) -> list[dict]:
-        """Return all notification channel rows for a club (any platform, any enabled state)."""
-        try:
-            response = (
-                self.client.table(TABLE)
-                .select("*")
-                .eq("club_id", club_id)
-                .order("platform")
-                .execute()
-            )
-            return response.data or []
-        except Exception:
-            logger.exception("dao_list_club_notifications_failed", club_id=club_id)
-            return []
+        """Return all of a club's fan channels (any platform, any enabled state)."""
+        return self._select("list_by_club", lambda q: self._club_fans(q, club_id).order("platform").order("id"))
 
     def get(self, club_id: int, platform: str) -> dict | None:
-        """Return the channel row for a specific (club, platform), or None."""
-        try:
-            response = (
-                self.client.table(TABLE)
-                .select("*")
-                .eq("club_id", club_id)
-                .eq("platform", platform)
-                .limit(1)
-                .execute()
-            )
-            return response.data[0] if response.data else None
-        except Exception:
-            logger.exception(
-                "dao_get_club_notification_failed",
-                club_id=club_id,
-                platform=platform,
-            )
-            return None
+        """Return the oldest fan channel for a (club, platform), or None."""
+        rows = self._select(
+            "get",
+            lambda q: self._club_fans(q, club_id).eq("platform", platform).order("id").limit(1),
+        )
+        return rows[0] if rows else None
 
     def upsert(
         self,
@@ -60,63 +37,41 @@ class ClubNotificationsDAO(BaseDAO):
         platform: str,
         destination: str,
         enabled: bool = True,
+        created_by: str | None = None,
     ) -> dict | None:
-        """Create or update a channel for a (club, platform).
+        """Create or update the channel for a (club, platform). Raises on database errors."""
+        existing = self.get(club_id, platform)
+        if existing:
+            return self.update(existing["id"], {"destination": destination, "enabled": enabled})
+        return self.create(
+            {
+                "scope_type": "club",
+                "club_id": club_id,
+                "audience": "fans",
+                "platform": platform,
+                "destination": destination,
+                "enabled": enabled,
+                "created_by": created_by,
+            }
+        )
 
-        Re-raises on database errors (upsert failures are not expected during
-        normal use; the API layer should translate to HTTP errors).
-        """
-        try:
-            response = (
-                self.client.table(TABLE)
-                .upsert(
-                    {
-                        "club_id": club_id,
-                        "platform": platform,
-                        "destination": destination,
-                        "enabled": enabled,
-                    },
-                    on_conflict="club_id,platform",
-                )
-                .execute()
-            )
-            logger.debug(
-                "dao_upsert_club_notification",
-                club_id=club_id,
-                platform=platform,
-                enabled=enabled,
-            )
-            return response.data[0] if response.data else None
-        except Exception:
-            logger.exception(
-                "dao_upsert_club_notification_failed",
-                club_id=club_id,
-                platform=platform,
-            )
-            raise
+    def set_enabled(self, club_id: int, platform: str, enabled: bool) -> dict | None:
+        """Flip `enabled` on an existing channel. None when there is none."""
+        existing = self.get(club_id, platform)
+        if not existing:
+            return None
+        return self.update(existing["id"], {"enabled": enabled})
 
     def delete(self, club_id: int, platform: str) -> bool:
-        """Remove a channel. Returns True if a row was deleted."""
-        try:
-            response = (
-                self.client.table(TABLE)
-                .delete()
-                .eq("club_id", club_id)
-                .eq("platform", platform)
-                .execute()
-            )
-            deleted = bool(response.data)
-            logger.debug(
-                "dao_delete_club_notification",
-                club_id=club_id,
-                platform=platform,
-                deleted=deleted,
-            )
-            return deleted
-        except Exception:
-            logger.exception(
-                "dao_delete_club_notification_failed",
-                club_id=club_id,
-                platform=platform,
-            )
+        """Remove a (club, platform) channel. Returns True if a row was deleted."""
+        existing = self.get(club_id, platform)
+        if existing is None:
             return False
+        try:
+            return self.delete_by_id(existing["id"])
+        except Exception:
+            logger.error("dao_delete_club_notification_failed", club_id=club_id, platform=platform)
+            return False
+
+
+__all__ = ["TABLE", "ClubNotificationsDAO"]

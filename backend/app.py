@@ -18,11 +18,14 @@ from pydantic import BaseModel, Field
 import r2_client
 from api.admin_attention import router as admin_attention_router
 from api.admin_emails import router as admin_emails_router
+from api.channel_members import router as channel_members_router
 from api.channel_requests import router as channel_requests_router
+from api.club_notifications import platforms_router as notification_platforms_router
 from api.club_notifications import router as club_notifications_router
 from api.invite_requests import router as invite_requests_router
 from api.invites import router as invites_router
 from api.moderation import router as moderation_router
+from api.notification_channels import router as notification_channels_router
 from api.push import router as push_router
 from api.webhooks_email import router as webhooks_email_router
 from auth import (
@@ -55,6 +58,7 @@ from models import (
     BulkRosterCreate,
     Club,
     DivisionCreate,
+    DivisionGuestCreate,
     DivisionUpdate,
     EnhancedMatch,
     ForfeitMatchRequest,
@@ -97,7 +101,8 @@ from models import (
     UserSignup,
 )
 from mt_ai.api import router as mt_ai_router
-from notifications.score_change import is_new_final_score
+from notifications.event_keys import clock_event_key, fulltime_event_key, recorded_event_key
+from notifications.score_change import final_alert_blocker, is_new_final_score
 from notifications.tasks import notify_event_task
 from services import EmailService, InviteService
 from services.content_filter import contains_objectionable_language
@@ -164,6 +169,12 @@ logger = get_logger(__name__)
 # Long-lived async services started with the app; mt-mcp's session manager
 # registers here when it is mounted (SB-1302).
 _lifespan_contexts: list = []
+
+# Chat posts the live path could not finish are retried in the background
+# (SB-1604). Off unless NOTIFICATION_RETRY_WORKER is on.
+from notifications.retry_worker import retry_worker_lifespan
+
+_lifespan_contexts.append(retry_worker_lifespan)
 
 
 @asynccontextmanager
@@ -353,6 +364,9 @@ app.include_router(invites_router)
 app.include_router(invite_requests_router)
 app.include_router(channel_requests_router)
 app.include_router(club_notifications_router)
+app.include_router(notification_platforms_router)
+app.include_router(notification_channels_router)
+app.include_router(channel_members_router)
 app.include_router(push_router)
 app.include_router(webhooks_email_router)
 app.include_router(admin_emails_router)
@@ -1233,12 +1247,16 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
         raise HTTPException(status_code=500, detail="Failed to get profile") from e
 
 
-class MyTeamPick(BaseModel):
-    """A fan's "my team": a team in their club and one age group it plays (SB-1543).
-    Both null clears the pick."""
+class SquadPick(BaseModel):
+    team_id: int = Field(..., ge=1)
+    age_group_id: int = Field(..., ge=1)
 
-    team_id: int | None = None
-    age_group_id: int | None = None
+
+class SquadFollows(BaseModel):
+    """A fan's chosen squads in their own club, for match alerts (SB-1608).
+    An empty list stops following every squad in the club."""
+
+    squads: list[SquadPick] = Field(default_factory=list, max_length=100)
 
 
 @functools.cache
@@ -1248,47 +1266,53 @@ def _my_team_deps():
     return dao_tool_deps()
 
 
+def _follow_dao():
+    from api.push import _follow_dao as push_follow_dao
+
+    return push_follow_dao()
+
+
 @app.get("/api/me/team-options")
 async def get_my_team_options(current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """The teams a fan may pick: their club's teams, one entry per age group."""
+    """The squads a fan may follow: their club's teams, one entry per age group.
+
+    `current_team_id`/`current_age_group_id` are the team a manager or admin
+    assigned (by invite), never a fan's own choice (SB-1608)."""
     from mt_ai.tools.schemas import Viewer
     from mt_tools.my_team import PICK_ROLES, team_pick_options
 
     if current_user.get("role") not in PICK_ROLES:
-        raise HTTPException(status_code=403, detail="Only fans pick a team; managers and players get theirs by invite")
+        raise HTTPException(status_code=403, detail="Only fans pick squads; managers and players get theirs by invite")
     options = await asyncio.to_thread(team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user))
     return options.model_dump()
 
 
-@app.put("/api/me/team")
-async def set_my_team(pick: MyTeamPick, current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """Save a fan's pick. Only a team in their own club, at an age group it plays:
-    team_id also feeds roster visibility (via its club), so a pick outside the club
-    would widen it. Managers and players keep the team their invite gave them."""
+@app.put("/api/me/squad-follows")
+async def set_my_squad_follows(picks: SquadFollows, current_user: dict[str, Any] = Depends(get_current_user_required)):
+    """Replace which of their own club's squads a fan follows for alerts (SB-1608).
+
+    Only squads in the fan's club, at an age group the team plays. Follows of
+    other clubs' teams are untouched. Writes follows only: the team a manager
+    assigned (`team_id`, `assigned_age_group_id`) stays as it was, and channel
+    access does not change.
+    """
     from mt_ai.tools.schemas import Viewer
     from mt_tools.my_team import PICK_ROLES, is_valid_pick, team_pick_options
 
     if current_user.get("role") not in PICK_ROLES:
-        raise HTTPException(status_code=403, detail="Only fans pick a team; managers and players get theirs by invite")
-    if (pick.team_id is None) != (pick.age_group_id is None):
-        raise HTTPException(status_code=400, detail="Send both team_id and age_group_id, or neither to clear")
-    if pick.team_id is not None:
-        options = await asyncio.to_thread(
-            team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user)
-        )
-        if not is_valid_pick(options, pick.team_id, pick.age_group_id):
-            raise HTTPException(status_code=400, detail="That team and age group aren't in your club")
-    update = {
-        "team_id": pick.team_id,
-        "assigned_age_group_id": pick.age_group_id,
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    if pick.team_id is None and current_user.get("role") == "team-fan" and not current_user.get("club_id"):
-        # Clearing must not strand a team fan with no club: keep their team, drop the age.
-        update.pop("team_id")
-    player_dao.update_user_profile(current_user["user_id"], update)
-    logger.info("my_team_picked", user_id=current_user["user_id"], team_id=pick.team_id, age_group_id=pick.age_group_id)
-    return {"success": True, "team_id": pick.team_id, "age_group_id": pick.age_group_id}
+        raise HTTPException(status_code=403, detail="Only fans pick squads; managers and players get theirs by invite")
+    options = await asyncio.to_thread(team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user))
+    if options.status != "ok":
+        raise HTTPException(status_code=400, detail="Your account isn't linked to a club yet")
+    squads = {(p.team_id, p.age_group_id) for p in picks.squads}
+    if any(not is_valid_pick(options, t, a) for t, a in squads):
+        raise HTTPException(status_code=400, detail="Pick only squads in your club")
+    club_team_ids = {o.team_id for o in options.options}
+    ok = await asyncio.to_thread(_follow_dao().set_club_squads, current_user["user_id"], club_team_ids, squads)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not save your squads")
+    logger.info("squad_follows_set", user_id=current_user["user_id"], count=len(squads))
+    return {"squads": [{"team_id": t, "age_group_id": a} for t, a in sorted(squads)]}
 
 
 @app.put("/api/auth/profile")
@@ -2263,6 +2287,7 @@ _DELETE_CASCADES = [
     ("user_notification_preferences", "user_id", "notification preferences"),
     ("team_manager_assignments", "user_id", "team manager assignments"),
     ("channel_access_requests", "user_id", "channel access requests"),
+    ("channel_members", "user_id", "notification channel access"),
     ("ai_conversations", "user_id", "MT AI conversations"),
     ("user_blocks", "blocker_id", "users they blocked"),
     ("user_blocks", "blocked_id", "blocks against them"),
@@ -2276,6 +2301,8 @@ _DELETE_ORPHANS = [
     ("invitations", "invited_by_user_id", "invitations they sent"),
     ("content_reports", "reported_user_id", "chat reports against them"),
     ("content_reports", "resolved_by", "chat reports they resolved"),
+    ("notification_channels", "created_by", "notification channels they set up"),
+    ("channel_members", "decided_by", "channel access they decided"),
 ]
 
 _DELETE_BLOCKERS = [
@@ -3116,7 +3143,59 @@ def _maybe_notify_final_score(
     if match_id is None:
         return
     if is_new_final_score(before, after):
-        background_tasks.add_task(notify_event_task, "fulltime", match_id, None)
+        event_key = fulltime_event_key(match_id, after.get("home_score"), after.get("away_score"))
+        background_tasks.add_task(notify_event_task, "fulltime", match_id, None, event_key)
+
+
+# How long a sent final-score alert is remembered, so a repeat call never
+# alerts twice. Longer than the alert window itself.
+FINAL_ALERT_CLAIM_TTL_SECONDS = 5 * 24 * 3600
+
+
+def require_alert_sender(current_user: dict[str, Any] = Depends(get_current_user_required)) -> dict[str, Any]:
+    """Admins, or a service account with manage_matches (the match-scraper worker)."""
+    if current_user.get("role") == "admin":
+        return current_user
+    if current_user.get("role") == "service_account" and "manage_matches" in (current_user.get("permissions") or []):
+        return current_user
+    raise HTTPException(status_code=403, detail="Not allowed to send match alerts")
+
+
+@app.post("/api/matches/{match_id}/final-score-alert")
+async def final_score_alert(
+    match_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: dict[str, Any] = Depends(require_alert_sender),
+):
+    """Send the full-time alert for a score written outside this API (SB-1619).
+
+    The match-scraper worker writes scores straight to the database, so it calls
+    this after a write that set a new final score. The match is re-read here:
+    only a completed match with both scores, dated in the last few days, alerts
+    (a backfill must not). The alert goes to followers' devices and the chat
+    channels, keyed by the score, and is claimed once so a repeat call never
+    alerts twice. Always 200 for a known match: `queued` says what happened.
+    """
+    from api.club_notifications import claim_once
+
+    match = await asyncio.to_thread(match_dao.get_match_by_id, match_id, True)
+    blocker = final_alert_blocker(match, datetime.now(UTC).date())
+    if blocker == "not_found":
+        raise HTTPException(status_code=404, detail="Match not found")
+    if blocker:
+        logger.info("final_score_alert_skipped", match_id=match_id, reason=blocker)
+        return {"match_id": match_id, "queued": False, "reason": blocker}
+    event_key = fulltime_event_key(match_id, match.get("home_score"), match.get("away_score"))
+    if not claim_once(f"alert:sent:{event_key}", FINAL_ALERT_CLAIM_TTL_SECONDS):
+        logger.info("final_score_alert_skipped", match_id=match_id, reason="already_sent")
+        return {"match_id": match_id, "queued": False, "reason": "already_sent"}
+    background_tasks.add_task(notify_event_task, "fulltime", match_id, None, event_key)
+    logger.info(
+        "final_score_alert_queued",
+        match_id=match_id,
+        sender=current_user.get("service_name") or current_user.get("username"),
+    )
+    return {"match_id": match_id, "queued": True, "reason": None}
 
 
 @app.post("/api/matches")
@@ -3884,7 +3963,12 @@ async def update_match_clock(
         }
         notify_event = clock_to_event_type.get(clock.action)
         if notify_event:
-            background_tasks.add_task(notify_event_task, notify_event, match_id, None)
+            event_key = (
+                fulltime_event_key(match_id, current_match.get("home_score"), current_match.get("away_score"))
+                if notify_event == "fulltime"
+                else clock_event_key(match_id, notify_event)
+            )
+            background_tasks.add_task(notify_event_task, notify_event, match_id, None, event_key)
 
         return result
     except HTTPException:
@@ -4085,6 +4169,7 @@ async def post_goal(
                 "match_minute": match_minute,
                 "extra_time": extra_time,
             },
+            recorded_event_key(match_id, event["id"]),
         )
 
         return result
@@ -4201,6 +4286,7 @@ async def post_live_card(
                 "match_minute": match_minute,
                 "extra_time": extra_time,
             },
+            recorded_event_key(match_id, event["id"]),
         )
 
         return event
@@ -4589,11 +4675,36 @@ async def get_lineup(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# A lineup saved for a match already played is a record, not news.
+_LINEUP_ALERT_STATUSES = frozenset({"scheduled", "tbd", "live"})
+
+
+def _maybe_notify_lineup(
+    background_tasks: BackgroundTasks, match_id: int, team_id: int, lineup: LineupSave, current_user: dict[str, Any]
+) -> None:
+    """Tell the squad's player channel its lineup is up (SB-1610).
+
+    Once per match and team: re-saves are claimed by the delivery ledger's
+    event key, so editing a lineup does not post again. An empty lineup, or one
+    for a match already played, sends nothing.
+    """
+    if not lineup.positions:
+        return
+    match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
+    if not match or (match.get("match_status") or "scheduled") not in _LINEUP_ALERT_STATUSES:
+        return
+    if team_id not in (match.get("home_team_id"), match.get("away_team_id")):
+        return
+    extra = {"team_id": team_id, "formation": lineup.formation_name, "player_count": len(lineup.positions)}
+    background_tasks.add_task(notify_event_task, "lineup", match_id, extra, f"match:{match_id}:lineup:{team_id}")
+
+
 @app.put("/api/matches/{match_id}/lineup/{team_id}")
 async def save_lineup(
     match_id: int,
     team_id: int,
     lineup: LineupSave,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Save or update lineup for a team in a match.
@@ -4631,6 +4742,10 @@ async def save_lineup(
             formation=lineup.formation_name,
             player_count=len(lineup.positions),
         )
+        try:
+            _maybe_notify_lineup(background_tasks, match_id, team_id, lineup, current_user)
+        except Exception as exc:  # an alert must never fail the save
+            logger.warning("lineup_alert_failed", match_id=match_id, team_id=team_id, error_type=type(exc).__name__)
 
         return saved_lineup
     except HTTPException:
@@ -5292,7 +5407,11 @@ async def get_goals_leaderboard(
     league_id: int | None = Query(None, description="Filter by league ID"),
     division_id: int | None = Query(None, description="Filter by division ID"),
     age_group_id: int | None = Query(None, description="Filter by age group ID"),
-    match_type_id: int | None = Query(None, description="Filter by match type ID (e.g. 4 for Playoff)"),
+    # Repeatable (SB-1594): ?match_type_id=1&match_type_id=2 totals League +
+    # Flex. A single value behaves exactly as before.
+    match_type_id: list[int] | None = Query(
+        None, description="Filter by match type ID (e.g. 4 for Playoff); repeat to combine types"
+    ),
     tournament_id: int | None = Query(None, description="Filter by specific tournament ID"),
     limit: int = Query(50, description="Maximum results", ge=1, le=100),
 ):
@@ -6071,6 +6190,51 @@ async def delete_team_mapping(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# Division guests: teams with no row in a table they play fixtures in (SB-1598)
+@app.get("/api/admin/division-guests")
+async def list_division_guests(
+    season_id: int | None = None,
+    age_group_id: int | None = None,
+    division_id: int | None = None,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """List guests, narrowed by whichever filters are given. None is an empty list."""
+    try:
+        return match_dao.list_division_guests(season_id, age_group_id, division_id)
+    except Exception as e:
+        logger.error(f"Error listing division guests: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not list division guests") from e
+
+
+@app.post("/api/admin/division-guests")
+async def add_division_guest(
+    guest: DivisionGuestCreate,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Hide a team from one table. Its matches still count for its opponents."""
+    try:
+        return match_dao.add_division_guest(**guest.model_dump(), created_by=current_user.get("user_id"))
+    except Exception as e:
+        logger.error(f"Error adding division guest: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not add division guest") from e
+
+
+@app.delete("/api/admin/division-guests/{guest_id}")
+async def remove_division_guest(
+    guest_id: int,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Give a team its row back."""
+    try:
+        removed = match_dao.remove_division_guest(guest_id)
+    except Exception as e:
+        logger.error(f"Error removing division guest: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not remove division guest") from e
+    if not removed:
+        raise HTTPException(status_code=404, detail="Division guest not found")
+    return {"message": "Division guest removed"}
+
+
 # === Match-Scraper Integration Endpoints ===
 
 
@@ -6838,7 +7002,11 @@ async def get_player_stats(
 async def get_team_stats(
     team_id: int,
     season_id: int = Query(..., description="Season ID for stats"),
-    match_type_id: int | None = Query(None, description="Restrict to one competition; omit for all"),
+    # Repeatable (SB-1599): ?match_type_id=1&match_type_id=2 totals League +
+    # Flex. A single value behaves exactly as before.
+    match_type_id: list[int] | None = Query(
+        None, description="Restrict to a competition; repeat to combine; omit for all"
+    ),
     age_group_id: int | None = Query(None, description="Restrict to players in one age group; omit for all"),
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
@@ -6851,9 +7019,10 @@ async def get_team_stats(
     The viewer is resolved optionally (SB-591) so test matches never inflate a
     real player's totals for anonymous or real users.
 
-    match_type_id narrows to a single competition (SB-433) — a squad leaderboard
-    that silently mixes friendlies into league totals is not comparable with the
-    league table beside it.
+    match_type_id narrows to a competition (SB-433) — a squad leaderboard that
+    silently mixes friendlies into league totals is not comparable with the
+    league table beside it. Repeat it to total several, e.g. League + Flex
+    (SB-1599).
 
     age_group_id narrows a multi-age team (e.g. a Homegrown squad mapped to
     U13-U15) to one age group's players, matching the roster filter (SB-1258).
@@ -6864,12 +7033,18 @@ async def get_team_stats(
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
 
+        # One id stays a plain int so existing callers see the same response and
+        # cache key; several are sorted so 1,2 and 2,1 share a cache entry.
+        match_types: int | list[int] | None = None
+        if match_type_id:
+            match_types = match_type_id[0] if len(match_type_id) == 1 else sorted(set(match_type_id))
+
         # Get team stats
         stats = player_stats_dao.get_team_stats(
             team_id,
             season_id,
             include_test=viewer_sees_test_content(current_user),
-            match_type_id=match_type_id,
+            match_type_id=match_types,
             age_group_id=age_group_id,
         )
 
@@ -6877,7 +7052,7 @@ async def get_team_stats(
             "team_id": team_id,
             "team_name": team.get("name"),
             "season_id": season_id,
-            "match_type_id": match_type_id,
+            "match_type_id": match_types,
             "age_group_id": age_group_id,
             "players": stats,
         }
@@ -9086,6 +9261,28 @@ async def get_match_of_the_week(
     except Exception as e:
         logger.error(f"Error reading match of the week: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not read match of the week") from e
+
+
+@app.get("/api/admin/motw/candidates")
+async def get_motw_candidates(
+    week: str | None = None,
+    limit: int = Query(5, ge=1, le=10),
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Ranked Match of the Week candidates for a week (SB-1551), as `mt motw suggest` shows them.
+
+    The same result as mt-mcp's suggest_motw_candidates: candidates with a score
+    breakdown, fact ids and the qualification rules each table feeds. An empty
+    week is 200 with `candidates: []` and a `reason`; a failed read is 503.
+    """
+    from mt_tools.motw_candidates import suggest_from_deps
+
+    result = await asyncio.to_thread(suggest_from_deps, _my_team_deps(), week, limit=limit)
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="Match of the Week candidates are unavailable right now")
+    return result.model_dump(mode="json")
 
 
 @app.get("/api/admin/coverage")

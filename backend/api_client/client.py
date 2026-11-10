@@ -1105,12 +1105,13 @@ class MissingTableClient:
         self,
         team_id: int,
         season_id: int | None = None,
-        match_type_id: int | None = None,
+        match_type_id: int | list[int] | None = None,
         age_group_id: int | None = None,
     ) -> dict[str, Any]:
         """Get team stats.
 
-        match_type_id narrows to one competition (SB-433); age_group_id to one
+        match_type_id narrows to a competition, or a list to total several
+        (SB-433, SB-1599); age_group_id to one
         age group's players (SB-1258). Omit either for all.
         """
         params = {}
@@ -1232,6 +1233,38 @@ class MissingTableClient:
     def delete_team_mapping(self, team_id: int, age_group_id: int, division_id: int) -> dict[str, Any]:
         """Delete a team mapping."""
         response = self._request("DELETE", f"/api/team-mappings/{team_id}/{age_group_id}/{division_id}")
+        return response.json()
+
+    # Division guests (SB-1598)
+
+    def list_division_guests(self, season_id: int, age_group_id: int | None = None) -> list[dict[str, Any]]:
+        """Teams hidden from a table this season."""
+        params: dict[str, Any] = {"season_id": season_id}
+        if age_group_id:
+            params["age_group_id"] = age_group_id
+        response = self._request("GET", "/api/admin/division-guests", params=params)
+        return response.json()
+
+    def add_division_guest(
+        self, team_id: int, division_id: int, age_group_id: int, season_id: int, reason: str
+    ) -> dict[str, Any]:
+        """Hide a team from one table; its matches still count for opponents."""
+        response = self._request(
+            "POST",
+            "/api/admin/division-guests",
+            json_data={
+                "team_id": team_id,
+                "division_id": division_id,
+                "age_group_id": age_group_id,
+                "season_id": season_id,
+                "reason": reason,
+            },
+        )
+        return response.json()
+
+    def remove_division_guest(self, guest_id: int) -> dict[str, Any]:
+        """Give a team its table row back."""
+        response = self._request("DELETE", f"/api/admin/division-guests/{guest_id}")
         return response.json()
 
     # Club logo
@@ -1494,6 +1527,18 @@ class MissingTableClient:
         return response.json()
 
     # Tournament Match of the Day (SB-1559)
+
+    def get_motw(self, week_start: str | None = None) -> dict[str, Any]:
+        """The Match of the Week for the week containing ``week_start`` (default this week)."""
+        params = {"week_start": week_start} if week_start else None
+        return self._request("GET", "/api/motw", params=params).json()
+
+    def get_motw_candidates(self, week: str | None = None, limit: int = 5) -> dict[str, Any]:
+        """Ranked Match of the Week candidates for a week (admin, SB-1551)."""
+        params: dict[str, Any] = {"limit": limit}
+        if week:
+            params["week"] = week
+        return self._request("GET", "/api/admin/motw/candidates", params=params).json()
 
     def get_tournament_motd(self, tournament_id: int, date: str | None = None) -> dict[str, Any]:
         """One day's pick (``motd``, null when unpicked) or, without ``date``, every pick (``picks``)."""

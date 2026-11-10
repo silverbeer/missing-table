@@ -115,7 +115,7 @@ class PlayerStatsDAO(BaseDAO):
         player_id: int,
         season_id: int,
         include_test: bool = False,
-        match_type_id: int | None = None,
+        match_type_id: int | list[int] | None = None,
     ) -> dict | None:
         """
         Get aggregated stats for a player across a season.
@@ -129,7 +129,8 @@ class PlayerStatsDAO(BaseDAO):
             match_type_id: Restrict to one competition — league, friendly,
                 tournament. None means all of them. It is part of the cache key
                 for the same reason include_test is: without it a league-only
-                request would be served an all-competitions total (SB-433).
+                request would be served an all-competitions total (SB-433). A
+                list totals several competitions, e.g. League + Flex (SB-1599).
 
         Returns:
             Aggregated stats dict with games_played, games_started,
@@ -153,7 +154,8 @@ class PlayerStatsDAO(BaseDAO):
             if not include_test:
                 stats = [s for s in stats if not (s.get("match") or {}).get("is_test")]
             if match_type_id is not None:
-                stats = [s for s in stats if (s.get("match") or {}).get("match_type_id") == match_type_id]
+                wanted = {match_type_id} if isinstance(match_type_id, int) else set(match_type_id)
+                stats = [s for s in stats if (s.get("match") or {}).get("match_type_id") in wanted]
 
             # Only matches that actually happened. A lineup saved for a
             # scheduled match, or a match started and then reverted to
@@ -197,7 +199,7 @@ class PlayerStatsDAO(BaseDAO):
         team_id: int,
         season_id: int,
         include_test: bool = False,
-        match_type_id: int | None = None,
+        match_type_id: int | list[int] | None = None,
         age_group_id: int | None = None,
     ) -> list[dict]:
         """
@@ -208,9 +210,10 @@ class PlayerStatsDAO(BaseDAO):
             season_id: Season ID
             include_test: SB-591 test partition gate, threaded through to each
                 player's season aggregation.
-            match_type_id: Restrict to one competition; None means all. Part of
-                the cache key, or a league-only request gets served an
-                all-competitions total (SB-433).
+            match_type_id: Restrict to one competition, or a list of them to
+                total several (SB-1599); None means all. Part of the cache key,
+                or a league-only request gets served an all-competitions total
+                (SB-433).
             age_group_id: Restrict the squad to players whose
                 `players.age_group_id` matches — the same rule as the roster
                 (SB-68), so a multi-age team's board lists the same players as
@@ -273,7 +276,7 @@ class PlayerStatsDAO(BaseDAO):
         league_id: int | None = None,
         division_id: int | None = None,
         age_group_id: int | None = None,
-        match_type_id: int | None = None,
+        match_type_id: int | list[int] | None = None,
         tournament_id: int | None = None,
         limit: int = 50,
         include_test: bool = False,
@@ -286,7 +289,8 @@ class PlayerStatsDAO(BaseDAO):
             league_id: Optional league filter
             division_id: Optional division filter
             age_group_id: Optional age group filter
-            match_type_id: Optional match type filter (e.g. 4 for Playoff)
+            match_type_id: Optional match type filter (e.g. 4 for Playoff). A list
+                totals several types, e.g. League + Flex (SB-1594).
             tournament_id: Optional specific tournament filter (matches.tournament_id)
             limit: Maximum results (default 50)
 
@@ -353,7 +357,9 @@ class PlayerStatsDAO(BaseDAO):
             if not include_test:
                 stats = [s for s in stats if not s.get("match", {}).get("is_test")]
             if match_type_id is not None:
-                stats = [s for s in stats if s.get("match", {}).get("match_type_id") == match_type_id]
+                wanted = {match_type_id} if isinstance(match_type_id, int) else set(match_type_id)
+                if wanted:
+                    stats = [s for s in stats if s.get("match", {}).get("match_type_id") in wanted]
             if tournament_id is not None:
                 stats = [s for s in stats if s.get("match", {}).get("tournament_id") == tournament_id]
             if league_id is not None:

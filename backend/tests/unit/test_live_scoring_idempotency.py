@@ -726,3 +726,19 @@ class TestLivePositionChange:
         assert MatchEventResponse(
             id=1, match_id=123, event_type="goal", message="GOAL", created_at=datetime.now(UTC)
         ).position is None
+
+
+class TestNotificationEventKey:
+    """Each announcement carries the key the delivery ledger dedupes on (SB-1603)."""
+
+    def test_new_final_score_is_keyed_by_score(self):
+        from unittest.mock import MagicMock
+
+        from app import _maybe_notify_final_score, notify_event_task
+
+        tasks = MagicMock()
+        after = {"id": 123, "home_score": 2, "away_score": 1, "match_status": "completed"}
+        _maybe_notify_final_score(tasks, None, after)
+        tasks.add_task.assert_called_once_with(
+            notify_event_task, "fulltime", 123, None, "match:123:fulltime:2-1"
+        )

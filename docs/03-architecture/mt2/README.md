@@ -20,6 +20,7 @@ architecture those efforts build on, and the working rules for building them.
 | **[ai-cost.md](ai-cost.md)** | Budget guards, exact and canonical-intent caching with write-driven invalidation, metrics |
 | **[ai-quality.md](ai-quality.md)** | Feedback → eval → regression loop; test tiers that keep LLM calls out of normal CI |
 | **[mcp.md](mcp.md)** | mt-mcp: one MCP tool server in the backend pod for MT AI and mt-admin Claude skills; roles, tiers, authorization |
+| **[motw-agent.md](motw-agent.md)** | Match of the Week agent end to end: rules YAML, candidate scoring, mt-mcp tool, Slack suggest/approve, the `manage_motw` account |
 | **[a2a.md](a2a.md)** | Why not yet, and the one boundary where A2A could make sense |
 | **[content-roadmap.md](content-roadmap.md)** | Blog/social milestones tied to engineering milestones |
 

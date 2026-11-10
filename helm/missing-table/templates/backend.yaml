@@ -249,6 +249,10 @@ spec:
         # Global kill switch for live-match notifications. Defaults to true.
         - name: NOTIFICATIONS_ENABLED
           value: {{ .Values.notifications.enabled | default true | quote }}
+        # Retry chat posts the live path could not finish (SB-1604). Needs the
+        # 20261113120000 migration; off unless set.
+        - name: NOTIFICATION_RETRY_WORKER
+          value: {{ .Values.notifications.retryWorker | default "off" | quote }}
         # Non-sensitive configuration
         - name: APP_BASE_URL
           value: {{ .Values.backend.env.appBaseUrl | default "https://missingtable.com" | quote }}

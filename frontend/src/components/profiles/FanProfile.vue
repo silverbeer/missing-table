@@ -41,83 +41,60 @@
     </div>
   </div>
 
-  <!-- My Team Picker Modal (SB-1543) -->
+  <!-- Squad Picker Modal (SB-1608): any squads in the fan's own club -->
   <div
-    v-if="showTeamPicker"
+    v-if="showSquadPicker"
     class="modal-overlay"
-    data-testid="team-picker"
-    @click.self="closeTeamPicker"
+    data-testid="squad-picker"
+    @click.self="closeSquadPicker"
   >
     <div class="edit-modal">
       <div class="modal-header">
-        <h3>Pick your team</h3>
-        <button class="close-btn" @click="closeTeamPicker">&times;</button>
+        <h3>Choose your squads</h3>
+        <button class="close-btn" @click="closeSquadPicker">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label for="pick-league">League</label>
-          <select
-            id="pick-league"
-            v-model="pick.league"
-            data-testid="pick-league"
-            @change="onPickLeagueChange"
-          >
-            <option :value="null" disabled>Choose a league</option>
-            <option v-for="l in leagueChoices" :key="l" :value="l">
-              {{ l }}
-            </option>
-          </select>
-        </div>
-        <div v-if="pick.league" class="form-group">
-          <label for="pick-age-group">Age group</label>
-          <select
-            id="pick-age-group"
-            v-model="pick.ageGroupId"
-            data-testid="pick-age-group"
-            @change="pick.teamId = null"
-          >
-            <option :value="null" disabled>Choose an age group</option>
-            <option v-for="ag in ageGroupChoices" :key="ag.id" :value="ag.id">
-              {{ ag.name }}
-            </option>
-          </select>
-        </div>
-        <!-- Only when the club fields more than one squad at this league and
-             age, e.g. three futsal teams at U14. -->
-        <div v-if="squadChoices.length > 1" class="form-group">
-          <label for="pick-squad">Team</label>
-          <select
-            id="pick-squad"
-            v-model="pick.teamId"
-            data-testid="pick-squad"
-          >
-            <option :value="null" disabled>Choose a team</option>
-            <option
-              v-for="o in squadChoices"
-              :key="o.team_id"
-              :value="o.team_id"
-            >
-              {{ o.name }}
-            </option>
-          </select>
-        </div>
-        <p
-          v-if="teamSaveError"
-          class="team-error"
-          data-testid="team-save-error"
+        <p class="my-team-hint">
+          Get match alerts for any squads in your club. This doesn't change your
+          team or which chat channels you can join.
+        </p>
+        <fieldset
+          v-for="group in squadGroups"
+          :key="group.league"
+          class="squad-group"
         >
-          {{ teamSaveError }}
+          <legend>{{ group.league }}</legend>
+          <label
+            v-for="o in group.options"
+            :key="squadKey(o.team_id, o.age_group.id)"
+            class="squad-option"
+          >
+            <input
+              type="checkbox"
+              :checked="selectedSquads.has(squadKey(o.team_id, o.age_group.id))"
+              :data-testid="`squad-${o.team_id}-${o.age_group.id}`"
+              @change="toggleSquad(o)"
+            />
+            <span>{{ squadOptionLabel(o) }}</span>
+          </label>
+        </fieldset>
+        <p
+          v-if="squadSaveError"
+          class="team-error"
+          data-testid="squad-save-error"
+        >
+          {{ squadSaveError }}
         </p>
       </div>
       <div class="modal-footer">
-        <button class="cancel-btn" @click="closeTeamPicker">Cancel</button>
+        <button class="cancel-btn" @click="closeSquadPicker">Cancel</button>
         <button
           class="save-btn"
-          data-testid="save-team"
-          :disabled="teamSaving || !pickedOption"
-          @click="saveTeam"
+          data-testid="save-squads"
+          :disabled="squadSaving"
+          @click="saveSquads"
         >
-          {{ teamSaving ? 'Saving...' : 'Save' }}
+          {{ squadSaving ? 'Saving...' : 'Save' }}
         </button>
       </div>
     </div>
@@ -166,8 +143,10 @@
             <span class="stat-label">Upcoming</span>
           </div>
           <div class="hero-stat">
-            <span class="stat-number">{{ followedTeam ? '1' : '0' }}</span>
-            <span class="stat-label">Following</span>
+            <span class="stat-number" data-testid="following-count">{{
+              follows.length
+            }}</span>
+            <span class="stat-label">Alerts</span>
           </div>
         </div>
 
@@ -180,56 +159,97 @@
       </div>
     </div>
 
-    <!-- My Team (SB-1543): a fan's club + league + age group. Not picking
-         one is a normal state, so the card prompts rather than warns. -->
+    <!-- Match alerts (SB-1608, SB-1618): the squads a fan gets alerts for,
+         from their own club (picker) or any club (Follow buttons). The team a
+         manager assigned is shown apart and never changed here; chat channels
+         are a separate card. Following nothing is normal, so it prompts. -->
     <div v-if="teamOptions" class="my-team-section" data-testid="my-team-card">
-      <h3>My team</h3>
+      <h3>Match alerts</h3>
+      <p class="my-team-hint">
+        Get notified about kickoffs, goals and final scores for the squads you
+        pick.
+      </p>
+      <p
+        v-if="deviceStep !== 'done' && deviceStep !== 'follow'"
+        class="device-line"
+        data-testid="alerts-device-off"
+      >
+        <template v-if="deviceStep === 'unsupported'">
+          This browser can't show alerts.
+        </template>
+        <template v-else>
+          Alerts aren't on for this device yet.
+          <button class="link-btn" @click="openSetupGuide('profile')">
+            Turn on
+          </button>
+        </template>
+      </p>
+      <p v-if="currentOption" class="assigned-team" data-testid="assigned-team">
+        Your team: <strong>{{ optionLabel(currentOption) }}</strong>
+        <span class="assigned-note">set by your team manager</span>
+      </p>
+
+      <h4 class="alerts-group">Your club</h4>
       <p v-if="teamOptions.status === 'no_club'" data-testid="my-team-no-club">
         Your account isn't linked to a club yet
       </p>
-      <template v-else-if="currentOption">
-        <div class="my-team-row">
-          <span class="my-team-label" data-testid="my-team-label">
-            {{ optionLabel(currentOption) }}
-          </span>
-          <div class="my-team-actions">
-            <button
-              class="link-btn my-team-btn"
-              data-testid="change-team"
-              @click="openTeamPicker"
-            >
-              Change
-            </button>
-            <button
-              class="link-btn my-team-btn"
-              data-testid="clear-team"
-              :disabled="teamSaving"
-              @click="clearTeam"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      </template>
       <template v-else>
-        <p class="my-team-hint" data-testid="my-team-prompt">
-          Pick your team to personalize the app, and so MT AI knows who you mean
-          when you ask about "my team".
+        <ul
+          v-if="clubAlerts.length"
+          class="squad-chips"
+          data-testid="followed-squads"
+        >
+          <li v-for="chip in clubAlerts" :key="chip.key" class="squad-chip">
+            <span>{{ chip.label }}</span>
+            <button
+              class="chip-remove"
+              :aria-label="`Stop alerts for ${chip.label}`"
+              :data-testid="`remove-${chip.key}`"
+              @click="stopAlerts(chip)"
+            >
+              &times;
+            </button>
+          </li>
+        </ul>
+        <p v-else class="my-team-hint" data-testid="my-team-prompt">
+          Choose the squads in your club you want match alerts for.
         </p>
         <button
           class="action-btn my-team-pick-btn"
-          data-testid="pick-team"
-          @click="openTeamPicker"
+          data-testid="choose-squads"
+          @click="openSquadPicker"
         >
-          Pick your team
+          {{ clubAlerts.length ? 'Change squads' : 'Choose squads' }}
         </button>
       </template>
+
+      <h4 class="alerts-group">Other teams</h4>
+      <ul
+        v-if="otherAlerts.length"
+        class="squad-chips"
+        data-testid="other-alerts"
+      >
+        <li v-for="chip in otherAlerts" :key="chip.key" class="squad-chip">
+          <span>{{ chip.label }}</span>
+          <button
+            class="chip-remove"
+            :aria-label="`Stop alerts for ${chip.label}`"
+            :data-testid="`remove-${chip.key}`"
+            @click="stopAlerts(chip)"
+          >
+            &times;
+          </button>
+        </li>
+      </ul>
+      <p class="my-team-hint" data-testid="other-alerts-hint">
+        Follow any team from its page on the Matches tab.
+      </p>
       <p
-        v-if="teamSaveError && !showTeamPicker"
+        v-if="squadSaveError && !showSquadPicker"
         class="team-error"
         data-testid="team-card-error"
       >
-        {{ teamSaveError }}
+        {{ squadSaveError }}
       </p>
     </div>
 
@@ -390,7 +410,7 @@
         </div>
       </div>
     </div>
-    <LiveUpdatesSection />
+    <TeamChannelsCard />
   </div>
 </template>
 
@@ -400,11 +420,16 @@ import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import { hasAnyRole } from '../../utils/roles';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
-import LiveUpdatesSection from './LiveUpdatesSection.vue';
+import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
+import { useTeamFollows } from '@/composables/useTeamFollows';
+import {
+  useNotificationSetup,
+  openSetupGuide,
+} from '@/composables/useNotificationSetup';
 
 export default {
   name: 'FanProfile',
-  components: { LiveUpdatesTeaser, LiveUpdatesSection },
+  components: { LiveUpdatesTeaser, TeamChannelsCard },
   emits: ['logout', 'navigate'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
@@ -414,13 +439,20 @@ export default {
     const showEditProfile = ref(false);
     const saving = ref(false);
 
-    // --- My team (SB-1543) ---
+    // --- My squads (SB-1543, SB-1608) ---
     // null until loaded; stays null for non-fans so the card does not render.
     const teamOptions = ref(null);
-    const showTeamPicker = ref(false);
-    const teamSaving = ref(false);
-    const teamSaveError = ref(null);
-    const pick = reactive({ league: null, ageGroupId: null, teamId: null });
+    const showSquadPicker = ref(false);
+    const squadSaving = ref(false);
+    const squadSaveError = ref(null);
+    const selectedSquads = ref(new Set());
+    const {
+      follows,
+      ensureLoaded: ensureFollowsLoaded,
+      refresh: refreshFollows,
+      unfollow,
+    } = useTeamFollows();
+    const { currentStep: deviceStep } = useNotificationSetup();
 
     const editForm = reactive({
       display_name: '',
@@ -435,11 +467,9 @@ export default {
       );
     });
 
-    const followedTeam = computed(() => {
-      return authStore.state.profile?.team || null;
-    });
-
     const pickOptions = computed(() => teamOptions.value?.options || []);
+
+    const squadKey = (teamId, ageGroupId) => `${teamId}:${ageGroupId}`;
 
     const sameSlot = (a, b) =>
       a.league_name === b.league_name && a.age_group?.id === b.age_group?.id;
@@ -458,6 +488,16 @@ export default {
       return parts.filter(Boolean).join(' · ');
     };
 
+    // Inside a league group the league is already the heading.
+    const squadOptionLabel = option => {
+      const crowded =
+        pickOptions.value.filter(o => sameSlot(o, option)).length > 1;
+      return crowded
+        ? `${option.age_group?.name} · ${option.name}`
+        : option.age_group?.name;
+    };
+
+    // The team a manager or admin assigned by invite; never the fan's choice.
     const currentOption = computed(() => {
       const opts = teamOptions.value;
       if (!opts?.current_team_id || !opts?.current_age_group_id) return null;
@@ -470,32 +510,83 @@ export default {
       );
     });
 
-    const leagueChoices = computed(() => [
-      ...new Set(pickOptions.value.map(o => o.league_name)),
-    ]);
-
-    const ageGroupChoices = computed(() => {
-      const seen = new Map();
-      pickOptions.value
-        .filter(o => o.league_name === pick.league && o.age_group)
-        .forEach(o => {
-          if (!seen.has(o.age_group.id)) seen.set(o.age_group.id, o.age_group);
-        });
-      return [...seen.values()];
+    // A follow from before squads existed (no age group) covers every age
+    // group of its team, so it shows as all of that team's squads.
+    const followedSquadKeys = computed(() => {
+      const keys = new Set();
+      for (const f of follows.value) {
+        if (f.age_group_id != null) {
+          keys.add(squadKey(f.team_id, f.age_group_id));
+        } else {
+          pickOptions.value
+            .filter(o => o.team_id === f.team_id)
+            .forEach(o => keys.add(squadKey(o.team_id, o.age_group.id)));
+        }
+      }
+      return keys;
     });
 
-    const squadChoices = computed(() =>
-      pickOptions.value.filter(
-        o =>
-          o.league_name === pick.league && o.age_group?.id === pick.ageGroupId
-      )
+    const clubTeamIds = computed(
+      () => new Set(pickOptions.value.map(o => o.team_id))
     );
 
-    // A single squad at the chosen league and age is selected automatically.
-    const pickedOption = computed(() => {
-      const squads = squadChoices.value;
-      if (squads.length === 1) return squads[0];
-      return squads.find(o => o.team_id === pick.teamId) || null;
+    // One chip per follow row: a whole-team follow is one "every age group"
+    // chip, not one per squad (SB-1618).
+    const chipFor = f => {
+      const age = f.age_group_id ?? null;
+      const key = `${f.team_id}-${age ?? 'all'}`;
+      const option = pickOptions.value.find(
+        o => o.team_id === f.team_id && (age == null || o.age_group?.id === age)
+      );
+      let label;
+      if (option && age != null) {
+        label = optionLabel(option);
+      } else if (option) {
+        label = [
+          option.club_name || teamOptions.value?.club?.name,
+          option.league_name,
+          'every age group',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      } else {
+        label = [
+          f.team?.name || `Team #${f.team_id}`,
+          f.team?.division?.leagues?.name,
+          f.age_group?.name || 'every age group',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      }
+      return { key, label, teamId: f.team_id, ageGroupId: age };
+    };
+
+    const clubAlerts = computed(() =>
+      follows.value.filter(f => clubTeamIds.value.has(f.team_id)).map(chipFor)
+    );
+
+    const otherAlerts = computed(() =>
+      follows.value.filter(f => !clubTeamIds.value.has(f.team_id)).map(chipFor)
+    );
+
+    const stopAlerts = async chip => {
+      squadSaveError.value = null;
+      const result = await unfollow(chip.teamId, chip.ageGroupId);
+      if (result?.success === false) {
+        squadSaveError.value = 'Could not stop those alerts';
+      }
+    };
+
+    const squadGroups = computed(() => {
+      const groups = new Map();
+      pickOptions.value
+        .filter(o => o.age_group)
+        .forEach(o => {
+          const league = o.league_name || 'Other';
+          if (!groups.has(league)) groups.set(league, []);
+          groups.get(league).push(o);
+        });
+      return [...groups].map(([league, options]) => ({ league, options }));
     });
 
     const upcomingMatchCount = computed(() => {
@@ -704,58 +795,48 @@ export default {
       }
     };
 
-    const openTeamPicker = () => {
-      const current = currentOption.value;
-      pick.league = current?.league_name ?? null;
-      pick.ageGroupId = current?.age_group?.id ?? null;
-      pick.teamId = current?.team_id ?? null;
-      teamSaveError.value = null;
-      showTeamPicker.value = true;
+    const openSquadPicker = () => {
+      selectedSquads.value = new Set(followedSquadKeys.value);
+      squadSaveError.value = null;
+      showSquadPicker.value = true;
     };
 
-    const closeTeamPicker = () => {
-      showTeamPicker.value = false;
-      teamSaveError.value = null;
+    const closeSquadPicker = () => {
+      showSquadPicker.value = false;
+      squadSaveError.value = null;
     };
 
-    const onPickLeagueChange = () => {
-      pick.ageGroupId = null;
-      pick.teamId = null;
+    const toggleSquad = option => {
+      const key = squadKey(option.team_id, option.age_group.id);
+      const next = new Set(selectedSquads.value);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      selectedSquads.value = next;
     };
 
-    const putTeam = async body => {
-      teamSaving.value = true;
-      teamSaveError.value = null;
+    const saveSquads = async () => {
+      if (squadSaving.value) return;
+      squadSaving.value = true;
+      squadSaveError.value = null;
+      const squads = pickOptions.value
+        .filter(o =>
+          selectedSquads.value.has(squadKey(o.team_id, o.age_group?.id))
+        )
+        .map(o => ({ team_id: o.team_id, age_group_id: o.age_group.id }));
       try {
-        await authStore.apiRequest(`${getApiBaseUrl()}/api/me/team`, {
+        await authStore.apiRequest(`${getApiBaseUrl()}/api/me/squad-follows`, {
           method: 'PUT',
-          body: JSON.stringify(body),
+          body: JSON.stringify({ squads }),
         });
-        await Promise.all([authStore.fetchProfile(), fetchTeamOptions()]);
-        return true;
+        await refreshFollows();
+        showSquadPicker.value = false;
       } catch (error) {
-        // The API's detail ("That team and age group aren't in your club")
-        // is the sentence the fan needs.
-        teamSaveError.value = error.message || 'Could not save your team';
-        return false;
+        // The API's detail ("Pick only squads in your club") is the sentence
+        // the fan needs.
+        squadSaveError.value = error.message || 'Could not save your squads';
       } finally {
-        teamSaving.value = false;
+        squadSaving.value = false;
       }
-    };
-
-    const saveTeam = async () => {
-      const option = pickedOption.value;
-      if (!option || teamSaving.value) return;
-      const saved = await putTeam({
-        team_id: option.team_id,
-        age_group_id: option.age_group.id,
-      });
-      if (saved) showTeamPicker.value = false;
-    };
-
-    const clearTeam = async () => {
-      if (teamSaving.value) return;
-      await putTeam({});
     };
 
     const initEditForm = () => {
@@ -848,6 +929,7 @@ export default {
 
     onMounted(async () => {
       fetchTeamOptions();
+      ensureFollowsLoaded();
       await fetchClub();
       await fetchUpcomingMatches();
     });
@@ -862,23 +944,26 @@ export default {
       saving,
       editForm,
       displayName,
-      followedTeam,
+      follows,
       teamOptions,
-      showTeamPicker,
-      teamSaving,
-      teamSaveError,
-      pick,
+      showSquadPicker,
+      squadSaving,
+      squadSaveError,
+      selectedSquads,
       currentOption,
-      leagueChoices,
-      ageGroupChoices,
-      squadChoices,
-      pickedOption,
+      clubAlerts,
+      otherAlerts,
+      stopAlerts,
+      deviceStep,
+      openSetupGuide,
+      squadGroups,
+      squadKey,
       optionLabel,
-      openTeamPicker,
-      closeTeamPicker,
-      onPickLeagueChange,
-      saveTeam,
-      clearTeam,
+      squadOptionLabel,
+      openSquadPicker,
+      closeSquadPicker,
+      toggleSquad,
+      saveSquads,
       upcomingMatchCount,
       heroCardStyle,
       clubTeamsStyle,
@@ -1069,32 +1154,102 @@ export default {
   font-size: 18px;
 }
 
-.my-team-row {
+.assigned-team {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.assigned-note {
+  display: block;
+  font-size: 12px;
+  color: rgb(var(--color-fg-muted));
+}
+
+.squad-chips {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   flex-wrap: wrap;
-}
-
-.my-team-label {
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.my-team-actions {
-  display: flex;
   gap: 8px;
 }
 
-.my-team-btn {
+.alerts-group {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(var(--color-fg-muted));
+  margin: 16px 0 8px;
+}
+
+.device-line {
+  font-size: 13px;
+  color: rgb(var(--color-fg));
   background: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.device-line .link-btn {
+  background: none;
+  border: none;
+  padding: 0 0 0 4px;
+  font: inherit;
+  font-weight: 600;
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  padding: 0 0 0 6px;
+  font-size: 15px;
+  line-height: 1;
+  color: rgb(var(--color-fg-muted));
+  cursor: pointer;
+}
+
+.chip-remove:hover {
   color: rgb(var(--color-fg));
 }
 
-.my-team-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.squad-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
+}
+
+.squad-group {
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 8px;
+  padding: 8px 12px 10px;
+  margin: 0 0 12px;
+}
+
+.squad-group legend {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 4px;
+  color: rgb(var(--color-fg));
+}
+
+.squad-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 14px;
+  color: rgb(var(--color-fg));
+  cursor: pointer;
 }
 
 .my-team-hint {

@@ -63,11 +63,15 @@ app.add_typer(player_app, name="player")
 app.add_typer(club_app, name="club")
 team_app.add_typer(alias_app, name="alias")
 team_app.add_typer(mapping_app, name="mapping")
+guest_app = typer.Typer(help="Teams with no row in a table they play fixtures in (admin)")
+team_app.add_typer(guest_app, name="guest")
 app.add_typer(ingest_app, name="ingest")
 ai_app = typer.Typer(help="MT AI: what it could not answer (admin)")
 app.add_typer(ai_app, name="ai")
 mcp_app = typer.Typer(help="mt-mcp: credentials for MCP clients such as Claude Code (SB-1304)")
 app.add_typer(mcp_app, name="mcp")
+motw_app = typer.Typer(help="Match of the Week: candidates and the current pick (admin)")
+app.add_typer(motw_app, name="motw")
 console = Console()
 
 
@@ -1333,6 +1337,58 @@ def tournament_motd_clear(
         console.print(f"[yellow]Nothing was picked for {result.get('match_date')}.[/yellow]")
 
 
+def _motw_team(team: dict[str, Any]) -> str:
+    pos = team.get("position")
+    where = f"{pos}/{team.get('table_size')}" if pos else "no games"
+    return f"{team.get('name')} ({where})"
+
+
+@motw_app.command("suggest")
+def motw_suggest(
+    week: str = typer.Option(None, "--week", "-w", help="Any date (YYYY-MM-DD) in the week; default this week"),
+    limit: int = typer.Option(5, "--limit", "-n", min=1, max=10, help="How many candidates"),
+    facts: bool = typer.Option(False, "--facts", "-f", help="Show every fact id and text"),
+    as_json: bool = typer.Option(False, "--json", help="Print the raw result"),
+):
+    """Rank this week's Match of the Week candidates (SB-1551)."""
+    client, _ = get_client()
+    try:
+        result = client.get_motw_candidates(week, limit=limit)
+    except APIError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from None
+    if as_json:
+        console.print_json(data=result)
+        return
+    console.print(f"[bold]Week {result['week_start']} - {result['week_end']}[/bold]")
+    pick = result.get("current_pick")
+    if pick:
+        console.print(f"[yellow]Already picked: match #{pick['match_id']}. Candidates are for reference.[/yellow]")
+    cov = result.get("coverage") or {}
+    console.print(
+        f"[dim]{cov.get('eligible', 0)} eligible of {cov.get('fixtures_in_week', 0)} pool fixtures; "
+        f"{cov.get('teams_low_sample', 0)} teams with under 3 games; rules {cov.get('rules_season') or 'none'}[/dim]"
+    )
+    candidates = result.get("candidates") or []
+    if not candidates:
+        console.print(f"[yellow]{result.get('reason') or 'No candidates.'}[/yellow]")
+        return
+    for rank, c in enumerate(candidates, start=1):
+        s = c["score"]
+        console.print(
+            f"\n[bold]#{rank}[/bold] {s['total']:.3f}  match #{c['match_id']}  {c['match_date']}  "
+            f"{c['age_group']['name']} {c['division']['name']} ({c['competition']})"
+        )
+        console.print(f"   {_motw_team(c['home'])} vs {_motw_team(c['away'])}")
+        console.print(
+            f"   [dim]quality {s['quality']}  closeness {s['closeness']}  stakes {s['stakes']}  "
+            f"form {s['form']}  x{s['penalty']}  {' '.join(c.get('flags') or [])}[/dim]"
+        )
+        if facts:
+            for fact in c.get("facts") or []:
+                console.print(f"   [cyan]{fact['id']}[/cyan] {fact['text']}")
+
+
 @tournament_app.command("score")
 def tournament_score(
     tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
@@ -1452,7 +1508,7 @@ def resolve_match_type(client, name: str | None = None) -> dict | None:
 
     One competition only. `qualifying` spans several, so it belongs to
     resolve_match_types and to the commands that can filter a list client-side
-    — /api/team-stats takes a single match_type_id and cannot union.
+    — this returns one type; /api/teams/{id}/stats can total several (SB-1599).
     """
     if name and name.lower() == "all":
         return None
@@ -2260,6 +2316,105 @@ def team_mapping_remove(
     _api(client.delete_team_mapping, team_row["id"], age_group_id, division_id)
     console.print(f"[green]Removed registration[/green] {team_row.get('name')} · {age} · division {division_id}")
     _print_mappings(_api(resolve_team, client, team_row["id"]))
+
+
+def _resolve_division_in_league(client, name: str, league: str) -> int:
+    """A division by name within one league.
+
+    Names repeat across leagues: "New England" is both an Academy conference and
+    a Flex conference, so a name alone could hide a team from the wrong table.
+    """
+    needle = name.lower().strip()
+    found = [
+        d
+        for d in _api(client.get_divisions) or []
+        if (d.get("name") or "").lower().strip() == needle
+        and ((d.get("leagues") or {}).get("name") or "").lower() == league.lower().strip()
+    ]
+    if len(found) != 1:
+        raise ResolutionError(f"Expected one {league} division named {name!r}, found {len(found)}")
+    return found[0]["id"]
+
+
+def _print_guests(client, season_id: int, age_group_id: int | None = None) -> None:
+    guests = _api(client.list_division_guests, season_id, age_group_id) or []
+    if not guests:
+        console.print("[dim]No guests: every team that plays in a table has a row.[/dim]")
+        return
+    table = Table(title="Division guests — no table row, results still count for opponents")
+    for column in ("ID", "Team", "Age", "League", "Division", "Reason"):
+        table.add_column(column)
+    for guest in guests:
+        division = guest.get("division") or {}
+        table.add_row(
+            str(guest["id"]),
+            (guest.get("team") or {}).get("name") or "?",
+            (guest.get("age_group") or {}).get("name") or "?",
+            (division.get("leagues") or {}).get("name") or "?",
+            division.get("name") or "?",
+            guest.get("reason") or "",
+        )
+    console.print(table)
+
+
+def _guest_target(client, team: str, age: str, division: str, league: str, season: str | None):
+    team_row = _api(resolve_team, client, team)
+    age_group_id = _resolve_age_group_id(client, age)
+    try:
+        division_id = _resolve_division_in_league(client, division, league)
+    except ResolutionError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+    season_id = _resolve_season_id(client, season)
+    return team_row, division_id, age_group_id, season_id
+
+
+@guest_app.command("list")
+def team_guest_list(
+    age: str = typer.Option(None, "--age", "-a", help="Age group, e.g. U15"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+):
+    """Which teams have no row in a table they play fixtures in."""
+    client, _ = get_client()
+    _print_guests(client, _resolve_season_id(client, season), _resolve_age_group_id(client, age) if age else None)
+
+
+@guest_app.command("add")
+def team_guest_add(
+    team: str = typer.Argument(..., help="Team name or id"),
+    age: str = typer.Option(..., "--age", "-a", help="Age group, e.g. U15"),
+    division: str = typer.Option(..., "--division", "-d", help="Division name"),
+    reason: str = typer.Option(..., "--reason", "-r", help="Why this team is not in the table"),
+    league: str = typer.Option("Flex", "--league", "-l", help="League the division belongs to"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+):
+    """Hide a team from one table. Its matches still count for its opponents."""
+    client, _ = get_client()
+    team_row, division_id, age_group_id, season_id = _guest_target(client, team, age, division, league, season)
+    _api(client.add_division_guest, team_row["id"], division_id, age_group_id, season_id, reason)
+    console.print(f"[green]{team_row.get('name')} has no row[/green] in {age} {league} {division}")
+    _print_guests(client, season_id, age_group_id)
+
+
+@guest_app.command("remove")
+def team_guest_remove(
+    team: str = typer.Argument(..., help="Team name or id"),
+    age: str = typer.Option(..., "--age", "-a", help="Age group, e.g. U15"),
+    division: str = typer.Option(..., "--division", "-d", help="Division name"),
+    league: str = typer.Option("Flex", "--league", "-l", help="League the division belongs to"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+):
+    """Give a team its row in a table back."""
+    client, _ = get_client()
+    team_row, division_id, age_group_id, season_id = _guest_target(client, team, age, division, league, season)
+    guests = _api(client.list_division_guests, season_id, age_group_id) or []
+    guest = next((g for g in guests if g["team_id"] == team_row["id"] and g["division_id"] == division_id), None)
+    if guest is None:
+        console.print(f"[yellow]{team_row.get('name')} is not a guest in {age} {league} {division}.[/yellow]")
+        raise typer.Exit(1)
+    _api(client.remove_division_guest, guest["id"])
+    console.print(f"[green]{team_row.get('name')} has its row back[/green] in {age} {league} {division}")
+    _print_guests(client, season_id, age_group_id)
 
 
 @club_app.command("list")

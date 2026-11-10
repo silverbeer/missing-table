@@ -68,7 +68,7 @@ KNOWN_OUTCOMES = frozenset(
 
 
 # A list tool's result list: [] means it checked and found nothing.
-LIST_KEYS = ("matches", "failures")
+LIST_KEYS = ("matches", "failures", "candidates")
 
 
 def bounded(value: str | None, known: Iterable[str], *, missing: str = "none") -> str:

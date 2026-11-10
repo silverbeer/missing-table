@@ -1,8 +1,7 @@
 """Plain-text formatters for live-match notifications.
 
-Pure functions — no I/O. The same text is sent to both Telegram and Discord.
-Telegram senders apply MarkdownV2 escaping at send time; Discord accepts
-plain text as-is.
+Pure functions — no I/O. The same text goes to every platform; each
+adapter applies its own escaping at send time.
 
 All timestamps are rendered in the home club's timezone.
 """
@@ -154,8 +153,58 @@ EVENT_FORMATTERS = {
 }
 
 
+def thread_title(match: dict, tz: ZoneInfo) -> str:
+    """A match thread's name (SB-1606), e.g. 'IFA vs NEFC · U15 · Sat Nov 14'. Max 100 chars."""
+    parts = [_matchup_line(match)]
+    age = match.get("age_group_name")
+    if age:
+        parts.append(str(age))
+    raw = match.get("scheduled_kickoff") or match.get("match_date")
+    if raw:
+        try:
+            when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if when.tzinfo is not None:
+                when = when.astimezone(tz)
+            parts.append(when.strftime("%a %b %-d"))
+        except (ValueError, TypeError):
+            pass
+    return " · ".join(parts)[:100]
+
+
+def format_lineup(event: dict, match: dict, tz: ZoneInfo) -> str | None:
+    """A squad's lineup was saved (SB-1610). Player channels only.
+
+    Names stay in Missing Table: the post says the lineup is up, with the
+    formation and how many players are in it, not who. `event` carries
+    team_id, formation and player_count; no players means nothing to post.
+    """
+    count = event.get("player_count") or 0
+    if count <= 0:
+        return None
+    team_id = event.get("team_id")
+    if team_id == match.get("home_team_id"):
+        team = match.get("home_team_name", "Home")
+    elif team_id == match.get("away_team_id"):
+        team = match.get("away_team_name", "Away")
+    else:
+        return None
+    lines = [f"📋 LINEUP — {_matchup_line(match)}"]
+    tag = _tag(match)
+    if tag:
+        lines.append(tag)
+    formation = event.get("formation")
+    detail = f"{team} lineup is up in Missing Table: {count} player{'s' if count != 1 else ''}"
+    lines.append(f"{detail}, {formation}" if formation else detail)
+    time_str = _kickoff_time_str(match, tz)
+    if time_str:
+        lines.append(f"Kickoff {time_str}")
+    return "\n".join(lines)
+
+
 def format_event(event_type: str, match: dict, extra: dict | None, tz: ZoneInfo) -> str | None:
     """Entry point: dispatch to the right formatter. Returns None if unsupported."""
+    if event_type == "lineup":
+        return format_lineup(extra or {}, match, tz)
     if event_type == "goal":
         return format_goal(extra or {}, match, tz)
     if event_type in {"yellow_card", "red_card"}:

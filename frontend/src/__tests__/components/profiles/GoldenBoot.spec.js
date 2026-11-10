@@ -268,6 +268,118 @@ describe('GoldenBoot (SB-433)', () => {
     expect(lastStatsUrl()).toContain('season_id=7');
   });
 
+  describe('League + Flex (SB-1599)', () => {
+    const WITH_FLEX = [...MATCH_TYPES, { id: 5, name: 'Flex' }];
+
+    const mountForClub = (clubTeams, types = WITH_FLEX) => {
+      apiRequest.mockImplementation(url => {
+        if (url.includes('/api/seasons')) return Promise.resolve(SEASONS);
+        if (url.includes('/api/match-types')) return Promise.resolve(types);
+        if (url.includes('/api/clubs/')) {
+          return clubTeams instanceof Error
+            ? Promise.reject(clubTeams)
+            : Promise.resolve(clubTeams);
+        }
+        return Promise.resolve({ players: SQUAD });
+      });
+      return mount(GoldenBoot, { props: { teamId: 42, clubId: 9 } });
+    };
+
+    const competitionIds = () =>
+      new URL(lastStatsUrl()).searchParams.getAll('match_type_id');
+
+    const select = wrapper => wrapper.findAll('.gb-filter')[1];
+
+    it('defaults to League + Flex when any club team is in Homegrown', async () => {
+      const wrapper = mountForClub([
+        { id: 1, league_name: 'Academy' },
+        { id: 2, league_name: 'Homegrown' },
+      ]);
+      await flushPromises();
+
+      expect(competitionIds()).toEqual(['1', '5']);
+      expect(select(wrapper).element.value).toBe('league-flex');
+    });
+
+    it('sees Homegrown through a division mapping as well', async () => {
+      mountForClub([
+        {
+          id: 1,
+          league_name: null,
+          team_mappings: [{ divisions: { leagues: { name: 'Homegrown' } } }],
+        },
+      ]);
+      await flushPromises();
+
+      expect(competitionIds()).toEqual(['1', '5']);
+    });
+
+    it('keeps League as the default for a club with no Homegrown team, but offers the option', async () => {
+      const wrapper = mountForClub([{ id: 1, league_name: 'Academy' }]);
+      await flushPromises();
+
+      expect(competitionIds()).toEqual(['1']);
+      expect(select(wrapper).text()).toContain('League + Flex');
+    });
+
+    it('totals both types when League + Flex is picked by hand', async () => {
+      const wrapper = mountForClub([{ id: 1, league_name: 'Academy' }]);
+      await flushPromises();
+
+      await select(wrapper).setValue('league-flex');
+      await flushPromises();
+
+      expect(competitionIds()).toEqual(['1', '5']);
+    });
+
+    it('falls back to League when the club lookup fails, without an error', async () => {
+      const wrapper = mountForClub(new Error('404'));
+      await flushPromises();
+
+      expect(competitionIds()).toEqual(['1']);
+      expect(wrapper.text()).not.toContain('Could not load');
+    });
+
+    it('neither offers nor defaults to it when no Flex type exists', async () => {
+      const wrapper = mountForClub(
+        [{ id: 1, league_name: 'Homegrown' }],
+        MATCH_TYPES
+      );
+      await flushPromises();
+
+      expect(competitionIds()).toEqual(['1']);
+      expect(select(wrapper).text()).not.toContain('League + Flex');
+    });
+  });
+
+  describe('beta section (SB-1615)', () => {
+    it('tags the section title, not individual columns', async () => {
+      const wrapper = mountBoot();
+      await flushPromises();
+
+      expect(wrapper.find('.gb-title .gb-beta-tag').text()).toBe('Beta');
+      expect(wrapper.find('thead .gb-beta-tag').exists()).toBe(false);
+    });
+
+    it('says stats are user-entered and links to support', async () => {
+      const wrapper = mountBoot();
+      await flushPromises();
+
+      const note = wrapper.find('[data-testid="gb-beta-note"]');
+      expect(note.text()).toContain('club and team managers live scoring');
+      expect(note.text()).toContain('Fans and players');
+      expect(note.find('a[href^="mailto:"]').exists()).toBe(true);
+    });
+
+    it('keeps the tag but omits the note when nothing is logged', async () => {
+      const wrapper = mountBoot([]);
+      await flushPromises();
+
+      expect(wrapper.find('.gb-title .gb-beta-tag').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="gb-beta-note"]').exists()).toBe(false);
+    });
+  });
+
   it('refetches when the season changes', async () => {
     const wrapper = mountBoot();
     await flushPromises();
