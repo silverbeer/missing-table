@@ -407,3 +407,23 @@ The API re-reads the match and sends the `fulltime` alert (followers' devices an
 2. Add `MT_API_URL: "https://api.missingtable.com"` to the `missing-table-worker-prod-config` configmap.
 3. Run `k3s/worker/rebuild-and-deploy.sh`.
 4. Check the worker log for `final_score_alert_requested` after the next scored match. `final_score_alert_rejected` with `http_status=401` means the two `SERVICE_ACCOUNT_SECRET`s differ.
+
+## Player-only events (SB-1610)
+
+Some posts are content for a squad's players, not its fans. They are listed in `PLAYER_EVENT_TYPES` (`notifications/preferences.py`). `CHANNEL_EVENT_TYPES` is the full list a channel can choose from. `GET /api/notification-channels/event-types` marks them `player_only: true`.
+
+| Event | Fires when | Post |
+|---|---|---|
+| `lineup` ("Lineup posted") | a manager saves a lineup with at least one player, for a scheduled, TBD or live match | "📋 LINEUP — Home vs Away", the squad tag, "<team> lineup is up in Missing Table: 11 players, 4-3-3", kickoff time |
+
+**Rules:**
+- **Audience:** a player-only event reaches only the player channel of the squad it is about. That means scope `team`, audience `players`, and the event's `team_id`.
+  - Never a fan channel or a club channel, even one set to "every event".
+  - Never the other team's squad, and never a global channel.
+  - Never anyone's personal push: followers are fans.
+  - Enforced in `select_destinations` and in `Notifier.notify`.
+- **Setup:** the API refuses a player-only event on any other channel (422). The setup form offers it only on a squad player channel, and drops it from the selection if the audience is switched to fans.
+- **Once:** the event key is `match:<id>:lineup:<team_id>`, so editing a saved lineup does not post again. An empty lineup, or one saved for a match already played, sends nothing. Teams that never enter lineups get no posts.
+- **Names stay in MT:** the post gives the formation and the number of players, not who. Squads are minors, and the room's invite link can be forwarded.
+
+**Kickoff reminders: decided, not built.** A reminder is a post at a set time (e.g. two hours before kickoff), not a reaction to a write. The API has no scheduler, and the Celery worker runs outside GitOps. Reminders will therefore run on the delivery worker from SB-1604, as ledger rows with a `not_before` time. When that ships, `kickoff_reminder` joins `PLAYER_EVENT_TYPES`.

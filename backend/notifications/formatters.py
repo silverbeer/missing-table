@@ -153,8 +153,40 @@ EVENT_FORMATTERS = {
 }
 
 
+def format_lineup(event: dict, match: dict, tz: ZoneInfo) -> str | None:
+    """A squad's lineup was saved (SB-1610). Player channels only.
+
+    Names stay in Missing Table: the post says the lineup is up, with the
+    formation and how many players are in it, not who. `event` carries
+    team_id, formation and player_count; no players means nothing to post.
+    """
+    count = event.get("player_count") or 0
+    if count <= 0:
+        return None
+    team_id = event.get("team_id")
+    if team_id == match.get("home_team_id"):
+        team = match.get("home_team_name", "Home")
+    elif team_id == match.get("away_team_id"):
+        team = match.get("away_team_name", "Away")
+    else:
+        return None
+    lines = [f"📋 LINEUP — {_matchup_line(match)}"]
+    tag = _tag(match)
+    if tag:
+        lines.append(tag)
+    formation = event.get("formation")
+    detail = f"{team} lineup is up in Missing Table: {count} player{'s' if count != 1 else ''}"
+    lines.append(f"{detail}, {formation}" if formation else detail)
+    time_str = _kickoff_time_str(match, tz)
+    if time_str:
+        lines.append(f"Kickoff {time_str}")
+    return "\n".join(lines)
+
+
 def format_event(event_type: str, match: dict, extra: dict | None, tz: ZoneInfo) -> str | None:
     """Entry point: dispatch to the right formatter. Returns None if unsupported."""
+    if event_type == "lineup":
+        return format_lineup(extra or {}, match, tz)
     if event_type == "goal":
         return format_goal(extra or {}, match, tz)
     if event_type in {"yellow_card", "red_card"}:

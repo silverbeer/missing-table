@@ -36,7 +36,7 @@ from notifications.channel_resolver import (
 from notifications.fcm_sender import is_configured as fcm_is_configured
 from notifications.fcm_sender import send_fcm
 from notifications.formatters import format_event
-from notifications.preferences import DEFAULT_PREFERENCES
+from notifications.preferences import DEFAULT_PREFERENCES, is_player_only
 from notifications.web_push_sender import is_configured as push_is_configured
 from notifications.web_push_sender import send_push
 
@@ -273,7 +273,9 @@ class Notifier:
         # A test match never reaches a club channel: those are public rooms,
         # and the SB-591 partition exists so a rehearsal stays out of them.
         is_test = bool(match.get("is_test"))
-        destinations = [] if is_test else resolve_destinations(match, event_type, self.notif_dao)
+        player_only = is_player_only(event_type)
+        target_team_id = (extra or {}).get("team_id") if player_only else None
+        destinations = [] if is_test else resolve_destinations(match, event_type, self.notif_dao, target_team_id)
         if destinations:
             outcomes = [
                 self._post_to_channel(channel, content, event_key, match_id, event_type)
@@ -301,6 +303,11 @@ class Notifier:
                 home_club_id=home_club_id,
                 away_club_id=away_club_id,
             )
+
+        # Player-only events (SB-1610) are content for a squad's player room.
+        # Followers are fans, so no personal push of any kind.
+        if player_only:
+            return
 
         # --- Web Push fan-out -------------------------------------------------
         # Independent of club-channel sends above; failures don't affect each

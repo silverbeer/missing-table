@@ -105,3 +105,12 @@ def test_no_followers_means_no_push_but_no_error():
 
     push_send_fn.assert_not_called()
     notifier._push_log_dao.log.assert_not_called()
+
+
+def test_a_lineup_never_reaches_personal_push():
+    """SB-1610: player-only events are for the squad's player room; followers are fans."""
+    notifier, push_send_fn = _notifier_with_follower()
+    notifier.notify("lineup", _MATCH["id"], {"team_id": 10, "formation": "4-3-3", "player_count": 11})
+    push_send_fn.assert_not_called()
+    notifier._team_follow_dao.list_subscriptions_for_team_ids.assert_not_called()
+    notifier._team_follow_dao.list_user_ids_for_team_ids.assert_not_called()

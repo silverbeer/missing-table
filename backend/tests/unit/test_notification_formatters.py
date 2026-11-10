@@ -13,6 +13,7 @@ from notifications.formatters import (
     format_goal,
     format_halftime,
     format_kickoff,
+    format_lineup,
 )
 
 pytestmark = [pytest.mark.unit]
@@ -153,3 +154,22 @@ class TestScoreEdgeCases:
         match = {**MATCH, "home_score": None, "away_score": None}
         text = format_halftime(match, ET)
         assert "IFA 0-0 NEFC" in text
+
+
+class TestFormatLineup:
+    """SB-1610: the post says the lineup is up; names stay in Missing Table."""
+
+    def test_names_the_team_formation_and_count(self):
+        text = format_lineup({"team_id": 20, "formation": "4-3-3", "player_count": 11}, MATCH, ET)
+        assert text.startswith("📋 LINEUP — IFA vs NEFC")
+        assert "NEFC lineup is up in Missing Table: 11 players, 4-3-3" in text
+        assert "Kickoff" in text
+
+    def test_routed_through_format_event(self):
+        assert format_event("lineup", MATCH, {"team_id": 10, "player_count": 1}, ET).count("1 player") == 1
+
+    @pytest.mark.parametrize(
+        "event", [{"team_id": 10, "player_count": 0}, {"team_id": 10}, {"team_id": 99, "player_count": 11}]
+    )
+    def test_nothing_to_post(self, event):
+        assert format_lineup(event, MATCH, ET) is None

@@ -13,6 +13,7 @@ import structlog
 
 from dao.club_notifications_dao import ClubNotificationsDAO  # noqa: TC001 — used at runtime for type check
 from notifications.audience import players_allowed_at
+from notifications.preferences import is_player_only
 
 logger = structlog.get_logger(__name__)
 
@@ -26,14 +27,27 @@ class ResolvedChannel(NamedTuple):
 
 
 def select_destinations(
-    rows: list[dict], event_type: str, age_group_name: str | None
+    rows: list[dict], event_type: str, age_group_name: str | None, team_id: int | None = None
 ) -> list[ResolvedChannel]:
     """Filter candidate channels to one per (platform, destination).
 
     Pure, so the routing rules are testable without a database. `event_types`
     of None means every event; an empty list means none.
+
+    A player-only event (SB-1610) reaches only the player channel of the squad
+    it is about (`team_id`): never a fan channel, a club channel, the other
+    team's squad, or a global channel, whatever their `event_types` say.
     """
     players_allowed = players_allowed_at(age_group_name)
+    if is_player_only(event_type):
+        rows = [
+            r
+            for r in rows
+            if r.get("audience") == "players"
+            and r.get("scope_type") == "team"
+            and team_id is not None
+            and r.get("team_id") == team_id
+        ]
     seen: set[tuple[str, str]] = set()
     ordered: list[ResolvedChannel] = []
     for row in rows:
@@ -55,6 +69,7 @@ def resolve_destinations(
     match: dict,
     event_type: str,
     dao: ClubNotificationsDAO,
+    team_id: int | None = None,
 ) -> list[ResolvedChannel]:
     """The channels that should hear about this match event.
 
@@ -66,7 +81,7 @@ def resolve_destinations(
     club_ids = [c for c in (home_club.get("id"), away_club.get("id")) if c is not None]
     team_ids = [t for t in (match.get("home_team_id"), match.get("away_team_id")) if t is not None]
     rows = dao.list_for_match(club_ids, team_ids, match.get("age_group_id"))
-    return select_destinations(rows, event_type, match.get("age_group_name"))
+    return select_destinations(rows, event_type, match.get("age_group_name"), team_id)
 
 
 def resolve_user_push_subscriptions(

@@ -39,7 +39,7 @@ from notifications.adapters.base import (
     UnsupportedPlatformError,
 )
 from notifications.audience import player_channel_problem
-from notifications.preferences import EVENT_LABELS, EVENT_TYPES
+from notifications.preferences import CHANNEL_EVENT_TYPES, EVENT_LABELS, is_player_only
 from notifications.registry import get_adapter
 
 logger = structlog.get_logger(__name__)
@@ -113,6 +113,8 @@ class TestSendResult(BaseModel):
 class EventType(BaseModel):
     id: str
     label: str
+    # Only a squad's player channel can carry it (SB-1610).
+    player_only: bool = False
 
 
 class ChannelOut(ChannelScope):
@@ -226,10 +228,16 @@ def _validate_invite_url(adapter: ChannelAdapter, invite_url: str | None) -> Non
         raise _unprocessable(str(exc)) from None
 
 
-def _validate_event_types(event_types: list[str] | None) -> None:
-    unknown = sorted(set(event_types or []) - set(EVENT_TYPES))
+def _validate_event_types(
+    event_types: list[str] | None, scope_type: str | None = None, audience: str | None = None
+) -> None:
+    unknown = sorted(set(event_types or []) - set(CHANNEL_EVENT_TYPES))
     if unknown:
         raise _unprocessable(f"Unknown event types: {', '.join(unknown)}")
+    player_only = sorted(e for e in (event_types or []) if is_player_only(e))
+    if player_only and (scope_type != "team" or audience != "players"):
+        labels = ", ".join(EVENT_LABELS[e] for e in player_only)
+        raise _unprocessable(f"{labels} can only go to a squad's player channel")
 
 
 def _age_group_name(age_group_id: int) -> str:
@@ -252,7 +260,10 @@ def _validate_audience(body: ChannelCreate, adapter: ChannelAdapter) -> None:
 @router.get("/event-types", response_model=list[EventType])
 def list_event_types(current_user: dict = Depends(get_current_user_required)) -> list[EventType]:
     """The events a channel can be limited to, in display order."""
-    return [EventType(id=event, label=EVENT_LABELS[event]) for event in EVENT_TYPES]
+    return [
+        EventType(id=event, label=EVENT_LABELS[event], player_only=is_player_only(event))
+        for event in CHANNEL_EVENT_TYPES
+    ]
 
 
 @router.get("", response_model=list[ChannelOut])
@@ -279,7 +290,7 @@ def create_channel(
     adapter = _adapter(body.platform)
     _validate_destination(adapter, body.destination)
     _validate_invite_url(adapter, body.invite_url)
-    _validate_event_types(body.event_types)
+    _validate_event_types(body.event_types, body.scope_type, body.audience)
     _validate_audience(body, adapter)
     fields = body.model_dump()
     _clean_label(fields)
@@ -325,7 +336,7 @@ def update_channel(
         raise _unprocessable("destination cannot be null")
     if "enabled" in fields and fields["enabled"] is None:
         raise _unprocessable("enabled cannot be null")
-    _validate_event_types(fields.get("event_types"))
+    _validate_event_types(fields.get("event_types"), row["scope_type"], row.get("audience"))
     if "invite_url" in fields:
         _validate_invite_url(_adapter(row["platform"]), fields["invite_url"])
     _clean_label(fields)
