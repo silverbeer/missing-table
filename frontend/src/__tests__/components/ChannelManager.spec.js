@@ -46,6 +46,7 @@ const EVENTS = [
   { id: 'kickoff', label: 'Kickoff' },
   { id: 'goal', label: 'Goals' },
   { id: 'fulltime', label: 'Full time' },
+  { id: 'lineup', label: 'Lineup posted', player_only: true },
 ];
 
 const WEBHOOK = 'https://discord.com/api/webhooks/123/abc';
@@ -459,5 +460,45 @@ describe('community-run setup (SB-1612)', () => {
       'Add Reactions'
     );
     expect(w.find('[data-testid="form-age-note"]').text()).toContain('13');
+  });
+});
+
+describe('player-only events (SB-1610)', () => {
+  const openSquadForm = async () => {
+    const w = await mountManager({
+      scopeType: 'team',
+      teamId: 10,
+      ageGroupId: 3,
+    });
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    await w.find('[data-testid="form-events-some"]').setValue();
+    return w;
+  };
+
+  it('offers Lineup posted only on a squad player channel', async () => {
+    const w = await openSquadForm();
+    expect(w.find('[data-testid="form-event-lineup"]').exists()).toBe(false);
+    await w.find('[data-testid="form-audience-players"]').setValue();
+    expect(w.find('[data-testid="form-event-lineup"]').exists()).toBe(true);
+  });
+
+  it('drops a ticked lineup when the audience goes back to fans', async () => {
+    const w = await openSquadForm();
+    await w.find('[data-testid="form-audience-players"]').setValue();
+    await w.find('[data-testid="form-event-lineup"]').setValue(true);
+    await w.find('[data-testid="form-event-goal"]').setValue(true);
+    await w.find('[data-testid="form-audience-fans"]').setValue();
+    expect(w.find('[data-testid="form-event-lineup"]').exists()).toBe(false);
+    expect(w.find('[data-testid="form-event-goal"]').element.checked).toBe(
+      true
+    );
+  });
+
+  it('never offers it on a club channel', async () => {
+    const w = await mountManager();
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    await w.find('[data-testid="form-events-some"]').setValue();
+    await w.find('[data-testid="form-audience-players"]').setValue();
+    expect(w.find('[data-testid="form-event-lineup"]').exists()).toBe(false);
   });
 });

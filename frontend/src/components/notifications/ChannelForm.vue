@@ -127,7 +127,7 @@
         class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-fg mt-2"
       >
         <label
-          v-for="e in eventTypes"
+          v-for="e in offeredEvents"
           :key="e.id"
           class="inline-flex items-center gap-1.5"
         >
@@ -208,7 +208,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 
 /**
  * Add or edit one notification channel (SB-1605). The parent owns the form
@@ -228,6 +228,24 @@ const emit = defineEmits(['submit', 'cancel']);
 const platform = computed(() =>
   props.platforms.find(p => p.id === form.value?.platform)
 );
+
+// Player-only events (SB-1610, e.g. lineup posted) only make sense on a
+// squad's player channel; anywhere else they would never be sent.
+const playerChannel = computed(
+  () => props.scopeType === 'team' && form.value?.audience === 'players'
+);
+
+const offeredEvents = computed(() =>
+  props.eventTypes.filter(e => !e.player_only || playerChannel.value)
+);
+
+watch(playerChannel, isPlayerChannel => {
+  if (isPlayerChannel || !form.value?.events) return;
+  const playerOnly = new Set(
+    props.eventTypes.filter(e => e.player_only).map(e => e.id)
+  );
+  form.value.events = form.value.events.filter(id => !playerOnly.has(id));
+});
 
 const destinationLabel = computed(
   () => platform.value?.destination_label || 'Destination'
