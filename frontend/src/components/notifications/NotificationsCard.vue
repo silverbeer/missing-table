@@ -166,12 +166,12 @@
       </p>
     </div>
 
-    <!-- Followed teams (read-only summary) -->
+    <!-- Match alerts (read-only summary; same follows as the profile card) -->
     <div v-if="isSupported" class="follows-section">
-      <h4>Teams you follow</h4>
+      <h4>Your match alerts</h4>
       <p v-if="!follows.length" class="follows-empty">
-        You aren't following any teams yet. Open a team page and tap "Follow" to
-        start getting notifications for them.
+        No match alerts yet. Tap "Follow" on a team's page in the Matches tab,
+        or choose squads on your profile.
       </p>
       <ul v-else class="follows-list">
         <li

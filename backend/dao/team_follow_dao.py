@@ -65,6 +65,46 @@ class TeamFollowDAO(BaseDAO):
             )
             return False
 
+    def team_plays_age_group(self, team_id: int, age_group_id: int) -> bool | None:
+        """Whether the team is registered at this age group (team_mappings). None on error."""
+        try:
+            rows = (
+                self.client.table("team_mappings")
+                .select("team_id")
+                .eq("team_id", team_id)
+                .eq("age_group_id", age_group_id)
+                .limit(1)
+                .execute()
+            ).data
+            return bool(rows)
+        except Exception:
+            logger.exception("team_follow_age_check_failed", team_id=team_id, age_group_id=age_group_id)
+            return None
+
+    def follow_squad(self, user_id: str, team_id: int, age_group_id: int) -> bool:
+        """Follow one squad of any club (SB-1618). Idempotent.
+
+        A whole-team follow already covers every squad, so it is left as it is
+        and nothing is added.
+        """
+        try:
+            rows = (
+                self.client.table(TABLE)
+                .select("age_group_id")
+                .eq("user_id", user_id)
+                .eq("team_id", team_id)
+                .execute()
+            ).data or []
+            if any(r.get("age_group_id") in (None, age_group_id) for r in rows):
+                return True
+            self.client.table(TABLE).insert(
+                {"user_id": user_id, "team_id": team_id, "age_group_id": age_group_id}
+            ).execute()
+            return True
+        except Exception:
+            logger.exception("team_follow_squad_failed", user_id=user_id, team_id=team_id, age_group_id=age_group_id)
+            return False
+
     def unfollow(self, user_id: str, team_id: int, age_group_id: int | None = None) -> bool:
         """Unfollow a team: every row for it, or with `age_group_id` just that squad.
 
