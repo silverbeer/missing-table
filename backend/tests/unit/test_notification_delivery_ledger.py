@@ -19,12 +19,18 @@ class FakeLedger:
         self.keys = set()
         self.sent = {}
         self.failed = {}
+        self.retry = {}
+        self.content = {}
 
-    def claim(self, channel_id, event_key):
+    def claim(self, channel_id, event_key, content=None, match_id=None, event_type=None):
         if (channel_id, event_key) in self.keys:
             return None
         self.keys.add((channel_id, event_key))
+        self.content[len(self.keys)] = (content, match_id, event_type)
         return len(self.keys)
+
+    def mark_retry(self, delivery_id, error, next_attempt_at):
+        self.retry[delivery_id] = (error, next_attempt_at)
 
     def mark_sent(self, delivery_id, message_ref):
         self.sent[delivery_id] = message_ref
@@ -87,6 +93,21 @@ class TestPostToChannel:
         assert post(n) == "failed"
         assert ledger.failed == {1: "discord send failed: HTTP 403"}
         assert post(n) == "duplicate"
+
+    def test_the_claim_keeps_the_message_for_a_retry(self):
+        ledger = FakeLedger()
+        post(notifier(MagicMock(return_value=DeliveryResult()), ledger))
+        assert ledger.content[1] == ("hello", 1, "kickoff")
+
+    def test_a_retryable_failure_is_left_for_the_worker(self):
+        """SB-1604: a rate limit is retried later, not lost."""
+        send = MagicMock(side_effect=DeliveryError("discord send failed: HTTP 429", retryable=True, retry_after=90))
+        ledger = FakeLedger()
+        assert post(notifier(send, ledger)) == "retrying"
+        assert ledger.failed == {}
+        error, next_at = ledger.retry[1]
+        assert error == "discord send failed: HTTP 429"
+        assert next_at  # ISO time, at least the provider's 90 s away
 
     def test_unknown_errors_store_only_their_type(self):
         ledger = FakeLedger()

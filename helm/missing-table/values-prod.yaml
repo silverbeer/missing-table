@@ -53,6 +53,8 @@ backend:
 # Until then, the dispatcher logs NotificationConfigError and skips telegram.
 notifications:
   enabled: true
+  # SB-1604: background retry of failed chat posts.
+  retryWorker: "on"
 
 # Redis for caching (deployed by this Helm chart)
 redis:

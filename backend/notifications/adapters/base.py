@@ -43,7 +43,53 @@ class DeliveryError(RuntimeError):
 
     Provider errors can't be: an httpx error's text carries the request URL,
     which holds the Telegram bot token or a webhook's secret path.
+
+    `retryable` says whether trying again later could work (rate limit, server
+    error, network); `retry_after` is the provider's own wait, in seconds, when
+    it gave one (SB-1604).
     """
+
+    def __init__(self, message: str, retryable: bool = False, retry_after: float | None = None):
+        super().__init__(message)
+        self.retryable = retryable
+        self.retry_after = retry_after
+
+
+def _seconds(value) -> float | None:
+    try:
+        seconds = float(value)
+    except (TypeError, ValueError):
+        return None
+    return seconds if seconds >= 0 else None
+
+
+def classify_failure(exc: BaseException) -> tuple[bool, float | None]:
+    """(retryable, retry_after seconds) for a provider failure (SB-1604). Pure.
+
+    Retryable: HTTP 429 and 5xx, timeouts and other transport errors, and a
+    provider error body that names a wait (Discord's and Telegram's rate
+    limits). Anything else, e.g. a deleted webhook (404) or a bad chat ID
+    (400), will fail the same way again, so it is final.
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        wait = _seconds(exc.response.headers.get("Retry-After"))
+        if wait is None:
+            try:
+                body = exc.response.json()
+            except Exception:
+                body = {}
+            if isinstance(body, dict):
+                wait = _seconds(body.get("retry_after") or (body.get("parameters") or {}).get("retry_after"))
+        return (code == 429 or code >= 500), wait
+    if isinstance(exc, httpx.TransportError):
+        return True, None
+    body = getattr(exc, "response", None)
+    if isinstance(body, dict):
+        wait = _seconds(body.get("retry_after") or (body.get("parameters") or {}).get("retry_after"))
+        if wait is not None:
+            return True, wait
+    return False, None
 
 
 @dataclass(frozen=True)
@@ -121,7 +167,8 @@ class ChannelAdapter(ABC):
             detail = type(exc).__name__
             if isinstance(exc, httpx.HTTPStatusError):
                 detail = f"HTTP {exc.response.status_code}"
-            raise DeliveryError(f"{self.id} send failed: {detail}") from None
+            retryable, retry_after = classify_failure(exc)
+            raise DeliveryError(f"{self.id} send failed: {detail}", retryable, retry_after) from None
 
     @abstractmethod
     def _deliver(self, destination: str, content: str) -> DeliveryResult:
