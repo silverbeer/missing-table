@@ -336,3 +336,36 @@ MT does not add people to chat rooms. It decides who may see a channel's **invit
 It never says "Joined": MT gives out a link and cannot tell whether it was used.
 
 Managers add invite links on the setup screen (SB-1605); the form checks each one against the platform's private-link pattern. The old `channel_access_requests` table and `/api/channel-requests` (admin review screen) stay until that screen moves over.
+
+## Personal alerts: team and squad follows (SB-1608)
+
+Chat channels post to a group. A **follow** sends match alerts to one user's own devices (web push, iOS via APNs, Android via FCM). Following is for alerts only; it never grants access to a chat channel.
+
+A team row spans several age groups, so a follow names the squad:
+
+| `user_team_follows.age_group_id` | Alerts for |
+|---|---|
+| `NULL` | every age group of the team. Every follow made before SB-1608 is one of these and keeps exactly the alerts it had. The Follow button on a team page and the mobile apps still create these. |
+| `N` | matches of that team in age group `N` only |
+
+- The dispatcher passes the match's age group to the follower lookup, and `follows_match` in `dao/team_follow_dao.py` decides each row. All three device fan-outs share that lookup.
+- A match with no age group reaches whole-team followers only, because MT cannot tell which squad played.
+- Rows are unique on `(user_id, team_id, age_group_id)`, with `NULL` counted as a value.
+- Per-event preferences (kickoff, goals, cards…) remain per user. There is no per-squad override yet.
+
+**Choosing squads.** On the fan profile, the **My squads** card opens a picker of every squad in the fan's own club, grouped by league. Saving sends `PUT /api/me/squad-follows` with `{squads: [{team_id, age_group_id}, …]}`, which replaces the fan's follows of their club's teams:
+
+- A whole-team follow of a club team is replaced by the squads ticked for it. The picker shows an existing whole-team follow with all of that team's squads ticked, so saving without changes keeps every alert.
+- Follows of other clubs' teams are untouched.
+- New rows are written before old ones are removed, so a failed save can leave extra alerts but never removes any.
+- Only `team-fan` and `club-fan` accounts can use it, and only for squads in their own club; anything else is a 400.
+
+**Assignment is separate.** A fan's `team_id` and `assigned_age_group_id` are their assigned team. Only a team-fan invite or an admin sets them, and the profile shows that team as "set by your team manager". Before SB-1608 a fan's own pick (`PUT /api/me/team`) wrote the same fields, so a self-pick could not be told apart from a manager's assignment. That endpoint is gone, and choosing squads never touches the profile. MT AI's "my team" reads the assignment only.
+
+| Endpoint | What |
+|---|---|
+| `GET /api/me/team-options` | the fan's club squads, plus the assigned team as `current_team_id` / `current_age_group_id` |
+| `PUT /api/me/squad-follows` | replace the fan's own-club squad follows |
+| `POST /api/users/me/team-follows` `{team_id}` | follow a whole team (any club) |
+| `GET /api/users/me/team-follows` | every follow, with `age_group_id` and `age_group {id, name}` |
+| `DELETE /api/users/me/team-follows/{team_id}[?age_group_id=N]` | without `age_group_id`, removes every follow of the team (what the apps send); with it, removes only that squad |

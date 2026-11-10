@@ -1240,12 +1240,16 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
         raise HTTPException(status_code=500, detail="Failed to get profile") from e
 
 
-class MyTeamPick(BaseModel):
-    """A fan's "my team": a team in their club and one age group it plays (SB-1543).
-    Both null clears the pick."""
+class SquadPick(BaseModel):
+    team_id: int = Field(..., ge=1)
+    age_group_id: int = Field(..., ge=1)
 
-    team_id: int | None = None
-    age_group_id: int | None = None
+
+class SquadFollows(BaseModel):
+    """A fan's chosen squads in their own club, for match alerts (SB-1608).
+    An empty list stops following every squad in the club."""
+
+    squads: list[SquadPick] = Field(default_factory=list, max_length=100)
 
 
 @functools.cache
@@ -1255,47 +1259,53 @@ def _my_team_deps():
     return dao_tool_deps()
 
 
+def _follow_dao():
+    from api.push import _follow_dao as push_follow_dao
+
+    return push_follow_dao()
+
+
 @app.get("/api/me/team-options")
 async def get_my_team_options(current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """The teams a fan may pick: their club's teams, one entry per age group."""
+    """The squads a fan may follow: their club's teams, one entry per age group.
+
+    `current_team_id`/`current_age_group_id` are the team a manager or admin
+    assigned (by invite), never a fan's own choice (SB-1608)."""
     from mt_ai.tools.schemas import Viewer
     from mt_tools.my_team import PICK_ROLES, team_pick_options
 
     if current_user.get("role") not in PICK_ROLES:
-        raise HTTPException(status_code=403, detail="Only fans pick a team; managers and players get theirs by invite")
+        raise HTTPException(status_code=403, detail="Only fans pick squads; managers and players get theirs by invite")
     options = await asyncio.to_thread(team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user))
     return options.model_dump()
 
 
-@app.put("/api/me/team")
-async def set_my_team(pick: MyTeamPick, current_user: dict[str, Any] = Depends(get_current_user_required)):
-    """Save a fan's pick. Only a team in their own club, at an age group it plays:
-    team_id also feeds roster visibility (via its club), so a pick outside the club
-    would widen it. Managers and players keep the team their invite gave them."""
+@app.put("/api/me/squad-follows")
+async def set_my_squad_follows(picks: SquadFollows, current_user: dict[str, Any] = Depends(get_current_user_required)):
+    """Replace which of their own club's squads a fan follows for alerts (SB-1608).
+
+    Only squads in the fan's club, at an age group the team plays. Follows of
+    other clubs' teams are untouched. Writes follows only: the team a manager
+    assigned (`team_id`, `assigned_age_group_id`) stays as it was, and channel
+    access does not change.
+    """
     from mt_ai.tools.schemas import Viewer
     from mt_tools.my_team import PICK_ROLES, is_valid_pick, team_pick_options
 
     if current_user.get("role") not in PICK_ROLES:
-        raise HTTPException(status_code=403, detail="Only fans pick a team; managers and players get theirs by invite")
-    if (pick.team_id is None) != (pick.age_group_id is None):
-        raise HTTPException(status_code=400, detail="Send both team_id and age_group_id, or neither to clear")
-    if pick.team_id is not None:
-        options = await asyncio.to_thread(
-            team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user)
-        )
-        if not is_valid_pick(options, pick.team_id, pick.age_group_id):
-            raise HTTPException(status_code=400, detail="That team and age group aren't in your club")
-    update = {
-        "team_id": pick.team_id,
-        "assigned_age_group_id": pick.age_group_id,
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    if pick.team_id is None and current_user.get("role") == "team-fan" and not current_user.get("club_id"):
-        # Clearing must not strand a team fan with no club: keep their team, drop the age.
-        update.pop("team_id")
-    player_dao.update_user_profile(current_user["user_id"], update)
-    logger.info("my_team_picked", user_id=current_user["user_id"], team_id=pick.team_id, age_group_id=pick.age_group_id)
-    return {"success": True, "team_id": pick.team_id, "age_group_id": pick.age_group_id}
+        raise HTTPException(status_code=403, detail="Only fans pick squads; managers and players get theirs by invite")
+    options = await asyncio.to_thread(team_pick_options, _my_team_deps(), current_user, Viewer.from_user(current_user))
+    if options.status != "ok":
+        raise HTTPException(status_code=400, detail="Your account isn't linked to a club yet")
+    squads = {(p.team_id, p.age_group_id) for p in picks.squads}
+    if any(not is_valid_pick(options, t, a) for t, a in squads):
+        raise HTTPException(status_code=400, detail="Pick only squads in your club")
+    club_team_ids = {o.team_id for o in options.options}
+    ok = await asyncio.to_thread(_follow_dao().set_club_squads, current_user["user_id"], club_team_ids, squads)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not save your squads")
+    logger.info("squad_follows_set", user_id=current_user["user_id"], count=len(squads))
+    return {"squads": [{"team_id": t, "age_group_id": a} for t, a in sorted(squads)]}
 
 
 @app.put("/api/auth/profile")

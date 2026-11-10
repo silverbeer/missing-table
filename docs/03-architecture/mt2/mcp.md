@@ -396,16 +396,17 @@ plays in no visible competition. Visibility is `search_teams`' team index. A fai
 tools must resolve the team through it, then re-check that team with `auth.py`
 (`can_manage_team`) before writing.**
 
-*A fan's pick (SB-1543):* "my team" is club + league + age group (IFA + Homegrown + U15).
-A team row is a club in one league, so it is `team_id` plus `assigned_age_group_id`. Fans
-(`team-fan`, `club-fan`) pick it themselves — `GET /api/me/team-options` lists their club's
-visible teams one entry per age group, `PUT /api/me/team` saves a pair from that list and
-nothing else (team_id feeds roster visibility through its club, so a pick outside the club
-would widen it). A team-fan invite's age group is written at signup; admins set it in the
-user edit. With a pick, `get_my_team` returns just that entry, so "my team" needs no
-follow-up question; a pick the team no longer plays is ignored, not an empty answer.
-Managers and players keep the team their invite gave them. Several teams per user waits for
-SB-1319.
+*A fan's assigned team (SB-1543, SB-1608):* "my team" is club + league + age group (IFA +
+Homegrown + U15). A team row is a club in one league, so it is `team_id` plus
+`assigned_age_group_id`. Only a team-fan invite (at signup) or an admin (user edit) writes
+them. Fans used to pick it themselves with `PUT /api/me/team`. SB-1608 removed that, because
+a self-pick overwrote the manager's assignment and the two could not be told apart. A fan now
+follows squads in their club for alerts instead (`PUT /api/me/squad-follows`, see
+`docs/08-integrations/live-match-notifications.md`). Those follows are not membership, and
+`get_my_team` does not read them. With an assigned age group, `get_my_team` returns just that
+entry, so "my team" needs no follow-up question. An assigned age group the team no longer
+plays is ignored, not an empty answer. Managers and players keep the team their invite gave
+them. Several teams per user waits for SB-1319.
 
 *Active teams only (SB-1322):* a club accumulates every team it has ever had — IFA has 7,
 4 of them dead — so `get_my_team` lists only **active** teams by default. Active means the

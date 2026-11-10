@@ -1,8 +1,9 @@
 """Which team is "mine" (SB-1317): the one place a caller's team membership is read.
 
 Today membership is the caller's profile — `team_id`, or `club_id` alone for club
-managers and club fans — plus, for fans, the age group they picked
-(`assigned_age_group_id`, SB-1543). A team row is a club in one league (IFA
+managers and club fans — plus, for fans, the age group they were assigned
+(`assigned_age_group_id`, SB-1543). Since SB-1608 only an invite or an admin
+writes those; a fan's own squad choices are follows (alerts), not membership. A team row is a club in one league (IFA
 Homegrown, IFA Academy); the age group makes it the squad a fan means. This is
 the one place my-tier and team-write tools read membership. auth.py's
 `can_manage_team` reads the profile itself, and must change together with this
@@ -169,10 +170,10 @@ PICK_ROLES = frozenset({"team-fan", "club-fan", "team_fan", "club_fan"})
 
 
 class TeamPickOptions(BaseModel):
-    """What a fan may pick as "my team": their club's teams, one entry per age group.
+    """The squads a fan may follow: their club's teams, one entry per age group.
 
     `status` "no_club" means the profile has no club (or one this viewer can't see):
-    nothing to pick from. `current` is the stored pick, if any.
+    nothing to pick from. `current_*` is the team a manager or admin assigned, if any.
     """
 
     status: Literal["ok", "no_club"]
@@ -215,8 +216,8 @@ def age_number_of(candidate: TeamCandidate) -> int:
 
 
 def is_valid_pick(options: TeamPickOptions, team_id: int, age_group_id: int) -> bool:
-    """Only a team in the fan's own club, at an age group it plays. Keeps a pick from
-    widening anything team_id feeds (roster visibility derives the club from it)."""
+    """Only a team in the fan's own club, at an age group it plays (SB-1608: the
+    multi-squad picker is limited to the fan's club)."""
     return options.status == "ok" and any(
         c.team_id == team_id and c.age_group is not None and c.age_group.id == age_group_id for c in options.options
     )
