@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+import httpx
 from discord_notify import DiscordWebhookClient
 
-from notifications.adapters.base import ChannelAdapter, DeliveryResult
+from notifications.adapters.base import Capability, ChannelAdapter, DeliveryResult
+
+TIMEOUT_SECONDS = 10.0
 
 
 class DiscordAdapter(ChannelAdapter):
@@ -40,6 +43,36 @@ class DiscordAdapter(ChannelAdapter):
     destination_error: ClassVar[str] = "Discord destination must be a webhook URL"
     # Discord's minimum age is 13; U14 is the youngest squad that clears it.
     min_player_age: ClassVar[int | None] = 14
+
+    # Match threads (SB-1606): a webhook in a forum channel.
+    capabilities: ClassVar[frozenset[Capability]] = frozenset({Capability.THREADS})
+
+    def _deliver_in_thread(
+        self, destination: str, content: str, thread_ref: str | None, thread_name: str | None
+    ) -> DeliveryResult:
+        """POST to the webhook with wait=true so Discord returns the message.
+
+        `thread_name` makes a new forum post (forum and media channels only);
+        `thread_id` posts into an existing one. A message posted in a thread
+        carries the thread as its channel_id, which is how the new post's id
+        comes back for follow-ups. Send test on a forum channel checks this
+        live: it creates a post, then replies into it with that id.
+        """
+        params: dict[str, str] = {"wait": "true"}
+        body: dict[str, str] = {"content": content}
+        if thread_ref:
+            params["thread_id"] = thread_ref
+        elif thread_name:
+            body["thread_name"] = thread_name[:100]
+        response = httpx.post(destination, params=params, json=body, timeout=TIMEOUT_SECONDS)
+        response.raise_for_status()
+        data = response.json() if response.content else {}
+        message_id = data.get("id")
+        thread = data.get("channel_id") or thread_ref
+        return DeliveryResult(
+            message_ref=None if message_id is None else str(message_id),
+            thread_ref=None if thread is None else str(thread),
+        )
 
     def _deliver(self, destination: str, content: str) -> DeliveryResult:
         # Discord-flavored markdown is permissive, so the text goes as-is.

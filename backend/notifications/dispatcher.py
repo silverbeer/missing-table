@@ -22,6 +22,7 @@ from dao.club_notifications_dao import ClubNotificationsDAO
 from dao.fcm_device_dao import FcmDeviceDAO
 from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.notification_deliveries_dao import DeliveryLedgerError, NotificationDeliveriesDAO
+from dao.notification_threads_dao import NotificationThreadsDAO
 from dao.push_send_log_dao import PushSendLogDAO
 from dao.push_subscription_dao import PushSubscriptionDAO
 from dao.team_follow_dao import TeamFollowDAO
@@ -36,9 +37,10 @@ from notifications.channel_resolver import (
 )
 from notifications.fcm_sender import is_configured as fcm_is_configured
 from notifications.fcm_sender import send_fcm
-from notifications.formatters import format_event
+from notifications.formatters import format_event, thread_title
 from notifications.preferences import DEFAULT_PREFERENCES, is_player_only
 from notifications.retry_policy import next_attempt
+from notifications.threads import send as thread_send
 from notifications.web_push_sender import is_configured as push_is_configured
 from notifications.web_push_sender import send_push
 
@@ -115,6 +117,7 @@ class Notifier:
         self._match_dao: MatchDAO | None = None
         self._notif_dao: ClubNotificationsDAO | None = None
         self._delivery_dao: NotificationDeliveriesDAO | None = None
+        self._threads_dao: NotificationThreadsDAO | None = None
         self._team_follow_dao: TeamFollowDAO | None = None
         self._bracket_follow_dao: BracketFollowDAO | None = None
         self._push_sub_dao: PushSubscriptionDAO | None = None
@@ -155,6 +158,12 @@ class Notifier:
         if self._delivery_dao is None:
             self._delivery_dao = NotificationDeliveriesDAO(self.connection)
         return self._delivery_dao
+
+    @property
+    def threads_dao(self) -> NotificationThreadsDAO:
+        if self._threads_dao is None:
+            self._threads_dao = NotificationThreadsDAO(self.connection)
+        return self._threads_dao
 
     @property
     def team_follow_dao(self) -> TeamFollowDAO:
@@ -279,8 +288,9 @@ class Notifier:
         target_team_id = (extra or {}).get("team_id") if player_only else None
         destinations = [] if is_test else resolve_destinations(match, event_type, self.notif_dao, target_team_id)
         if destinations:
+            title = thread_title(match, tz)
             outcomes = [
-                self._post_to_channel(channel, content, event_key, match_id, event_type)
+                self._post_to_channel(channel, content, event_key, match_id, event_type, title)
                 for channel in destinations
             ]
             logger.info(
@@ -377,6 +387,7 @@ class Notifier:
         event_key: str | None,
         match_id: int,
         event_type: str,
+        thread_name: str | None = None,
     ) -> str:
         """Post once to one channel. Returns "sent", "failed", "retrying" or "duplicate".
 
@@ -400,7 +411,17 @@ class Notifier:
                 )
 
         try:
-            result = self.send_fn(channel.platform, channel.destination, content)
+            result = thread_send(
+                self.send_fn,
+                channel.platform,
+                channel.destination,
+                content,
+                post_as_threads=channel.post_as_threads,
+                channel_id=channel.channel_id,
+                match_id=match_id,
+                thread_name=thread_name,
+                threads=self.threads_dao if channel.post_as_threads else None,
+            )
         except Exception as exc:
             error = _safe_error(exc)
             logger.warning(

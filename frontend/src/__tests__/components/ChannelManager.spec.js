@@ -22,6 +22,7 @@ const PLATFORMS = [
     destination_label: 'Webhook URL',
     setup_steps: ['Open channel settings.', 'Copy the webhook URL.'],
     player_setup_steps: ['Deny Send Messages, keep Add Reactions.'],
+    capabilities: ['threads'],
     age_note: 'Discord requires members to be at least 13.',
     destination_pattern: '^https://discord\\.com/api/webhooks/\\d+/[\\w-]+$',
     destination_error: 'Must be a Discord webhook URL',
@@ -257,6 +258,7 @@ describe('adding a channel', () => {
       label: '#u15',
       invite_url: null,
       event_types: ['goal'],
+      post_as_threads: false,
     });
     expect(w.find('[data-testid="flash-success"]').exists()).toBe(true);
   });
@@ -369,6 +371,7 @@ describe('editing a channel', () => {
       label: null,
       invite_url: null,
       event_types: ['goal'],
+      post_as_threads: false,
     });
   });
 
@@ -500,5 +503,51 @@ describe('player-only events (SB-1610)', () => {
     await w.find('[data-testid="form-events-some"]').setValue();
     await w.find('[data-testid="form-audience-players"]').setValue();
     expect(w.find('[data-testid="form-event-lineup"]').exists()).toBe(false);
+  });
+});
+
+describe('match threads (SB-1606)', () => {
+  const posts = () =>
+    apiRequest.mock.calls.filter(c => c[1]?.method === 'POST');
+
+  it('offers one post per match for Discord, not Telegram', async () => {
+    const w = await mountManager({
+      scopeType: 'team',
+      teamId: 10,
+      ageGroupId: 3,
+    });
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    expect(w.find('[data-testid="form-threads"]').exists()).toBe(true);
+    await w.find('[data-testid="form-platform"]').setValue('telegram');
+    expect(w.find('[data-testid="form-threads"]').exists()).toBe(false);
+  });
+
+  it('keeps a club players room flat', async () => {
+    const w = await mountManager();
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    expect(w.find('[data-testid="form-threads"]').exists()).toBe(true);
+    await w.find('[data-testid="form-audience-players"]').setValue();
+    expect(w.find('[data-testid="form-threads"]').exists()).toBe(false);
+  });
+
+  it('sends post_as_threads when ticked', async () => {
+    const w = await mountManager({
+      scopeType: 'team',
+      teamId: 10,
+      ageGroupId: 3,
+    });
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    await w.find('[data-testid="form-destination"]').setValue(WEBHOOK);
+    await w.find('[data-testid="form-threads"]').setValue(true);
+    await w.find('form').trigger('submit');
+    await flushPromises();
+    const body = JSON.parse(posts().at(-1)[1].body);
+    expect(body.post_as_threads).toBe(true);
+  });
+
+  it('tags a channel that posts match threads', async () => {
+    channelRows = [channel({ post_as_threads: true })];
+    const w = await mountManager();
+    expect(w.find('[data-testid="threads-7"]').text()).toBe('Match threads');
   });
 });

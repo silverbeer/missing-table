@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from notifications.retry_policy import next_attempt
+from notifications.threads import send as thread_send
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -73,12 +74,20 @@ def _record(deliveries, row: dict, future: Future, now_fn: Callable[[], datetime
         logger.info("notifications.retry_scheduled", delivery_id=delivery_id, attempt=row.get("attempts"))
 
 
+def _recorder(deliveries, row: dict, now_fn: Callable[[], datetime]) -> Callable[[Future], None]:
+    def done(future: Future) -> None:
+        _record(deliveries, row, future, now_fn)
+
+    return done
+
+
 def process_due(
     deliveries,
     channels,
     send_fn: Callable,
     executor: ThreadPoolExecutor,
     now_fn: Callable[[], datetime] = lambda: datetime.now(UTC),
+    threads=None,
 ) -> int:
     """Claim due posts and start sending them. Returns how many were started.
 
@@ -91,8 +100,19 @@ def process_due(
         if channel is None or not channel.get("enabled"):
             deliveries.mark_failed(row["id"], "Channel removed or paused before it could be sent")
             continue
-        future = executor.submit(send_fn, channel["platform"], channel["destination"], row["content"])
-        future.add_done_callback(lambda f, r=row: _record(deliveries, r, f, now_fn))
+        future = executor.submit(
+            thread_send,
+            send_fn,
+            channel["platform"],
+            channel["destination"],
+            row["content"],
+            post_as_threads=bool(channel.get("post_as_threads")),
+            channel_id=row["channel_id"],
+            match_id=row.get("match_id"),
+            thread_name=None,  # the thread row keeps its name; see notifications/threads.py
+            threads=threads,
+        )
+        future.add_done_callback(_recorder(deliveries, row, now_fn))
         started += 1
     return started
 
@@ -104,9 +124,10 @@ def enabled() -> bool:
 class RetryWorker:
     """A daemon thread that calls process_due every INTERVAL_SECONDS."""
 
-    def __init__(self, deliveries, channels, send_fn: Callable, interval: float = INTERVAL_SECONDS):
+    def __init__(self, deliveries, channels, send_fn: Callable, interval: float = INTERVAL_SECONDS, threads=None):
         self._deliveries = deliveries
         self._channels = channels
+        self._threads = threads
         self._send_fn = send_fn
         self._interval = interval
         self._stop = threading.Event()
@@ -129,7 +150,7 @@ class RetryWorker:
             if not is_notifications_enabled():
                 continue
             try:
-                process_due(self._deliveries, self._channels, self._send_fn, self._executor)
+                process_due(self._deliveries, self._channels, self._send_fn, self._executor, threads=self._threads)
             except Exception as exc:  # never let the loop die
                 logger.warning("notifications.retry_worker_error", error_type=type(exc).__name__)
 
@@ -143,10 +164,13 @@ async def retry_worker_lifespan():
     from dao.match_dao import SupabaseConnection
     from dao.notification_channels_dao import NotificationChannelsDAO
     from dao.notification_deliveries_dao import NotificationDeliveriesDAO
+    from dao.notification_threads_dao import NotificationThreadsDAO
     from notifications.senders import send_to
 
     conn = SupabaseConnection()
-    worker = RetryWorker(NotificationDeliveriesDAO(conn), NotificationChannelsDAO(conn), send_to)
+    worker = RetryWorker(
+        NotificationDeliveriesDAO(conn), NotificationChannelsDAO(conn), send_to, threads=NotificationThreadsDAO(conn)
+    )
     worker.start()
     try:
         yield

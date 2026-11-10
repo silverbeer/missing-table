@@ -74,6 +74,13 @@
             >
               Paused
             </span>
+            <span
+              v-if="channel.post_as_threads"
+              class="pill threads"
+              :data-testid="`threads-${channel.id}`"
+            >
+              Match threads
+            </span>
           </div>
 
           <dl class="details">
@@ -327,6 +334,7 @@ const blankForm = () => ({
   invite_url: '',
   eventsMode: 'all',
   events: [],
+  post_as_threads: false,
 });
 
 const openAdd = () => {
@@ -343,6 +351,7 @@ const openEdit = channel => {
     invite_url: channel.invite_url || '',
     eventsMode: channel.event_types === null ? 'all' : 'some',
     events: [...(channel.event_types || [])],
+    post_as_threads: Boolean(channel.post_as_threads),
   };
   formMode.value = channel.id;
 };
@@ -387,6 +396,7 @@ const create = async () => {
     label: f.label.trim() || null,
     invite_url: f.invite_url.trim() || null,
     event_types: eventTypesOf(f),
+    post_as_threads: Boolean(f.post_as_threads),
   };
   const ok = await run('new', () =>
     authStore.apiRequest(`${api()}/notification-channels`, {
@@ -407,6 +417,7 @@ const saveEdit = async channel => {
     label: f.label.trim() || null,
     invite_url: f.invite_url.trim() || null,
     event_types: eventTypesOf(f),
+    post_as_threads: Boolean(f.post_as_threads),
   };
   if (f.destination.trim()) body.destination = f.destination.trim();
   const ok = await run(channel.id, () =>
@@ -516,6 +527,10 @@ onMounted(load);
   background: #fef3c7;
   color: #92400e;
 }
+.pill.threads {
+  background: #e0e7ff;
+  color: #3730a3;
+}
 .link {
   color: #2563eb;
   text-decoration: underline;
@@ -575,6 +590,10 @@ onMounted(load);
 :global(.dark .channel-manager .pill.paused) {
   background: rgb(245 158 11 / 0.15);
   color: #fcd34d;
+}
+:global(.dark .channel-manager .pill.threads) {
+  background: rgb(99 102 241 / 0.18);
+  color: #c7d2fe;
 }
 :global(.dark .channel-manager .link),
 :global(.dark .channel-manager .link-btn) {

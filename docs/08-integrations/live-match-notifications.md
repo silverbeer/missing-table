@@ -117,7 +117,7 @@ The flow: create the platform destination (once per club), then paste the identi
 3. Name it (e.g. `Missing Table`), pick the channel, copy the **Webhook URL**.
 4. The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. Treat it like a password — anyone with this URL can post to your channel.
 
-Full guide, including the forum layout for match threads and read-only player rooms: [discord-setup.md](discord-setup.md).
+Full guide, including forum channels for match threads (SB-1606) and read-only player rooms: [discord-setup.md](discord-setup.md).
 
 ### Slack
 
@@ -445,3 +445,21 @@ The live path posts each message once. A post is no longer lost when the provide
   - The global kill switch (`NOTIFICATIONS_ENABLED`) pauses it.
 - **Switch:** `NOTIFICATION_RETRY_WORKER` (`notifications.retryWorker` in Helm). Off by default, so tests and local runs never start it; `"on"` in `values-prod.yaml`.
 - **Duplicates:** a post that succeeded at the provider but whose result was lost (e.g. a timeout after delivery) can be posted twice. That is preferred to losing a goal update; the ledger's unique `(channel_id, event_key)` still stops a resent event from creating a second row.
+
+
+## Match threads (SB-1606)
+
+A channel with `post_as_threads` posts each match as its own thread and every later update for that match into it. Today that means a Discord forum post. A channel without it, a platform without `Capability.THREADS` (Slack, Telegram), or a post with no match goes out flat as before.
+
+- **Thread state:** `notification_threads`, one row per `(channel_id, match_id)`. The unique constraint is the lock.
+  - The first sender inserts the row, creates the thread named by `thread_title` (e.g. "IFA vs NEFC · U15 · Sat Nov 14"), and stores the thread id in `thread_ref`.
+  - Later posts reply into that thread.
+  - A post arriving while the thread is still being created fails retryably (5 s), and the retry worker (SB-1604) posts it into the thread.
+  - A creator that failed releases its claim, and one that died goes stale after 120 s. Either way the next sender takes over atomically, so two goals at once never make two threads.
+- **Discord** (`DiscordAdapter._deliver_in_thread`) calls the webhook with `wait=true`, so Discord returns the message:
+  - A new thread sends `thread_name`; a follow-up sends `thread_id`.
+  - The new thread's id is the returned message's `channel_id`, since a thread is a channel.
+  - `discord-notify` has no `wait` or thread support, so the adapter calls `httpx` directly.
+- **Checking it live:** Send test on a threaded channel creates a "Missing Table test" post, then replies into it with the returned id. It reports an error if no thread id came back.
+- **Limits:** the API refuses `post_as_threads` (422) on a platform without threads, and on a club players channel, which stays flat until read-only permissions are confirmed to work with forum posts.
+- **Not built (follow-ups):** Slack threads need a bot token and `chat.postMessage`, because webhooks do not return `ts`. Telegram would use forum topics (`message_thread_id`, with an admin bot holding `can_manage_topics`) or reply chains.

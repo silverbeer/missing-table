@@ -98,6 +98,25 @@
       </small>
     </label>
 
+    <label
+      v-if="threadsOffered"
+      class="field inline-flex items-start gap-2 text-sm text-fg"
+    >
+      <input
+        v-model="form.post_as_threads"
+        type="checkbox"
+        :disabled="busy"
+        data-testid="form-threads"
+      />
+      <span>
+        One post per match
+        <small class="block">
+          For a Discord forum channel: each match gets its own post and its
+          updates go into it. Point the webhook at the forum channel itself.
+        </small>
+      </span>
+    </label>
+
     <fieldset class="field">
       <legend>What to post</legend>
       <div class="flex gap-4 text-sm text-fg pt-1">
@@ -228,6 +247,18 @@ const emit = defineEmits(['submit', 'cancel']);
 const platform = computed(() =>
   props.platforms.find(p => p.id === form.value?.platform)
 );
+
+// Match threads (SB-1606): platforms that have them, except a club players
+// room, which stays flat.
+const threadsOffered = computed(
+  () =>
+    Boolean(platform.value?.capabilities?.includes('threads')) &&
+    !(props.scopeType === 'club' && form.value?.audience === 'players')
+);
+
+watch(threadsOffered, offered => {
+  if (!offered && form.value) form.value.post_as_threads = false;
+});
 
 // Player-only events (SB-1610, e.g. lineup posted) only make sense on a
 // squad's player channel; anywhere else they would never be sent.

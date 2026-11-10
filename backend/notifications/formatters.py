@@ -153,6 +153,24 @@ EVENT_FORMATTERS = {
 }
 
 
+def thread_title(match: dict, tz: ZoneInfo) -> str:
+    """A match thread's name (SB-1606), e.g. 'IFA vs NEFC · U15 · Sat Nov 14'. Max 100 chars."""
+    parts = [_matchup_line(match)]
+    age = match.get("age_group_name")
+    if age:
+        parts.append(str(age))
+    raw = match.get("scheduled_kickoff") or match.get("match_date")
+    if raw:
+        try:
+            when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if when.tzinfo is not None:
+                when = when.astimezone(tz)
+            parts.append(when.strftime("%a %b %-d"))
+        except (ValueError, TypeError):
+            pass
+    return " · ".join(parts)[:100]
+
+
 def format_lineup(event: dict, match: dict, tz: ZoneInfo) -> str | None:
     """A squad's lineup was saved (SB-1610). Player channels only.
 
