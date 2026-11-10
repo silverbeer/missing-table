@@ -11,6 +11,7 @@ user-facing live-scoring flow.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import structlog
@@ -37,6 +38,7 @@ from notifications.fcm_sender import is_configured as fcm_is_configured
 from notifications.fcm_sender import send_fcm
 from notifications.formatters import format_event
 from notifications.preferences import DEFAULT_PREFERENCES, is_player_only
+from notifications.retry_policy import next_attempt
 from notifications.web_push_sender import is_configured as push_is_configured
 from notifications.web_push_sender import send_push
 
@@ -288,6 +290,7 @@ class Notifier:
                 sent=outcomes.count("sent"),
                 failed=outcomes.count("failed"),
                 duplicate=outcomes.count("duplicate"),
+                retrying=outcomes.count("retrying"),
             )
         elif is_test:
             logger.info(
@@ -375,7 +378,7 @@ class Notifier:
         match_id: int,
         event_type: str,
     ) -> str:
-        """Post once to one channel. Returns "sent", "failed" or "duplicate".
+        """Post once to one channel. Returns "sent", "failed", "retrying" or "duplicate".
 
         The ledger row is claimed before the post, so a crash mid-send leaves a
         missed message rather than a double one. If the ledger itself is down
@@ -385,7 +388,7 @@ class Notifier:
         delivery_id = None
         if event_key:
             try:
-                delivery_id = self.delivery_dao.claim(channel.channel_id, event_key)
+                delivery_id = self.delivery_dao.claim(channel.channel_id, event_key, content, match_id, event_type)
                 if delivery_id is None:
                     return "duplicate"
             except DeliveryLedgerError:
@@ -409,6 +412,17 @@ class Notifier:
                 error=error,
             )
             if delivery_id is not None:
+                # A rate limit, server error or network failure is retried by
+                # the delivery worker (SB-1604); anything else is final.
+                retry_at = next_attempt(
+                    1,
+                    bool(getattr(exc, "retryable", False)),
+                    getattr(exc, "retry_after", None),
+                    datetime.now(UTC),
+                )
+                if retry_at is not None:
+                    self.delivery_dao.mark_retry(delivery_id, error, retry_at.isoformat())
+                    return "retrying"
                 self.delivery_dao.mark_failed(delivery_id, error)
             return "failed"
 

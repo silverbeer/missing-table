@@ -25,14 +25,27 @@ class DeliveryLedgerError(Exception):
 class NotificationDeliveriesDAO(BaseDAO):
     """Data access for the notification delivery ledger."""
 
-    def claim(self, channel_id: int, event_key: str) -> int | None:
-        """Reserve this event on this channel.
+    def claim(
+        self,
+        channel_id: int,
+        event_key: str,
+        content: str | None = None,
+        match_id: int | None = None,
+        event_type: str | None = None,
+    ) -> int | None:
+        """Reserve this event on this channel, keeping the message for a retry (SB-1604).
 
         Returns the new delivery id, or None if it was already claimed.
         Raises DeliveryLedgerError if the ledger cannot answer.
         """
         try:
-            row = {"channel_id": channel_id, "event_key": event_key}
+            row = {
+                "channel_id": channel_id,
+                "event_key": event_key,
+                "content": content,
+                "match_id": match_id,
+                "event_type": event_type,
+            }
             return self.client.table(TABLE).insert(row).execute().data[0]["id"]
         except Exception as exc:
             if _UNIQUE_VIOLATION in str(exc):
@@ -73,6 +86,27 @@ class NotificationDeliveriesDAO(BaseDAO):
     def mark_failed(self, delivery_id: int, error: str) -> None:
         """Record a failed post. `error` must already be safe to store."""
         self._finish(delivery_id, {"status": "failed", "error": error[:_MAX_ERROR_LENGTH]})
+
+    def mark_retry(self, delivery_id: int, error: str, next_attempt_at: str) -> None:
+        """Leave the post pending for the retry worker, due at `next_attempt_at` (ISO)."""
+        self._finish(delivery_id, {"error": error[:_MAX_ERROR_LENGTH], "next_attempt_at": next_attempt_at})
+
+    def claim_due(self, limit: int, lease_seconds: int, stale_seconds: int) -> list[dict]:
+        """Atomically take up to `limit` due posts for the retry worker (SB-1604).
+
+        Each comes back with its attempt already counted and leased for
+        `lease_seconds`, so a worker that dies mid-send leaves it to be retried.
+        Raises DeliveryLedgerError when the ledger cannot answer.
+        """
+        try:
+            response = self.client.rpc(
+                "claim_due_notification_deliveries",
+                {"p_limit": limit, "p_lease_seconds": lease_seconds, "p_stale_seconds": stale_seconds},
+            ).execute()
+            return response.data or []
+        except Exception as exc:
+            logger.error("dao_notification_deliveries_claim_due_failed", error_type=type(exc).__name__)
+            raise DeliveryLedgerError("Could not read due notification deliveries") from None
 
     def _finish(self, delivery_id: int, fields: dict) -> None:
         """Best-effort: the message outcome is already decided by this point."""

@@ -427,3 +427,21 @@ Some posts are content for a squad's players, not its fans. They are listed in `
 - **Names stay in MT:** the post gives the formation and the number of players, not who. Squads are minors, and the room's invite link can be forwarded.
 
 **Kickoff reminders: decided, not built.** A reminder is a post at a set time (e.g. two hours before kickoff), not a reaction to a write. The API has no scheduler, and the Celery worker runs outside GitOps. Reminders will therefore run on the delivery worker from SB-1604, as ledger rows with a `not_before` time. When that ships, `kickoff_reminder` joins `PLAYER_EVENT_TYPES`.
+
+## Retrying chat posts (SB-1604)
+
+The live path posts each message once. A post is no longer lost when the provider rate-limits it, has a server error, the network fails, or the pod restarts mid-send.
+
+- **Ledger:** each `notification_deliveries` row keeps the rendered `content` (match text only, never a destination), plus `match_id`, `event_type` and `next_attempt_at`.
+- **Which failures retry:** `classify_failure` in `notifications/adapters/base.py` decides.
+  - **Retried:** 429 (honouring `Retry-After` or the provider's `retry_after`), 5xx, and timeouts or other transport errors. The row stays `pending` with a `next_attempt_at`.
+  - **Final:** anything else, e.g. a deleted webhook (404) or a bad chat ID (400). The row becomes `failed` immediately.
+- **Backoff:** `notifications/retry_policy.py`. 30 s, 60 s, 120 s, 240 s, capped at 15 minutes, with up to 10% jitter. A provider's own wait is never shortened. After 5 attempts the row is `failed` for good, and the channel's **Last post** shows that to its managers and admins.
+- **Worker:** `notifications/retry_worker.py` runs in a background thread of the backend process, never on a request. Every 15 s it calls `claim_due_notification_deliveries`:
+  - The claim is atomic (`FOR UPDATE SKIP LOCKED`), counts the attempt, and leases the row for 120 s, so two pods never send the same post.
+  - It also picks up a first send that never finished: a `pending` row more than 120 s old with no `next_attempt_at`.
+  - Sends run on up to 8 threads, and each records its own outcome, so one slow destination does not hold up the others.
+  - A channel removed or paused since the first try is not posted to.
+  - The global kill switch (`NOTIFICATIONS_ENABLED`) pauses it.
+- **Switch:** `NOTIFICATION_RETRY_WORKER` (`notifications.retryWorker` in Helm). Off by default, so tests and local runs never start it; `"on"` in `values-prod.yaml`.
+- **Duplicates:** a post that succeeded at the provider but whose result was lost (e.g. a timeout after delivery) can be posted twice. That is preferred to losing a goal update; the ledger's unique `(channel_id, event_key)` still stops a resent event from creating a second row.

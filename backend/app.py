@@ -169,6 +169,12 @@ logger = get_logger(__name__)
 # registers here when it is mounted (SB-1302).
 _lifespan_contexts: list = []
 
+# Chat posts the live path could not finish are retried in the background
+# (SB-1604). Off unless NOTIFICATION_RETRY_WORKER is on.
+from notifications.retry_worker import retry_worker_lifespan
+
+_lifespan_contexts.append(retry_worker_lifespan)
+
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
