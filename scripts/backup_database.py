@@ -135,6 +135,7 @@ TABLES_TO_BACKUP = [
     "notification_channels",  # SB-1602; depends on clubs, teams, age_groups
     "notification_deliveries",  # SB-1603; depends on notification_channels
     "channel_members",  # SB-1607; depends on notification_channels, user_profiles
+    "notification_threads",  # SB-1606; depends on notification_channels, matches
     "match_events",
     "match_lineups",
     "player_match_stats",
