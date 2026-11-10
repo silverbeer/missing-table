@@ -134,7 +134,7 @@ the approved pick) authenticates as a **service account** with one permission,
 - The token is a service-account JWT, not revocable before it expires. Keep the expiry
   short and rotate by minting a new one. Mint it in a human terminal with prod's
   `SERVICE_ACCOUNT_SECRET` in the environment, save it to the 1Password `agents` vault
-  as item `mt-motw-agent` (field `credential`), then delete the file:
+  as item `mt-motw-agent` (field `token`), then delete the file:
 
 ```bash
 cd backend && umask 077 && uv run python scripts/utilities/create_service_account_token.py \
@@ -143,4 +143,4 @@ cd backend && umask 077 && uv run python scripts/utilities/create_service_accoun
 # copy into 1Password, then: rm /tmp/mt-motw-agent.token
 ```
 
-  sb-agents reads it as `MT_MOTW_TOKEN` from `op://agents/mt-motw-agent/credential`.
+  sb-agents reads it as `MT_MOTW_TOKEN` from `op://agents/mt-motw-agent/token`.
