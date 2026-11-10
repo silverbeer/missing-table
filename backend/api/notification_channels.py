@@ -2,9 +2,11 @@
 Scoped notification channels API (SB-1602).
 
 - GET    /api/notification-channels
+- GET    /api/notification-channels/event-types
 - POST   /api/notification-channels
 - PATCH  /api/notification-channels/{id}
 - DELETE /api/notification-channels/{id}
+- POST   /api/notification-channels/{id}/test
 
 Permissions by scope: global is admin only; a club needs admin or that club's
 manager; a squad needs anyone who can manage the team. `destination` is
@@ -15,10 +17,11 @@ from __future__ import annotations
 
 from typing import Literal
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
-from api.club_notifications import ensure_club_access
+from api.club_notifications import check_rate_limit, ensure_club_access, is_notifications_enabled
 from auth import AuthManager, get_current_user_required
 from dao.match_dao import SupabaseConnection
 from dao.notification_channels_dao import (
@@ -27,10 +30,21 @@ from dao.notification_channels_dao import (
     NotificationChannelsDAO,
     actor_id,
 )
-from notifications.adapters.base import ChannelAdapter, InvalidDestinationError, UnsupportedPlatformError
+from dao.notification_deliveries_dao import NotificationDeliveriesDAO
+from notifications.adapters.base import (
+    ChannelAdapter,
+    DeliveryError,
+    InvalidDestinationError,
+    NotificationConfigError,
+    UnsupportedPlatformError,
+)
 from notifications.audience import player_channel_problem
-from notifications.preferences import EVENT_TYPES
+from notifications.preferences import EVENT_LABELS, EVENT_TYPES
 from notifications.registry import get_adapter
+
+logger = structlog.get_logger(__name__)
+
+TEST_MESSAGE = "✅ Missing Table notification test: this channel is set up correctly."
 
 router = APIRouter(prefix="/api/notification-channels", tags=["notification-channels"])
 
@@ -51,6 +65,10 @@ def _dao() -> NotificationChannelsDAO:
     return NotificationChannelsDAO(_conn())
 
 
+def _deliveries() -> NotificationDeliveriesDAO:
+    return NotificationDeliveriesDAO(_conn())
+
+
 class ChannelScope(BaseModel):
     scope_type: ScopeType
     club_id: int | None = None
@@ -67,6 +85,8 @@ class ChannelCreate(ChannelScope):
     enabled: bool = True
     # Shown to members, unlike destination; see api/channel_members.py.
     invite_url: str | None = Field(None, max_length=500)
+    # A manager's own name for the channel; blank is stored as NULL.
+    label: str | None = Field(None, max_length=80)
 
 
 class ChannelUpdate(BaseModel):
@@ -74,6 +94,25 @@ class ChannelUpdate(BaseModel):
     event_types: list[str] | None = None
     enabled: bool | None = None
     invite_url: str | None = Field(None, max_length=500)
+    # A manager's own name for the channel; blank is stored as NULL.
+    label: str | None = Field(None, max_length=80)
+
+
+class LastDelivery(BaseModel):
+    status: Literal["pending", "sent", "failed"]
+    at: str | None = None
+    # Sanitized when stored: never a destination, token or provider URL.
+    error: str | None = None
+
+
+class TestSendResult(BaseModel):
+    success: bool
+    error: str | None = None
+
+
+class EventType(BaseModel):
+    id: str
+    label: str
 
 
 class ChannelOut(ChannelScope):
@@ -83,14 +122,30 @@ class ChannelOut(ChannelScope):
     event_types: list[str] | None
     enabled: bool
     invite_url: str | None = None
+    label: str | None = None
     hint: str | None = Field(None, description="Last 4 chars of destination; full value never exposed")
+    # None with last_delivery_known=True: nothing posted yet. With False: the
+    # ledger could not be read, so the UI must not claim "nothing yet".
+    last_delivery: LastDelivery | None = None
+    last_delivery_known: bool = True
 
 
 def _unprocessable(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
 
 
-def _to_out(row: dict) -> ChannelOut:
+def _last_delivery(row: dict | None) -> LastDelivery | None:
+    if row is None:
+        return None
+    return LastDelivery(
+        status=row["status"],
+        at=row.get("updated_at") or row.get("created_at"),
+        error=row.get("error") if row["status"] == "failed" else None,
+    )
+
+
+def _to_out(row: dict, deliveries: dict[int, dict] | None) -> ChannelOut:
+    """`deliveries` is latest_for()'s result: None when the ledger was unreadable."""
     destination = row.get("destination") or ""
     return ChannelOut(
         id=row["id"],
@@ -103,8 +158,22 @@ def _to_out(row: dict) -> ChannelOut:
         event_types=row.get("event_types"),
         enabled=bool(row["enabled"]),
         invite_url=row.get("invite_url"),
+        label=row.get("label"),
         hint=destination[-4:] if destination else None,
+        last_delivery=_last_delivery((deliveries or {}).get(row["id"])),
+        last_delivery_known=deliveries is not None,
     )
+
+
+def _with_deliveries(rows: list[dict]) -> list[ChannelOut]:
+    deliveries = _deliveries().latest_for([row["id"] for row in rows]) if rows else {}
+    return [_to_out(row, deliveries) for row in rows]
+
+
+def _clean_label(fields: dict) -> None:
+    """Trim the label in place; blank means none."""
+    if "label" in fields and fields["label"] is not None:
+        fields["label"] = fields["label"].strip() or None
 
 
 def _require_scope_shape(scope: ChannelScope) -> None:
@@ -180,6 +249,12 @@ def _validate_audience(body: ChannelCreate, adapter: ChannelAdapter) -> None:
             raise _unprocessable(problem)
 
 
+@router.get("/event-types", response_model=list[EventType])
+def list_event_types(current_user: dict = Depends(get_current_user_required)) -> list[EventType]:
+    """The events a channel can be limited to, in display order."""
+    return [EventType(id=event, label=EVENT_LABELS[event]) for event in EVENT_TYPES]
+
+
 @router.get("", response_model=list[ChannelOut])
 def list_channels(
     scope_type: ScopeType,
@@ -191,7 +266,7 @@ def list_channels(
     scope = ChannelScope(scope_type=scope_type, club_id=club_id, team_id=team_id, age_group_id=age_group_id)
     _require_scope_shape(scope)
     _ensure_scope_access(current_user, scope)
-    return [_to_out(row) for row in _dao().list_for_scope(scope_type, club_id, team_id, age_group_id)]
+    return _with_deliveries(_dao().list_for_scope(scope_type, club_id, team_id, age_group_id))
 
 
 @router.post("", response_model=ChannelOut, status_code=status.HTTP_201_CREATED)
@@ -206,13 +281,16 @@ def create_channel(
     _validate_invite_url(adapter, body.invite_url)
     _validate_event_types(body.event_types)
     _validate_audience(body, adapter)
+    fields = body.model_dump()
+    _clean_label(fields)
     try:
-        row = _dao().create({**body.model_dump(), "created_by": actor_id(current_user)})
+        row = _dao().create({**fields, "created_by": actor_id(current_user)})
     except DuplicateChannelError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That channel already exists") from None
     except ChannelWriteError:
         raise HTTPException(status_code=500, detail="Failed to save notification channel") from None
-    return _to_out(row)
+    # A new channel has posted nothing, so that is known without asking.
+    return _to_out(row, {})
 
 
 def _owned_channel(channel_id: int, current_user: dict) -> dict:
@@ -250,8 +328,9 @@ def update_channel(
     _validate_event_types(fields.get("event_types"))
     if "invite_url" in fields:
         _validate_invite_url(_adapter(row["platform"]), fields["invite_url"])
+    _clean_label(fields)
     if not fields:
-        return _to_out(row)
+        return _with_deliveries([row])[0]
     try:
         updated = _dao().update(channel_id, fields)
     except DuplicateChannelError:
@@ -260,7 +339,7 @@ def update_channel(
         raise HTTPException(status_code=500, detail="Failed to save notification channel") from None
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
-    return _to_out(updated)
+    return _with_deliveries([updated])[0]
 
 
 @router.delete("/{channel_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
@@ -274,3 +353,37 @@ def delete_channel(
     except ChannelWriteError:
         raise HTTPException(status_code=500, detail="Failed to delete notification channel") from None
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _test_error(exc: Exception) -> str:
+    """What a manager is told. Never a destination, env var or stack detail."""
+    if isinstance(exc, DeliveryError):
+        return str(exc)
+    if isinstance(exc, NotificationConfigError):
+        return "This platform is not available on Missing Table right now. Contact support."
+    return "The test message could not be sent"
+
+
+@router.post("/{channel_id}/test", response_model=TestSendResult)
+def test_channel(
+    channel_id: int,
+    current_user: dict = Depends(get_current_user_required),
+) -> TestSendResult:
+    """Post a test message. Not recorded in the delivery ledger: it is not a match event."""
+    row = _owned_channel(channel_id, current_user)
+    if not is_notifications_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Notifications are turned off on Missing Table right now",
+        )
+    if not check_rate_limit(f"ratelimit:notify-test:channel:{channel_id}", max_per_minute=5):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many test messages. Wait a minute and try again.",
+        )
+    try:
+        _adapter(row["platform"]).send(row["destination"], TEST_MESSAGE)
+    except Exception as exc:
+        logger.warning("channel_test_send_failed", channel_id=channel_id, error_type=type(exc).__name__)
+        return TestSendResult(success=False, error=_test_error(exc))
+    return TestSendResult(success=True)

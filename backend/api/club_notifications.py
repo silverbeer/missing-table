@@ -187,10 +187,13 @@ class PlatformInfo(BaseModel):
     label: str
     icon: str
     placeholder: str
+    destination_label: str
     hint: str
     setup_steps: list[str]
     destination_pattern: str
     destination_error: str
+    invite_pattern: str
+    invite_error: str
     capabilities: list[str]
     min_player_age: int | None
 
@@ -247,10 +250,13 @@ def list_platforms(
             label=adapter.label,
             icon=adapter.icon,
             placeholder=adapter.placeholder,
+            destination_label=adapter.destination_label,
             hint=adapter.hint,
             setup_steps=list(adapter.setup_steps),
             destination_pattern=adapter.destination_pattern,
             destination_error=adapter.destination_error,
+            invite_pattern=adapter.invite_pattern,
+            invite_error=adapter.invite_error,
             capabilities=sorted(adapter.capabilities),
             min_player_age=adapter.min_player_age,
         )

@@ -24,6 +24,12 @@ class MemberWriteError(Exception):
     """A grant could not be saved. Safe to log."""
 
 
+def _age_sort_key(name: str) -> tuple[int, str]:
+    """U9 before U13: by the number in the name, then the name."""
+    digits = "".join(ch for ch in name if ch.isdigit())
+    return (int(digits) if digits else 999, name)
+
+
 class ChannelMembersDAO(BaseDAO):
     """Data access for channel grants."""
 
@@ -145,8 +151,7 @@ class ChannelMembersDAO(BaseDAO):
             "requested",
             lambda: self.client.table(TABLE)
             .select(
-                "channel_id, user_id, created_at, "
-                "user_profiles!channel_members_user_id_fkey(display_name, username)"
+                "channel_id, user_id, created_at, user_profiles!channel_members_user_id_fkey(display_name, username)"
             )
             .in_("channel_id", channel_ids)
             .eq("status", "requested")
@@ -175,6 +180,27 @@ class ChannelMembersDAO(BaseDAO):
                 .order("id"),
             )
         return rows
+
+    def team_age_groups(self, team_id: int) -> list[dict] | None:
+        """The age groups a team is registered in (team_mappings), youngest first.
+
+        Each is a squad that can have its own channels. None when the lookup
+        failed, so "could not check" never reads as "registered in none".
+        """
+        try:
+            rows = (
+                self.client.table("team_mappings")
+                .select("age_group_id, age_groups(name)")
+                .eq("team_id", team_id)
+                .execute()
+                .data
+                or []
+            )
+        except Exception as exc:
+            logger.error("dao_channel_members_read_failed", query="team_age_groups", error_type=type(exc).__name__)
+            return None
+        names = {r["age_group_id"]: (r.get("age_groups") or {}).get("name") or "" for r in rows}
+        return [{"id": i, "name": n} for i, n in sorted(names.items(), key=lambda kv: _age_sort_key(kv[1]))]
 
     def team_clubs(self, team_ids: set[int]) -> dict[int, int | None]:
         if not team_ids:

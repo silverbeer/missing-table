@@ -201,3 +201,88 @@ describe('team scope', () => {
     expect(apiRequest).toHaveBeenCalledWith('http://test/api/me/channels');
   });
 });
+
+describe('manager setup (SB-1605)', () => {
+  const stubs = {
+    ChannelManager: {
+      template: '<div data-testid="manager-stub" />',
+      props: ['scopeType', 'teamId', 'ageGroupId', 'heading'],
+    },
+  };
+  const SQUADS = [
+    { id: 8, name: 'U14' },
+    { id: 9, name: 'U15' },
+  ];
+  const mountWith = async (body, props) => {
+    apiRequest.mockImplementation(url =>
+      url.includes('/me/channels')
+        ? Promise.resolve(body)
+        : Promise.reject(new Error('unexpected'))
+    );
+    const wrapper = mount(TeamChannelsCard, { props, global: { stubs } });
+    await flushPromises();
+    return wrapper;
+  };
+  const managerProps = w => w.findComponent(stubs.ChannelManager).props();
+
+  it('offers squad setup, starting with the page’s age group', async () => {
+    const w = await mountWith(
+      response({ can_manage: true, age_groups: SQUADS }),
+      { teamId: 42, ageGroupId: 9 }
+    );
+    await w.find('[data-testid="manage-btn"]').trigger('click');
+    expect(managerProps(w)).toMatchObject({
+      scopeType: 'team',
+      teamId: 42,
+      ageGroupId: 9,
+      heading: 'U15 chat channels',
+    });
+  });
+
+  it('lets the manager switch squad', async () => {
+    const w = await mountWith(
+      response({ can_manage: true, age_groups: SQUADS }),
+      { teamId: 42 }
+    );
+    await w.find('[data-testid="manage-btn"]').trigger('click');
+    expect(managerProps(w).ageGroupId).toBe(8);
+    await w.find('[data-testid="squad-picker"]').setValue('9');
+    expect(managerProps(w)).toMatchObject({
+      ageGroupId: 9,
+      heading: 'U15 chat channels',
+    });
+  });
+
+  it('shows no picker for a single squad', async () => {
+    const w = await mountWith(
+      response({ can_manage: true, age_groups: [SQUADS[0]] }),
+      { teamId: 42 }
+    );
+    await w.find('[data-testid="manage-btn"]').trigger('click');
+    expect(w.find('[data-testid="squad-picker"]').exists()).toBe(false);
+    expect(managerProps(w).ageGroupId).toBe(8);
+  });
+
+  it('offers nothing to someone who cannot manage', async () => {
+    const w = await mountWith(response(), { teamId: 42 });
+    expect(w.find('[data-testid="manage-btn"]').exists()).toBe(false);
+  });
+
+  it('says so when the team is in no age group', async () => {
+    const w = await mountWith(response({ can_manage: true, age_groups: [] }), {
+      teamId: 42,
+    });
+    expect(w.find('[data-testid="manage-btn"]').exists()).toBe(false);
+    expect(w.find('[data-testid="manager-empty"]').text()).toContain(
+      "isn't registered in an age group"
+    );
+  });
+
+  it('points a manager on their profile to the team page', async () => {
+    const w = await mountWith(response({ can_manage: true }), {});
+    expect(w.find('[data-testid="manage-btn"]').exists()).toBe(false);
+    expect(w.find('[data-testid="manager-empty"]').text()).toContain(
+      "your team's page"
+    );
+  });
+});

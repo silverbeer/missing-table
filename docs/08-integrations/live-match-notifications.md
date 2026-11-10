@@ -122,22 +122,22 @@ Slack's terms require users to be over 16, so don't use it for youth player room
 
 ### Configure in Missing Table
 
-Two paths — both write to the same table, governed by RLS.
+One setup screen, `ChannelManager.vue` (with `ChannelForm.vue`), handles one scope at a time and holds several channels. Each channel has a platform, an audience (fans or players), an optional **name**, its destination, an optional **invite link**, and which events it posts. It shows when it last posted.
 
-**Club manager (self-serve):**
-1. Sign in → **Profile** tab.
-2. Scroll to the **Live Match Notifications** card.
-3. For each platform, open **How to set up**, paste the `chat_id` / webhook URL and click **Save**.
-4. Click **Send test** to verify delivery.
+| Scope | Where | Who |
+|-------|-------|-----|
+| Squad (team + age group) | Team page → **Team chat channels** card → **Manage chat channels** | anyone who can manage the team (the card asks the server: `can_manage`) |
+| Club | **Profile** (club manager), or **Admin → Access → Live Match Notifications → One club** | that club's manager, admins |
+| Every match | **Admin → Access → Live Match Notifications → Every match** | admins |
 
-**Admin (on behalf of any club):**
-1. Sign in → **Admin** tab → **Access** → **Live Match Notifications**.
-2. Pick the club from the dropdown.
-3. Same Save / Send test flow as above.
+On each channel:
+- **Name** (`label`, up to 80 characters): the manager's own name for it, e.g. `#u15-live`. A destination is write-only and a Slack webhook URL doesn't carry the channel's name, so this is how managers tell channels apart. Blank is stored as `NULL`.
+- **Events**: "Every match event" saves `event_types = NULL`; "Only these" saves the chosen list, and an empty list means nothing posts. The UI never collapses the two.
+- **Enabled** pauses or resumes (`PATCH` with `enabled`) and keeps everything else; **Remove** deletes the channel and its grants.
+- **Send test** posts a test message (`POST /{id}/test`, 5 a minute per channel). It is not recorded in the delivery ledger.
+- **Last post** comes from the newest `notification_deliveries` row: posted, failed (with the sanitized error), or sending. "Nothing posted yet" and "Delivery history unavailable" (ledger unreadable) are different states.
 
-Each platform's numbered steps come from its adapter's `setup_steps`, served by `GET /api/notifications/platforms`, so the UI and the platform stay in one place. A destination is write-only: once saved, only its last four characters show. The **Enabled** box pauses and resumes delivery (`PATCH /api/clubs/{id}/notifications/{platform}` with `{"enabled": …}`) and keeps the destination; **Reset** deletes it.
-
-Component: `frontend/src/components/notifications/ClubNotificationChannels.vue` (reused in both contexts).
+Platform names, setup steps, destination labels and the destination and invite-link patterns all come from `GET /api/notifications/platforms`; event names come from `GET /api/notification-channels/event-types`. Nothing in the UI lists them.
 
 API endpoints (defined in `backend/api/club_notifications.py`):
 
@@ -150,7 +150,7 @@ API endpoints (defined in `backend/api/club_notifications.py`):
 | Send test    | POST   | `/api/clubs/{club_id}/notifications/{platform}/test`  |
 | Platforms    | GET    | `/api/notifications/platforms`                        |
 
-Those endpoints manage each club's oldest fan channel per platform. Scoped channels (squads, club players, global, several per platform) use `/api/notification-channels`: `GET` with `scope_type` plus its ids, `POST`, `PATCH /{id}`, `DELETE /{id}`. Global needs an admin, a club needs that club's manager, and a squad needs anyone who can manage the team.
+Those endpoints manage each club's oldest fan channel per platform; the UI no longer uses them. Scoped channels (squads, club players, global, several per platform) use `/api/notification-channels`: `GET` with `scope_type` plus its ids (each row carries `label`, `last_delivery` and `last_delivery_known`), `GET /event-types`, `POST`, `PATCH /{id}`, `DELETE /{id}`, `POST /{id}/test`. Global needs an admin, a club needs that club's manager, and a squad needs anyone who can manage the team.
 
 ---
 
@@ -270,7 +270,7 @@ All carry `match_id` and `event_type` as keys. `notifications.send_failed` also 
 - API: `backend/api/club_notifications.py`
 - DAO: `backend/dao/notification_channels_dao.py`, `backend/dao/club_notifications_dao.py`
 - Scoped API and audience rules: `backend/api/notification_channels.py`, `backend/notifications/audience.py`
-- Admin UI: `frontend/src/components/notifications/ClubNotificationChannels.vue`, `frontend/src/components/admin/AdminClubNotifications.vue`
+- Setup UI: `frontend/src/components/notifications/ChannelManager.vue`, `ChannelForm.vue`, mounted in `admin/AdminClubNotifications.vue`, `profiles/ClubManagerProfile.vue` and `TeamChannelsCard.vue`
 - Club-manager UI: `frontend/src/components/profiles/ClubManagerProfile.vue`
 - Helm: `helm/missing-table/templates/backend.yaml`, `helm/missing-table/values.yaml`
 - Migrations: `supabase/migrations/20260421000000_add_club_notification_channels.sql`, `20261109120000_drop_notification_platform_check.sql`
@@ -335,4 +335,4 @@ MT does not add people to chat rooms. It decides who may see a channel's **invit
 
 It never says "Joined": MT gives out a link and cannot tell whether it was used.
 
-Adding invite links in the UI comes with the setup screen (SB-1605); until then a channel's `invite_url` is set through `PATCH /api/notification-channels/{id}`. The old `channel_access_requests` table and `/api/channel-requests` (admin review screen) stay until that screen moves over.
+Managers add invite links on the setup screen (SB-1605); the form checks each one against the platform's private-link pattern. The old `channel_access_requests` table and `/api/channel-requests` (admin review screen) stay until that screen moves over.

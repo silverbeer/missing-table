@@ -24,6 +24,16 @@ EVENT_TYPES: tuple[str, ...] = (
     "red_card",
 )
 
+# What setup screens call each event. Keys match EVENT_TYPES exactly.
+EVENT_LABELS: dict[str, str] = {
+    "kickoff": "Kickoff",
+    "goal": "Goals",
+    "halftime": "Halftime",
+    "fulltime": "Full time",
+    "yellow_card": "Yellow cards",
+    "red_card": "Red cards",
+}
+
 DEFAULT_PREFERENCES: dict[str, bool] = {
     "kickoff": True,
     "goal": True,

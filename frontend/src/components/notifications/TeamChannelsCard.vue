@@ -87,7 +87,13 @@
 
     <p v-else-if="canManage" class="card-msg" data-testid="manager-empty">
       No chat channels to join yet. A channel appears here once it has an invite
-      link.
+      link{{
+        canSetUp
+          ? '.'
+          : teamId && squads
+            ? ", and this team isn't registered in an age group yet."
+            : ": set channels up from your team's page, or the club ones from your profile."
+      }}
     </p>
 
     <p v-else class="card-msg" data-testid="member-empty">
@@ -97,13 +103,50 @@
     <p v-if="actionError" class="error-msg" data-testid="action-error">
       {{ actionError }}
     </p>
+
+    <!-- SB-1605: the team manager's way in. The server says who may manage. -->
+    <div v-if="canSetUp" class="manage-block">
+      <button
+        v-if="!managing"
+        class="action-btn"
+        data-testid="manage-btn"
+        @click="managing = true"
+      >
+        Manage chat channels
+      </button>
+      <template v-else>
+        <label v-if="squads.length > 1" class="squad-picker">
+          Squad
+          <select v-model.number="squadId" data-testid="squad-picker">
+            <option v-for="s in squads" :key="s.id" :value="s.id">
+              {{ s.name }}
+            </option>
+          </select>
+        </label>
+        <ChannelManager
+          scope-type="team"
+          :team-id="teamId"
+          :age-group-id="squadId"
+          :heading="`${squadName} chat channels`"
+          @changed="load"
+        />
+        <button
+          class="link-btn mt-3"
+          data-testid="manage-done"
+          @click="managing = false"
+        >
+          Done
+        </button>
+      </template>
+    </div>
   </section>
 </template>
 
 <script>
-import { ref, watch, onMounted } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
+import ChannelManager from '@/components/notifications/ChannelManager.vue';
 
 /**
  * The chat channels a viewer may join (SB-1609), from /api/me/channels.
@@ -114,12 +157,16 @@ import { getApiBaseUrl } from '@/config/api';
  * a new platform needs no change here.
  *
  * With `teamId` (the My Club page) it shows that team's channels; without, the
- * viewer's own team and club.
+ * viewer's own team and club. With `teamId`, a manager can also set up each
+ * squad's channels here: the server lists the team's age groups, and
+ * `ageGroupId`, when the page knows one, is picked first.
  */
 export default {
   name: 'TeamChannelsCard',
+  components: { ChannelManager },
   props: {
     teamId: { type: Number, default: null },
+    ageGroupId: { type: Number, default: null },
   },
   setup(props) {
     const authStore = useAuthStore();
@@ -131,6 +178,17 @@ export default {
     const canManage = ref(false);
     const busyId = ref(null);
     const actionError = ref('');
+    const managing = ref(false);
+    // The team's squads, sent only to someone who can manage it. null = not
+    // sent (or unknown); [] = registered in no age group.
+    const squads = ref(null);
+    const squadId = ref(null);
+    const squadName = computed(
+      () => squads.value?.find(s => s.id === squadId.value)?.name || 'Squad'
+    );
+    const canSetUp = computed(
+      () => canManage.value && Boolean(props.teamId && squads.value?.length)
+    );
 
     const base = () => `${getApiBaseUrl()}/api`;
 
@@ -145,6 +203,13 @@ export default {
         hasTeam.value = Boolean(data?.has_team);
         managed.value = data?.managed ?? null;
         canManage.value = Boolean(data?.can_manage);
+        squads.value = data?.age_groups ?? null;
+        const ids = (squads.value || []).map(s => s.id);
+        if (!ids.includes(squadId.value)) {
+          squadId.value = ids.includes(props.ageGroupId)
+            ? props.ageGroupId
+            : (ids[0] ?? null);
+        }
       } catch {
         loadError.value = true;
       } finally {
@@ -209,6 +274,12 @@ export default {
       canManage,
       busyId,
       actionError,
+      managing,
+      squads,
+      squadId,
+      squadName,
+      canSetUp,
+      load,
       act,
       withdraw,
       scopeLabel,
@@ -219,6 +290,29 @@ export default {
 </script>
 
 <style scoped>
+.squad-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgb(var(--color-fg));
+  margin-bottom: 12px;
+}
+
+.squad-picker select {
+  padding: 4px 8px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 6px;
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
+}
+
+.manage-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(var(--color-line));
+}
+
 .team-channels-card {
   background: rgb(var(--color-card));
   border: 1px solid rgb(var(--color-line));
