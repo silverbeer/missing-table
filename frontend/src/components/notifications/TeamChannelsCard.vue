@@ -5,7 +5,13 @@
     class="team-channels-card"
     data-testid="team-channels-card"
   >
-    <h3 class="card-title">Team chat channels</h3>
+    <h3 class="card-title" data-testid="channels-title">
+      Community channels{{ clubName ? ` for ${clubName}` : '' }}
+    </h3>
+    <p class="card-note" data-testid="channels-community-note">
+      Run by your club's managers, not by Missing Table. MT only posts match
+      updates. Invite links can be passed on, so anyone with one can join.
+    </p>
 
     <p v-if="loadError" class="card-msg" data-testid="channels-error">
       Channels are unavailable right now.
@@ -22,6 +28,13 @@
           <span class="channel-name">{{ scopeLabel(channel) }}</span>
           <span class="channel-meta">
             {{ audienceLabel(channel) }} · {{ channel.platform_label }}
+          </span>
+          <span
+            v-if="channel.age_note"
+            class="channel-age"
+            data-testid="channel-age-note"
+          >
+            {{ channel.age_note }}
           </span>
         </div>
 
@@ -176,6 +189,7 @@ export default {
     const hasTeam = ref(false);
     const managed = ref(null);
     const canManage = ref(false);
+    const clubName = ref(null);
     const busyId = ref(null);
     const actionError = ref('');
     const managing = ref(false);
@@ -200,6 +214,7 @@ export default {
           `${base()}/me/channels${query}`
         );
         channels.value = data?.channels || [];
+        clubName.value = data?.club_name || null;
         hasTeam.value = Boolean(data?.has_team);
         managed.value = data?.managed ?? null;
         canManage.value = Boolean(data?.can_manage);
@@ -272,6 +287,7 @@ export default {
       hasTeam,
       managed,
       canManage,
+      clubName,
       busyId,
       actionError,
       managing,
@@ -326,6 +342,19 @@ export default {
   font-weight: 700;
   color: rgb(var(--color-fg));
   margin: 0 0 12px;
+}
+
+.card-note {
+  font-size: 13px;
+  color: rgb(var(--color-fg-muted));
+  margin: -6px 0 12px;
+  line-height: 1.4;
+}
+
+.channel-age {
+  font-size: 12px;
+  color: rgb(var(--color-fg-muted));
+  font-style: italic;
 }
 
 .card-msg {

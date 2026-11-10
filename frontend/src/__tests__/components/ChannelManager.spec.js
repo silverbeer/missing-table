@@ -21,6 +21,8 @@ const PLATFORMS = [
     placeholder: 'https://discord.com/api/webhooks/…',
     destination_label: 'Webhook URL',
     setup_steps: ['Open channel settings.', 'Copy the webhook URL.'],
+    player_setup_steps: ['Deny Send Messages, keep Add Reactions.'],
+    age_note: 'Discord requires members to be at least 13.',
     destination_pattern: '^https://discord\\.com/api/webhooks/\\d+/[\\w-]+$',
     destination_error: 'Must be a Discord webhook URL',
     invite_pattern: '^https://discord\\.gg/[A-Za-z0-9]+$',
@@ -36,7 +38,7 @@ const PLATFORMS = [
     destination_pattern: '^(@\\w+|-?\\d+)$',
     destination_error: 'Must be a chat ID',
     invite_pattern: '^https://t\\.me/\\+\\w+$',
-    invite_error: 'Must be a private invite link',
+    invite_error: 'Must be a Telegram invite link',
   },
 ];
 
@@ -437,5 +439,25 @@ describe('actions', () => {
     await w.find('[data-testid="remove-7"]').trigger('click');
     await flushPromises();
     expect(calls('DELETE')).toHaveLength(0);
+  });
+});
+
+describe('community-run setup (SB-1612)', () => {
+  it('says the manager owns and moderates the rooms', async () => {
+    const w = await mountManager();
+    expect(w.find('[data-testid="manager-owns-note"]').text()).toContain(
+      'you own and moderate them'
+    );
+  });
+
+  it('shows read-only player steps and the age note for a player channel', async () => {
+    const w = await mountManager();
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    expect(w.find('[data-testid="form-player-setup"]').exists()).toBe(false);
+    await w.find('[data-testid="form-audience-players"]').setValue();
+    expect(w.find('[data-testid="form-player-setup"]').text()).toContain(
+      'Add Reactions'
+    );
+    expect(w.find('[data-testid="form-age-note"]').text()).toContain('13');
   });
 });

@@ -48,6 +48,10 @@ class ChannelMembersDAO(BaseDAO):
         rows = self._rows("team_club", lambda: self.client.table("teams").select("club_id").eq("id", team_id).limit(1))
         return rows[0].get("club_id") if rows else None
 
+    def club_name(self, club_id: int) -> str | None:
+        rows = self._rows("club_name", lambda: self.client.table("clubs").select("name").eq("id", club_id).limit(1))
+        return rows[0].get("name") if rows else None
+
     def channel(self, channel_id: int) -> dict | None:
         rows = self._rows(
             "channel",

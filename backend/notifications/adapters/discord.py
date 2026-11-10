@@ -17,8 +17,7 @@ class DiscordAdapter(ChannelAdapter):
     invite_error: ClassVar[str] = "Must be a Discord invite link (https://discord.gg/...)"
     placeholder: ClassVar[str] = "https://discord.com/api/webhooks/…/…"
     hint: ClassVar[str] = (
-        "Create a webhook on your Discord channel (Channel Settings → Integrations → Webhooks) "
-        "and paste the full URL."
+        "Create a webhook on your Discord channel (Channel Settings → Integrations → Webhooks) and paste the full URL."
     )
     setup_steps: ClassVar[tuple[str, ...]] = (
         "You need the Manage Webhooks permission on the Discord server.",
@@ -26,7 +25,17 @@ class DiscordAdapter(ChannelAdapter):
         "Name it Missing Table, make sure the right channel is selected, and save.",
         "Click Copy Webhook URL and paste it here. Treat it like a password: anyone with it can post.",
         "Then click Send test to confirm a message arrives.",
+        "Use a text channel for Missing Table's posts. If you want a discussion thread per match, "
+        "make a separate Forum channel next to it; see the Discord guide in the docs.",
     )
+    player_setup_steps: ClassVar[tuple[str, ...]] = (
+        "Player channels are read-only with reactions: players react, only managers post.",
+        "Channel settings → Permissions → @everyone: deny Send Messages, Send Messages in Threads, "
+        "Create Public Threads and Create Private Threads.",
+        "Keep View Channel, Read Message History and Add Reactions allowed. Reacting needs Read Message History.",
+        "Check that no other role gives Send Messages back, then post a test as a player account.",
+    )
+    age_note: ClassVar[str | None] = "Discord requires members to be at least 13, and older in some countries."
     destination_pattern: ClassVar[str] = r"^https://discord(app)?\.com/api/webhooks/\d+/[\w-]+$"
     destination_error: ClassVar[str] = "Discord destination must be a webhook URL"
     # Discord's minimum age is 13; U14 is the youngest squad that clears it.

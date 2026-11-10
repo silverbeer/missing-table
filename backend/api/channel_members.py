@@ -63,6 +63,8 @@ class AvailableChannel(BaseModel):
     age_group_name: str | None
     state: State
     invite_url: str | None = None
+    # The platform's minimum age, shown where the channel is offered (SB-1612).
+    age_note: str | None = None
 
 
 class SquadAgeGroup(BaseModel):
@@ -83,6 +85,9 @@ class MyChannels(BaseModel):
     """
 
     channels: list[AvailableChannel]
+    # The club these channels belong to, for "Community channels for <club>"
+    # (SB-1612). None when there is none, several, or the name could not be read.
+    club_name: str | None = None
     has_team: bool
     managed: bool | None
     can_manage: bool
@@ -154,6 +159,13 @@ def _label(platform: str) -> str:
         return platform
 
 
+def _age_note(platform: str) -> str | None:
+    try:
+        return get_adapter(platform).age_note
+    except UnsupportedPlatformError:
+        return None
+
+
 def _to_available(row: dict, facts: ChannelFacts, state: State) -> AvailableChannel:
     return AvailableChannel(
         id=row["id"],
@@ -166,6 +178,7 @@ def _to_available(row: dict, facts: ChannelFacts, state: State) -> AvailableChan
         age_group_name=facts.age_group_name,
         state=state,
         invite_url=row["invite_url"] if state == "member" else None,
+        age_note=_age_note(row["platform"]),
     )
 
 
@@ -249,6 +262,7 @@ def my_channels(team_id: int | None = None, current_user: dict = Depends(get_cur
     squads = dao.team_age_groups(team_id) if team_id is not None and can_manage else None
     return MyChannels(
         channels=_visible(dao, viewer, user_id, rows, clubs),
+        club_name=dao.club_name(next(iter(club_ids))) if len(club_ids) == 1 else None,
         has_team=True,
         managed=dao.is_managed(team_ids, club_ids),
         can_manage=can_manage,

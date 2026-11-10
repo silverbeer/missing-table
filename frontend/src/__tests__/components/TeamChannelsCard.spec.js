@@ -286,3 +286,41 @@ describe('manager setup (SB-1605)', () => {
     );
   });
 });
+
+describe('community-run labelling (SB-1612)', () => {
+  it('names the club in the title', async () => {
+    const w = await mountCard(response({ club_name: 'IFA' }));
+    expect(w.find('[data-testid="channels-title"]').text()).toBe(
+      'Community channels for IFA'
+    );
+  });
+
+  it('falls back to a plain title without a club name', async () => {
+    const w = await mountCard(response({ club_name: null }));
+    expect(w.find('[data-testid="channels-title"]').text()).toBe(
+      'Community channels'
+    );
+  });
+
+  it('says rooms are run by managers, not MT, and links can be passed on', async () => {
+    const w = await mountCard(response());
+    const note = w.find('[data-testid="channels-community-note"]').text();
+    expect(note).toContain('not by Missing Table');
+    expect(note).toContain('passed on');
+    expect(w.text().toLowerCase()).not.toMatch(/private|verified/);
+  });
+
+  it("shows the platform's minimum age where a channel is offered", async () => {
+    const w = await mountCard(
+      response({
+        channels: [
+          channel({
+            age_note:
+              'Discord requires members to be at least 13, and older in some countries.',
+          }),
+        ],
+      })
+    );
+    expect(w.find('[data-testid="channel-age-note"]').text()).toContain('13');
+  });
+});

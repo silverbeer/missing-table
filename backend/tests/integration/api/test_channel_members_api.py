@@ -255,7 +255,14 @@ class TestMyChannels:
         nobody = {**world["fan"], "club_id": None, "team_id": None}
         with as_user(nobody) as c:
             body = c.get("/api/me/channels").json()
-        assert body == {"channels": [], "has_team": False, "managed": None, "can_manage": False, "age_groups": None}
+        assert body == {
+            "channels": [],
+            "club_name": None,
+            "has_team": False,
+            "managed": None,
+            "can_manage": False,
+            "age_groups": None,
+        }
 
     def test_club_only_fan_sees_club_channel(self, world):
         club = world["channel"]("club")
@@ -281,6 +288,7 @@ class TestMyChannels:
                 body = c.get("/api/me/channels", params={"team_id": team["id"]}).json()
             assert body == {
                 "channels": [],
+                "club_name": club["name"],  # "Community channels for <club>" (SB-1612)
                 "has_team": True,
                 "managed": False,
                 "can_manage": False,

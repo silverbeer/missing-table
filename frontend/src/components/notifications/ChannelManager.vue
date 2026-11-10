@@ -9,6 +9,11 @@
         URL or chat ID works like a password, so once saved only its last four
         characters are shown.
       </p>
+      <p class="text-sm text-fg-muted mt-1" data-testid="manager-owns-note">
+        These rooms are community-run: you own and moderate them, and Missing
+        Table does not. Invite links can be passed on, so treat a room as open
+        to anyone who has its link.
+      </p>
     </header>
 
     <div
