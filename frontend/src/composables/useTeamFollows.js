@@ -6,10 +6,13 @@
  * pattern: module-level reactive state, useTeamFollows() returns the
  * same refs every call.
  *
- * Backend endpoints (already shipped via SB-51, all idempotent):
- *   GET    /api/users/me/team-follows           → { follows: [{ team_id, team, ... }] }
- *   POST   /api/users/me/team-follows           → 201 { team_id, following: true }
- *   DELETE /api/users/me/team-follows/{id}      → 204
+ * Backend endpoints (all idempotent):
+ *   GET    /api/users/me/team-follows           → { follows: [{ team_id, age_group_id, team, age_group, ... }] }
+ *   POST   /api/users/me/team-follows           → 201; body { team_id, age_group_id? }
+ *   DELETE /api/users/me/team-follows/{id}[?age_group_id=N] → 204
+ *
+ * A follow is for match alerts. `age_group_id` null follows every age group
+ * of the team; a value follows that squad only (SB-1608, SB-1618).
  */
 
 import { reactive, computed } from 'vue';
@@ -72,57 +75,90 @@ export function useTeamFollows() {
     return inflightLoad;
   };
 
-  const isFollowing = teamId => state.followedTeamIds.has(Number(teamId));
+  const rowsFor = teamId =>
+    state.follows.filter(r => Number(r.team_id) === Number(teamId));
 
-  const follow = async teamId => {
+  // With an age group: following that squad, directly or through a
+  // whole-team follow. Without: following any part of the team.
+  const isFollowing = (teamId, ageGroupId = null) => {
+    const rows = rowsFor(teamId);
+    if (ageGroupId == null) return rows.length > 0;
+    return rows.some(
+      r =>
+        r.age_group_id == null || Number(r.age_group_id) === Number(ageGroupId)
+    );
+  };
+
+  // True when the squad is covered only by a whole-team follow.
+  const followsWholeTeam = teamId =>
+    rowsFor(teamId).some(r => r.age_group_id == null);
+
+  const follow = async (teamId, ageGroupId = null) => {
     const id = Number(teamId);
-    if (state.followedTeamIds.has(id)) return { success: true };
+    if (isFollowing(id, ageGroupId)) return { success: true };
 
-    // Optimistic
-    state.followedTeamIds.add(id);
+    const age = ageGroupId == null ? null : Number(ageGroupId);
+    const before = state.follows;
+    state.follows = [...before, { team_id: id, age_group_id: age }];
+    state.followedTeamIds = new Set([...state.followedTeamIds, id]);
     state.error = null;
     try {
       await authStore.apiRequest(
         `${getApiBaseUrl()}/api/users/me/team-follows`,
         {
           method: 'POST',
-          body: JSON.stringify({ team_id: id }),
+          body: JSON.stringify(
+            age == null ? { team_id: id } : { team_id: id, age_group_id: age }
+          ),
         }
       );
-      // Refresh in background so the joined team/club data appears in
-      // NotificationsCard's "Teams you follow" list.
       refresh();
       return { success: true };
     } catch (err) {
-      state.followedTeamIds.delete(id);
+      state.follows = before;
+      state.followedTeamIds = new Set(before.map(r => r.team_id));
       state.error = err.message || String(err);
       return { success: false, error: state.error };
     }
   };
 
-  const unfollow = async teamId => {
+  // With an age group, stop that squad only; if it is covered by a whole-team
+  // follow, that follow goes (it cannot be narrowed without knowing every
+  // age group the team plays). Without, stop every follow of the team.
+  const unfollow = async (teamId, ageGroupId = null) => {
     const id = Number(teamId);
-    if (!state.followedTeamIds.has(id)) return { success: true };
+    if (!isFollowing(id, ageGroupId)) return { success: true };
 
-    // Optimistic
-    state.followedTeamIds.delete(id);
+    const squadOnly = ageGroupId != null && !followsWholeTeam(id);
+    const removed = state.follows.filter(
+      r =>
+        Number(r.team_id) === id &&
+        (!squadOnly || Number(r.age_group_id) === Number(ageGroupId))
+    );
+    const before = state.follows;
+    state.follows = before.filter(r => !removed.includes(r));
+    state.followedTeamIds = new Set(state.follows.map(r => r.team_id));
     state.error = null;
+    const query = squadOnly ? `?age_group_id=${Number(ageGroupId)}` : '';
     try {
       await authStore.apiRequest(
-        `${getApiBaseUrl()}/api/users/me/team-follows/${id}`,
+        `${getApiBaseUrl()}/api/users/me/team-follows/${id}${query}`,
         { method: 'DELETE' }
       );
       refresh();
       return { success: true };
     } catch (err) {
-      state.followedTeamIds.add(id);
+      state.follows = before;
+      state.followedTeamIds = new Set(before.map(r => r.team_id));
       state.error = err.message || String(err);
       return { success: false, error: state.error };
     }
   };
 
-  const toggle = async teamId => {
-    return isFollowing(teamId) ? unfollow(teamId) : follow(teamId);
+  const toggle = async (teamId, ageGroupId = null) => {
+    return isFollowing(teamId, ageGroupId)
+      ? unfollow(teamId, ageGroupId)
+      : follow(teamId, ageGroupId);
   };
 
   return {
@@ -134,6 +170,7 @@ export function useTeamFollows() {
     ensureLoaded,
     refresh,
     isFollowing,
+    followsWholeTeam,
     follow,
     unfollow,
     toggle,

@@ -60,6 +60,9 @@ def world():
         .data[0]
     )
 
+    # The other club's team plays only the older age group.
+    admin.table("team_mappings").insert({"team_id": other["id"], "age_group_id": old}).execute()
+
     yield {
         "admin": admin,
         "dao": TeamFollowDAO(SupabaseConnection()),
@@ -77,6 +80,7 @@ def world():
             pass
 
     _safe(lambda: admin.table("user_team_follows").delete().eq("user_id", user_id).execute())
+    _safe(lambda: admin.table("team_mappings").delete().eq("team_id", other["id"]).execute())
     _safe(lambda: admin.table("teams").delete().in_("id", [team["id"], other["id"]]).execute())
     _safe(lambda: admin.table("clubs").delete().in_("id", [club["id"], other_club["id"]]).execute())
     _safe(lambda: admin.table("user_profiles").delete().eq("id", user_id).execute())
@@ -138,3 +142,32 @@ class TestSquadFollows:
         assert _rows(world) == {(team, old)}
         assert dao.unfollow(uid, team)
         assert _rows(world) == set()
+
+
+class TestFollowAnySquad:
+    """SB-1618: the Follow button follows the squad being viewed, any club."""
+
+    def test_team_plays_age_group_reads_registrations(self, world):
+        dao = world["dao"]
+        assert dao.team_plays_age_group(world["other"], world["old"]) is True
+        assert dao.team_plays_age_group(world["other"], world["young"]) is False
+
+    def test_follow_squad_of_another_club_is_idempotent(self, world):
+        dao, uid, other, old = world["dao"], world["user_id"], world["other"], world["old"]
+        assert dao.follow_squad(uid, other, old)
+        assert dao.follow_squad(uid, other, old)
+        assert _rows(world) == {(other, old)}
+        assert dao.list_user_ids_for_team_ids([other], old) == [uid]
+        assert dao.list_user_ids_for_team_ids([other], world["young"]) == []
+
+    def test_a_whole_team_follow_already_covers_the_squad(self, world):
+        dao, uid, other, old = world["dao"], world["user_id"], world["other"], world["old"]
+        dao.follow(uid, other)
+        assert dao.follow_squad(uid, other, old)
+        assert _rows(world) == {(other, None)}
+
+    def test_club_squad_picker_leaves_other_club_squads_alone(self, world):
+        dao, uid, team, other = world["dao"], world["user_id"], world["team"], world["other"]
+        dao.follow_squad(uid, other, world["old"])
+        dao.set_club_squads(uid, {team}, {(team, world["young"])})
+        assert _rows(world) == {(other, world["old"]), (team, world["young"])}

@@ -227,3 +227,45 @@ describe('FollowButton variant (SB-56)', () => {
     expect(btn.classes()).not.toContain('follow-button--dark');
   });
 });
+
+describe('FollowButton squads (SB-1618)', () => {
+  it('follows the squad being viewed, not the whole team', async () => {
+    apiRequestMock.mockResolvedValueOnce({ follows: [] });
+    apiRequestMock.mockResolvedValue({});
+    const wrapper = mountButton({ ageGroupId: 6 });
+    await flushPromises();
+
+    await wrapper.find('[data-testid="follow-button"]').trigger('click');
+    await flushPromises();
+
+    const post = apiRequestMock.mock.calls.find(c => c[1]?.method === 'POST');
+    expect(JSON.parse(post[1].body)).toEqual({ team_id: 42, age_group_id: 6 });
+  });
+
+  it('another squad of the team being followed does not mark this one', async () => {
+    apiRequestMock.mockResolvedValueOnce({
+      follows: [{ team_id: 42, age_group_id: 5 }],
+    });
+    const wrapper = mountButton({ ageGroupId: 6 });
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="follow-button"]').text()).toContain(
+      'Follow'
+    );
+    expect(
+      wrapper.find('[data-testid="follow-button"]').classes()
+    ).not.toContain('is-following');
+  });
+
+  it('a whole-team follow shows Following on every squad page', async () => {
+    apiRequestMock.mockResolvedValueOnce({
+      follows: [{ team_id: 42, age_group_id: null }],
+    });
+    const wrapper = mountButton({ ageGroupId: 6 });
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="follow-button"]').classes()).toContain(
+      'is-following'
+    );
+  });
+});

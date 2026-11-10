@@ -146,7 +146,7 @@
             <span class="stat-number" data-testid="following-count">{{
               follows.length
             }}</span>
-            <span class="stat-label">Following</span>
+            <span class="stat-label">Alerts</span>
           </div>
         </div>
 
@@ -159,34 +159,56 @@
       </div>
     </div>
 
-    <!-- My squads (SB-1608): the squads a fan follows for alerts, chosen
-         from their own club. The team a manager assigned is shown apart and
-         never changed here. Following nothing is normal, so it prompts. -->
+    <!-- Match alerts (SB-1608, SB-1618): the squads a fan gets alerts for,
+         from their own club (picker) or any club (Follow buttons). The team a
+         manager assigned is shown apart and never changed here; chat channels
+         are a separate card. Following nothing is normal, so it prompts. -->
     <div v-if="teamOptions" class="my-team-section" data-testid="my-team-card">
-      <h3>My squads</h3>
+      <h3>Match alerts</h3>
+      <p class="my-team-hint">
+        Get notified about kickoffs, goals and final scores for the squads you
+        pick.
+      </p>
+      <p
+        v-if="deviceStep !== 'done' && deviceStep !== 'follow'"
+        class="device-line"
+        data-testid="alerts-device-off"
+      >
+        <template v-if="deviceStep === 'unsupported'">
+          This browser can't show alerts.
+        </template>
+        <template v-else>
+          Alerts aren't on for this device yet.
+          <button class="link-btn" @click="openSetupGuide('profile')">
+            Turn on
+          </button>
+        </template>
+      </p>
+      <p v-if="currentOption" class="assigned-team" data-testid="assigned-team">
+        Your team: <strong>{{ optionLabel(currentOption) }}</strong>
+        <span class="assigned-note">set by your team manager</span>
+      </p>
+
+      <h4 class="alerts-group">Your club</h4>
       <p v-if="teamOptions.status === 'no_club'" data-testid="my-team-no-club">
         Your account isn't linked to a club yet
       </p>
       <template v-else>
-        <p
-          v-if="currentOption"
-          class="assigned-team"
-          data-testid="assigned-team"
-        >
-          Your team: <strong>{{ optionLabel(currentOption) }}</strong>
-          <span class="assigned-note">set by your team manager</span>
-        </p>
         <ul
-          v-if="followedSquads.length"
+          v-if="clubAlerts.length"
           class="squad-chips"
           data-testid="followed-squads"
         >
-          <li
-            v-for="o in followedSquads"
-            :key="squadKey(o.team_id, o.age_group.id)"
-            class="squad-chip"
-          >
-            {{ optionLabel(o) }}
+          <li v-for="chip in clubAlerts" :key="chip.key" class="squad-chip">
+            <span>{{ chip.label }}</span>
+            <button
+              class="chip-remove"
+              :aria-label="`Stop alerts for ${chip.label}`"
+              :data-testid="`remove-${chip.key}`"
+              @click="stopAlerts(chip)"
+            >
+              &times;
+            </button>
           </li>
         </ul>
         <p v-else class="my-team-hint" data-testid="my-team-prompt">
@@ -197,9 +219,31 @@
           data-testid="choose-squads"
           @click="openSquadPicker"
         >
-          {{ followedSquads.length ? 'Change squads' : 'Choose squads' }}
+          {{ clubAlerts.length ? 'Change squads' : 'Choose squads' }}
         </button>
       </template>
+
+      <h4 class="alerts-group">Other teams</h4>
+      <ul
+        v-if="otherAlerts.length"
+        class="squad-chips"
+        data-testid="other-alerts"
+      >
+        <li v-for="chip in otherAlerts" :key="chip.key" class="squad-chip">
+          <span>{{ chip.label }}</span>
+          <button
+            class="chip-remove"
+            :aria-label="`Stop alerts for ${chip.label}`"
+            :data-testid="`remove-${chip.key}`"
+            @click="stopAlerts(chip)"
+          >
+            &times;
+          </button>
+        </li>
+      </ul>
+      <p class="my-team-hint" data-testid="other-alerts-hint">
+        Follow any team from its page on the Matches tab.
+      </p>
       <p
         v-if="squadSaveError && !showSquadPicker"
         class="team-error"
@@ -378,6 +422,10 @@ import { hasAnyRole } from '../../utils/roles';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
 import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
 import { useTeamFollows } from '@/composables/useTeamFollows';
+import {
+  useNotificationSetup,
+  openSetupGuide,
+} from '@/composables/useNotificationSetup';
 
 export default {
   name: 'FanProfile',
@@ -402,7 +450,9 @@ export default {
       follows,
       ensureLoaded: ensureFollowsLoaded,
       refresh: refreshFollows,
+      unfollow,
     } = useTeamFollows();
+    const { currentStep: deviceStep } = useNotificationSetup();
 
     const editForm = reactive({
       display_name: '',
@@ -476,11 +526,56 @@ export default {
       return keys;
     });
 
-    const followedSquads = computed(() =>
-      pickOptions.value.filter(o =>
-        followedSquadKeys.value.has(squadKey(o.team_id, o.age_group?.id))
-      )
+    const clubTeamIds = computed(
+      () => new Set(pickOptions.value.map(o => o.team_id))
     );
+
+    // One chip per follow row: a whole-team follow is one "every age group"
+    // chip, not one per squad (SB-1618).
+    const chipFor = f => {
+      const age = f.age_group_id ?? null;
+      const key = `${f.team_id}-${age ?? 'all'}`;
+      const option = pickOptions.value.find(
+        o => o.team_id === f.team_id && (age == null || o.age_group?.id === age)
+      );
+      let label;
+      if (option && age != null) {
+        label = optionLabel(option);
+      } else if (option) {
+        label = [
+          option.club_name || teamOptions.value?.club?.name,
+          option.league_name,
+          'every age group',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      } else {
+        label = [
+          f.team?.name || `Team #${f.team_id}`,
+          f.team?.division?.leagues?.name,
+          f.age_group?.name || 'every age group',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      }
+      return { key, label, teamId: f.team_id, ageGroupId: age };
+    };
+
+    const clubAlerts = computed(() =>
+      follows.value.filter(f => clubTeamIds.value.has(f.team_id)).map(chipFor)
+    );
+
+    const otherAlerts = computed(() =>
+      follows.value.filter(f => !clubTeamIds.value.has(f.team_id)).map(chipFor)
+    );
+
+    const stopAlerts = async chip => {
+      squadSaveError.value = null;
+      const result = await unfollow(chip.teamId, chip.ageGroupId);
+      if (result?.success === false) {
+        squadSaveError.value = 'Could not stop those alerts';
+      }
+    };
 
     const squadGroups = computed(() => {
       const groups = new Map();
@@ -856,7 +951,11 @@ export default {
       squadSaveError,
       selectedSquads,
       currentOption,
-      followedSquads,
+      clubAlerts,
+      otherAlerts,
+      stopAlerts,
+      deviceStep,
+      openSetupGuide,
       squadGroups,
       squadKey,
       optionLabel,
@@ -1075,7 +1174,53 @@ export default {
   gap: 8px;
 }
 
+.alerts-group {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(var(--color-fg-muted));
+  margin: 16px 0 8px;
+}
+
+.device-line {
+  font-size: 13px;
+  color: rgb(var(--color-fg));
+  background: rgb(var(--color-surface-alt));
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.device-line .link-btn {
+  background: none;
+  border: none;
+  padding: 0 0 0 4px;
+  font: inherit;
+  font-weight: 600;
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  padding: 0 0 0 6px;
+  font-size: 15px;
+  line-height: 1;
+  color: rgb(var(--color-fg-muted));
+  cursor: pointer;
+}
+
+.chip-remove:hover {
+  color: rgb(var(--color-fg));
+}
+
 .squad-chip {
+  display: inline-flex;
+  align-items: center;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 13px;

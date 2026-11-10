@@ -74,6 +74,8 @@ import {
 const props = defineProps({
   teamId: { type: [Number, String], required: true },
   teamName: { type: String, default: '' },
+  // The squad being viewed (SB-1618). Null follows every age group.
+  ageGroupId: { type: [Number, String], default: null },
   // 'dark' = sits on dark/colored team-header gradient (default, SB-55 placement).
   // 'light' = sits on a normal light page background (SB-56 placement on MatchesView).
   variant: {
@@ -96,7 +98,7 @@ const busy = ref(false);
 // Hide entirely when unauthenticated (v1 decision — no login funnel).
 const visible = computed(() => authStore.isAuthenticated.value);
 
-const following = computed(() => isFollowing(props.teamId));
+const following = computed(() => isFollowing(props.teamId, props.ageGroupId));
 
 const label = computed(() => {
   if (busy.value) return following.value ? 'Following…' : 'Following…';
@@ -117,7 +119,7 @@ async function onClick() {
   const isFirstEverFollow = !wasFollowing && follows.value.length === 0;
   busy.value = true;
   try {
-    const result = await toggle(props.teamId);
+    const result = await toggle(props.teamId, props.ageGroupId);
     if (
       isFirstEverFollow &&
       result?.success !== false &&

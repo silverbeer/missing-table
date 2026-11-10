@@ -237,3 +237,53 @@ describe('useTeamFollows singleton behavior', () => {
     expect(b.follows.value).toHaveLength(1);
   });
 });
+
+describe('useTeamFollows squads (SB-1608, SB-1618)', () => {
+  it('a whole-team follow covers every squad; a squad follow only its own', async () => {
+    apiRequestMock.mockResolvedValueOnce({
+      follows: [
+        { team_id: 1, age_group_id: null },
+        { team_id: 2, age_group_id: 6 },
+      ],
+    });
+    const { ensureLoaded, isFollowing } = useTeamFollows();
+    await ensureLoaded();
+
+    expect(isFollowing(1, 6)).toBe(true);
+    expect(isFollowing(2, 6)).toBe(true);
+    expect(isFollowing(2, 5)).toBe(false);
+    expect(isFollowing(2)).toBe(true); // any squad of team 2
+  });
+
+  it('follows one squad with age_group_id in the body', async () => {
+    apiRequestMock.mockResolvedValueOnce({ follows: [] });
+    apiRequestMock.mockResolvedValue({});
+    const { ensureLoaded, follow } = useTeamFollows();
+    await ensureLoaded();
+
+    await follow(500, 6);
+    const post = apiRequestMock.mock.calls.find(c => c[1]?.method === 'POST');
+    expect(JSON.parse(post[1].body)).toEqual({ team_id: 500, age_group_id: 6 });
+  });
+
+  it('unfollowing a squad sends age_group_id; a whole-team follow goes whole', async () => {
+    const rows = [
+      { team_id: 1, age_group_id: null },
+      { team_id: 2, age_group_id: 6 },
+    ];
+    // GET always answers with both rows, so each unfollow starts from them.
+    apiRequestMock.mockImplementation((url, opts) =>
+      Promise.resolve(opts?.method ? {} : { follows: rows })
+    );
+    const { ensureLoaded, unfollow } = useTeamFollows();
+    await ensureLoaded();
+
+    await unfollow(2, 6);
+    await unfollow(1, 6);
+    const urls = apiRequestMock.mock.calls
+      .filter(c => c[1]?.method === 'DELETE')
+      .map(c => c[0]);
+    expect(urls[0]).toMatch(/team-follows\/2\?age_group_id=6$/);
+    expect(urls[1]).toMatch(/team-follows\/1$/);
+  });
+});

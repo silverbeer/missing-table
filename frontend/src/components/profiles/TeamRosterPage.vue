@@ -168,6 +168,7 @@
             v-if="team?.id"
             :team-id="team.id"
             :team-name="team.name || ''"
+            :age-group-id="team?.age_group?.id ?? null"
           />
         </div>
 

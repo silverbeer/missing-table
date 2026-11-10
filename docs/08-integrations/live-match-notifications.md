@@ -345,7 +345,7 @@ A team row spans several age groups, so a follow names the squad:
 
 | `user_team_follows.age_group_id` | Alerts for |
 |---|---|
-| `NULL` | every age group of the team. Every follow made before SB-1608 is one of these and keeps exactly the alerts it had. The Follow button on a team page and the mobile apps still create these. |
+| `NULL` | every age group of the team. Every follow made before SB-1608 is one of these and keeps exactly the alerts it had. The mobile apps still create these. |
 | `N` | matches of that team in age group `N` only |
 
 - The dispatcher passes the match's age group to the follower lookup, and `follows_match` in `dao/team_follow_dao.py` decides each row. All three device fan-outs share that lookup.
@@ -353,7 +353,11 @@ A team row spans several age groups, so a follow names the squad:
 - Rows are unique on `(user_id, team_id, age_group_id)`, with `NULL` counted as a value.
 - Per-event preferences (kickoff, goals, cards…) remain per user. There is no per-squad override yet.
 
-**Choosing squads.** On the fan profile, the **My squads** card opens a picker of every squad in the fan's own club, grouped by league. Saving sends `PUT /api/me/squad-follows` with `{squads: [{team_id, age_group_id}, …]}`, which replaces the fan's follows of their club's teams:
+**Following a squad of any club (SB-1618).** The **Follow** button on the Matches tab and on a team page follows the squad being viewed, e.g. New England Revolution Pro Academy U16. It sends `age_group_id`, which must be an age group the team plays; otherwise the request is a 400. A whole-team follow already covers every squad, so following a squad of a team that is already followed whole adds nothing. Unfollowing a squad that is covered by a whole-team follow removes the whole-team follow.
+
+**Profile card: Match alerts.** The fan profile lists every follow as one chip. Own-club follows are under **Your club**; follows of other clubs' teams are under **Other teams**. A whole-team follow shows as one "… · every age group" chip. Each chip has × to stop those alerts. A line appears when alerts cannot reach this device yet, linking to the setup guide. The hero stat **Alerts** counts the chips. The notifications settings list the same follows as **Your match alerts**.
+
+**Choosing squads.** On the fan profile, **Choose squads** opens a picker of every squad in the fan's own club, grouped by league. Saving sends `PUT /api/me/squad-follows` with `{squads: [{team_id, age_group_id}, …]}`, which replaces the fan's follows of their club's teams:
 
 - A whole-team follow of a club team is replaced by the squads ticked for it. The picker shows an existing whole-team follow with all of that team's squads ticked, so saving without changes keeps every alert.
 - Follows of other clubs' teams are untouched.
@@ -366,6 +370,6 @@ A team row spans several age groups, so a follow names the squad:
 |---|---|
 | `GET /api/me/team-options` | the fan's club squads, plus the assigned team as `current_team_id` / `current_age_group_id` |
 | `PUT /api/me/squad-follows` | replace the fan's own-club squad follows |
-| `POST /api/users/me/team-follows` `{team_id}` | follow a whole team (any club) |
+| `POST /api/users/me/team-follows` `{team_id, age_group_id?}` | follow a whole team, or with `age_group_id` one squad (any club) |
 | `GET /api/users/me/team-follows` | every follow, with `age_group_id` and `age_group {id, name}` |
 | `DELETE /api/users/me/team-follows/{team_id}[?age_group_id=N]` | without `age_group_id`, removes every follow of the team (what the apps send); with it, removes only that squad |

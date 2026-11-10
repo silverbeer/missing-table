@@ -92,10 +92,13 @@ const putCalls = () =>
   apiRequest.mock.calls.filter(c => c[1]?.method === 'PUT');
 
 const squadFollow = (team_id, age_group_id) => ({ team_id, age_group_id });
+const chipText = li => li.find('span').text();
 const chips = wrapper =>
-  wrapper.findAll('[data-testid="followed-squads"] li').map(li => li.text());
+  wrapper.findAll('[data-testid="followed-squads"] li').map(chipText);
+const otherChips = wrapper =>
+  wrapper.findAll('[data-testid="other-alerts"] li').map(chipText);
 
-describe('FanProfile My squads card (SB-1608)', () => {
+describe('FanProfile Match alerts card (SB-1608, SB-1618)', () => {
   it('shows the assigned team apart, as club · league · age', async () => {
     teamOptions.current_team_id = 19;
     teamOptions.current_age_group_id = 3;
@@ -119,14 +122,69 @@ describe('FanProfile My squads card (SB-1608)', () => {
     expect(wrapper.find('[data-testid="following-count"]').text()).toBe('2');
   });
 
-  it('shows an old whole-team follow as every squad of that team', async () => {
+  it('shows an old whole-team follow as one "every age group" chip', async () => {
     follows = [squadFollow(19, null)];
     const wrapper = await mountProfile();
 
-    expect(chips(wrapper)).toEqual([
-      'IFA · Homegrown · U14',
-      'IFA · Homegrown · U15',
+    expect(chips(wrapper)).toEqual(['IFA · Homegrown · every age group']);
+    expect(wrapper.find('[data-testid="following-count"]').text()).toBe('1');
+  });
+
+  it('pre-ticks every squad of a whole-team follow in the picker', async () => {
+    follows = [squadFollow(19, null)];
+    const wrapper = await mountProfile();
+    await wrapper.find('[data-testid="choose-squads"]').trigger('click');
+
+    expect(wrapper.find('[data-testid="squad-19-2"]').element.checked).toBe(
+      true
+    );
+    expect(wrapper.find('[data-testid="squad-19-3"]').element.checked).toBe(
+      true
+    );
+  });
+
+  it("lists other clubs' squads apart, labelled from the follow", async () => {
+    follows = [
+      squadFollow(19, 3),
+      {
+        team_id: 500,
+        age_group_id: 6,
+        age_group: { id: 6, name: 'U16' },
+        team: {
+          name: 'New England Revolution',
+          division: { leagues: { name: 'Pro Academy' } },
+        },
+      },
+    ];
+    const wrapper = await mountProfile();
+
+    expect(chips(wrapper)).toEqual(['IFA · Homegrown · U15']);
+    expect(otherChips(wrapper)).toEqual([
+      'New England Revolution · Pro Academy · U16',
     ]);
+  });
+
+  it('× stops alerts for that squad only', async () => {
+    follows = [squadFollow(19, 3)];
+    const wrapper = await mountProfile();
+
+    follows = [];
+    await wrapper.find('[data-testid="remove-19-3"]').trigger('click');
+    await flushPromises();
+
+    const del = apiRequest.mock.calls.find(c => c[1]?.method === 'DELETE');
+    expect(del[0]).toBe(
+      'http://test/api/users/me/team-follows/19?age_group_id=3'
+    );
+    expect(chips(wrapper)).toEqual([]);
+  });
+
+  it('says when alerts cannot reach this device yet', async () => {
+    const wrapper = await mountProfile();
+    // jsdom has no PushManager: alerts cannot reach this device.
+    expect(wrapper.find('[data-testid="alerts-device-off"]').exists()).toBe(
+      true
+    );
   });
 
   it('prompts when nothing is followed, without an error or a zero claim', async () => {
