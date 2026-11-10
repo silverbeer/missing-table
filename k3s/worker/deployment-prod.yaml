@@ -157,6 +157,19 @@ spec:
               key: MT_INGEST_ALERT_MAX_PER_HOUR
               optional: true
 
+        # --- Final-score alerts (SB-1619) ---
+        # After writing a new final score the worker asks the API to send the
+        # match alert: POST {MT_API_URL}/api/matches/{id}/final-score-alert,
+        # signed with a 5-minute service token from SERVICE_ACCOUNT_SECRET, which
+        # must therefore equal the backend's. Unset: alerts stay dormant (logged
+        # as final_score_alert_dormant) and ingest is unaffected.
+        - name: MT_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: missing-table-worker-prod-config
+              key: MT_API_URL
+              optional: true
+
         # --- Application ---
         - name: ENVIRONMENT
           valueFrom:

@@ -1111,3 +1111,42 @@ class TestPenaltyShootout:
         payload = task._dao.client.table("matches").update.call_args[0][0]
         assert "home_penalty_score" not in payload
         assert "away_penalty_score" not in payload
+
+
+# ── final-score alert after a scraped score (SB-1619) ───────────────
+
+
+class TestFinalScoreAlertHook:
+    def test_update_returns_the_fields_written(self, task):
+        existing = {"id": 42, "home_score": None, "away_score": None, "match_status": "tbd"}
+        new_data = {"home_score": 3, "away_score": 1, "match_status": "completed"}
+        written = task._update_match_scores(existing, new_data)
+        assert written["home_score"] == 3 and written["match_status"] == "completed"
+
+    def test_a_scraped_new_score_requests_the_alert(self, ingest):
+        existing = {
+            "id": 77,
+            "home_team_id": IFA["id"],
+            "away_team_id": OPPONENT["id"],
+            "home_score": None,
+            "away_score": None,
+            "match_status": "tbd",
+            "match_date": MATCH["match_date"],
+            "match_id": MATCH["external_match_id"],
+        }
+        ingest._dao.get_match_by_external_id.return_value = existing
+        ingest._dao.client.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"id": 77}]
+        )
+        with patch("celery_tasks.match_tasks.alert_if_new_final_score") as alert:
+            result = _run(ingest, home_score=2, away_score=0, match_status="completed")
+        assert result["status"] == "updated"
+        before, after = alert.call_args.args
+        assert before is existing
+        assert (after["id"], after["home_score"], after["away_score"]) == (77, 2, 0)
+
+    def test_a_created_match_with_a_score_requests_the_alert(self, ingest):
+        with patch("celery_tasks.match_tasks.alert_if_new_final_score") as alert:
+            _run(ingest, home_score=1, away_score=1, match_status="completed")
+        before, after = alert.call_args.args
+        assert before is None and after["id"] == 4242 and after["home_score"] == 1
