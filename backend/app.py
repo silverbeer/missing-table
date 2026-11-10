@@ -4668,11 +4668,36 @@ async def get_lineup(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# A lineup saved for a match already played is a record, not news.
+_LINEUP_ALERT_STATUSES = frozenset({"scheduled", "tbd", "live"})
+
+
+def _maybe_notify_lineup(
+    background_tasks: BackgroundTasks, match_id: int, team_id: int, lineup: LineupSave, current_user: dict[str, Any]
+) -> None:
+    """Tell the squad's player channel its lineup is up (SB-1610).
+
+    Once per match and team: re-saves are claimed by the delivery ledger's
+    event key, so editing a lineup does not post again. An empty lineup, or one
+    for a match already played, sends nothing.
+    """
+    if not lineup.positions:
+        return
+    match = match_dao.get_match_by_id(match_id, include_test=viewer_sees_test_content(current_user))
+    if not match or (match.get("match_status") or "scheduled") not in _LINEUP_ALERT_STATUSES:
+        return
+    if team_id not in (match.get("home_team_id"), match.get("away_team_id")):
+        return
+    extra = {"team_id": team_id, "formation": lineup.formation_name, "player_count": len(lineup.positions)}
+    background_tasks.add_task(notify_event_task, "lineup", match_id, extra, f"match:{match_id}:lineup:{team_id}")
+
+
 @app.put("/api/matches/{match_id}/lineup/{team_id}")
 async def save_lineup(
     match_id: int,
     team_id: int,
     lineup: LineupSave,
+    background_tasks: BackgroundTasks,
     current_user: dict[str, Any] = Depends(require_match_management_permission),
 ):
     """Save or update lineup for a team in a match.
@@ -4710,6 +4735,10 @@ async def save_lineup(
             formation=lineup.formation_name,
             player_count=len(lineup.positions),
         )
+        try:
+            _maybe_notify_lineup(background_tasks, match_id, team_id, lineup, current_user)
+        except Exception as exc:  # an alert must never fail the save
+            logger.warning("lineup_alert_failed", match_id=match_id, team_id=team_id, error_type=type(exc).__name__)
 
         return saved_lineup
     except HTTPException:

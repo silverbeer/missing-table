@@ -208,7 +208,7 @@ class TestNoFanoutWhenPushUnconfigured:
 
 
 def test_every_event_type_has_a_setup_label():
-    from notifications.preferences import EVENT_LABELS, EVENT_TYPES
+    from notifications.preferences import CHANNEL_EVENT_TYPES, EVENT_LABELS
 
-    assert list(EVENT_LABELS) == list(EVENT_TYPES)
+    assert list(EVENT_LABELS) == list(CHANNEL_EVENT_TYPES)
     assert all(label.strip() for label in EVENT_LABELS.values())

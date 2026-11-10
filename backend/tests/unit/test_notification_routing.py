@@ -115,3 +115,41 @@ class TestAudienceRules:
 
     def test_unreadable_age_group_is_refused(self):
         assert player_channel_problem(DiscordAdapter(), "tsc_ci_u18")
+
+
+def squad(audience, team_id=10, scope_type="team", event_types=None, dest=None):
+    return {
+        **channel(dest=dest or f"{scope_type}-{audience}-{team_id}", audience=audience, event_types=event_types),
+        "scope_type": scope_type,
+        "team_id": team_id if scope_type == "team" else None,
+    }
+
+
+class TestPlayerOnlyEvents:
+    """SB-1610: a lineup reaches only the player channel of the squad it is about."""
+
+    ROWS = [
+        squad("fans"),  # every event, but fans
+        squad("players", scope_type="club"),  # club players room
+        squad("players", team_id=20),  # the other team's squad
+        squad("fans", scope_type="global"),
+        squad("players"),  # the one
+    ]
+
+    def test_only_the_squads_player_channel(self):
+        out = select_destinations(self.ROWS, "lineup", "U15", team_id=10)
+        assert [c.destination for c in out] == ["team-players-10"]
+
+    def test_without_a_team_it_goes_nowhere(self):
+        assert select_destinations(self.ROWS, "lineup", "U15") == []
+
+    def test_not_below_the_player_age(self):
+        assert select_destinations(self.ROWS, "lineup", "U13", team_id=10) == []
+
+    def test_a_player_channel_can_opt_out(self):
+        rows = [squad("players", event_types=["goal"])]
+        assert select_destinations(rows, "lineup", "U15", team_id=10) == []
+
+    def test_fan_events_are_unchanged(self):
+        out = select_destinations(self.ROWS, "goal", "U15", team_id=None)
+        assert len(out) == len(self.ROWS)

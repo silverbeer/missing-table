@@ -24,7 +24,21 @@ EVENT_TYPES: tuple[str, ...] = (
     "red_card",
 )
 
-# What setup screens call each event. Keys match EVENT_TYPES exactly.
+# Events only a squad's player channel receives (SB-1610). Never a fan channel,
+# a club channel, or anyone's personal push: they are content for the players.
+# Kickoff reminders join this list once the delivery worker (SB-1604) can send
+# at a set time; see docs/08-integrations/live-match-notifications.md.
+PLAYER_EVENT_TYPES: tuple[str, ...] = ("lineup",)
+
+# Every event a chat channel can be limited to, in display order.
+CHANNEL_EVENT_TYPES: tuple[str, ...] = EVENT_TYPES + PLAYER_EVENT_TYPES
+
+
+def is_player_only(event_type: str) -> bool:
+    return event_type in PLAYER_EVENT_TYPES
+
+
+# What setup screens call each event. Keys match CHANNEL_EVENT_TYPES exactly.
 EVENT_LABELS: dict[str, str] = {
     "kickoff": "Kickoff",
     "goal": "Goals",
@@ -32,6 +46,7 @@ EVENT_LABELS: dict[str, str] = {
     "fulltime": "Full time",
     "yellow_card": "Yellow cards",
     "red_card": "Red cards",
+    "lineup": "Lineup posted",
 }
 
 DEFAULT_PREFERENCES: dict[str, bool] = {

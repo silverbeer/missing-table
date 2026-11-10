@@ -20,7 +20,7 @@ from dao.match_dao import SupabaseConnection
 from dao.notification_deliveries_dao import NotificationDeliveriesDAO
 from notifications.adapters.base import DeliveryError, NotificationConfigError
 from notifications.adapters.discord import DiscordAdapter
-from notifications.preferences import EVENT_TYPES
+from notifications.preferences import CHANNEL_EVENT_TYPES
 
 pytestmark = [pytest.mark.integration, pytest.mark.api]
 
@@ -219,6 +219,23 @@ class TestUpdate:
         with as_user(ADMIN) as c:
             assert c.post(BASE, json=team_body(world, event_types=["corner"])).status_code == 422
 
+    def test_lineup_only_on_a_squad_player_channel(self, world):
+        """SB-1610: a player-only event cannot be set where it would never be sent."""
+        lineup = {"event_types": ["goal", "lineup"]}
+        with as_user(ADMIN) as c:
+            assert c.post(BASE, json=team_body(world, **lineup)).status_code == 422  # squad fans
+            assert c.post(BASE, json=club_body(world, audience="players", **lineup)).status_code == 422
+            ok = c.post(BASE, json=team_body(world, audience="players", **lineup))
+            assert ok.status_code == 201, ok.text
+            assert ok.json()["event_types"] == ["goal", "lineup"]
+
+    def test_lineup_cannot_be_added_to_a_fan_channel_later(self, world):
+        with as_user(ADMIN) as c:
+            channel_id = c.post(BASE, json=team_body(world)).json()["id"]
+            r = c.patch(f"{BASE}/{channel_id}", json={"event_types": ["lineup"]})
+        assert r.status_code == 422
+        assert "player channel" in r.json()["detail"]
+
     def test_bad_destination_rejected(self, world):
         with as_user(ADMIN) as c:
             channel_id = c.post(BASE, json=team_body(world)).json()["id"]
@@ -373,8 +390,10 @@ class TestEventTypes:
         with as_user(user("team_manager")) as c:
             r = c.get(f"{BASE}/event-types")
         assert r.status_code == 200
-        assert [e["id"] for e in r.json()] == list(EVENT_TYPES)
+        assert [e["id"] for e in r.json()] == list(CHANNEL_EVENT_TYPES)
         assert all(e["label"] for e in r.json())
+        # Lineup is for a squad's player channel only (SB-1610).
+        assert {e["id"] for e in r.json() if e["player_only"]} == {"lineup"}
 
 
 class TestOriginalClubEndpoints:
