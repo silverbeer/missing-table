@@ -717,6 +717,16 @@ def suggest_motw_candidates(
         teams_low_sample=len(low_sample_teams),
         rules_season=ruleset.season if ruleset else None,
     )
+    logger.info(
+        "motw_candidates_scored",
+        week_start=week_start.isoformat(),
+        divisions=coverage.divisions,
+        fixtures_in_week=coverage.fixtures_in_week,
+        eligible=coverage.eligible,
+        teams_low_sample=coverage.teams_low_sample,
+        returned=min(limit, len(candidates)),
+        candidates=[_score_log(c) for c in candidates],
+    )
     reason = None
     if not candidates:
         reason = (
@@ -734,6 +744,19 @@ def suggest_motw_candidates(
         reason=reason,
         coverage=coverage,
     )
+
+
+def _score_log(c: MotwCandidate) -> dict[str, Any]:
+    """Why a candidate ranked where it did. Every eligible fixture, so near misses show too."""
+    return {
+        "match_id": c.match_id,
+        "fixture": f"{c.home.name} vs {c.away.name}",
+        "age_group": c.age_group.name,
+        "division": c.division.name,
+        "competition": c.competition,
+        **c.score.model_dump(),
+        "flags": c.flags,
+    }
 
 
 def _candidate(
