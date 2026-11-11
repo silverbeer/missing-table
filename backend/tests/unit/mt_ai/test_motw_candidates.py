@@ -8,6 +8,7 @@ from datetime import date
 
 import pytest
 from motw_fakes import NOW, deps
+from structlog.testing import capture_logs
 
 from mt_tools.motw_candidates import (
     FEATURED_PENALTY,
@@ -129,6 +130,18 @@ class TestPure:
 
 
 class TestSuggest:
+    def test_logs_every_eligible_fixtures_score_not_only_those_returned(self):
+        with capture_logs() as logs:
+            result = run(limit=1)
+        [line] = [e for e in logs if e["event"] == "motw_candidates_scored"]
+        assert len(result.candidates) == 1
+        assert (line["eligible"], line["returned"]) == (4, 1)
+        assert len(line["candidates"]) == 4
+        top = line["candidates"][0]
+        assert top["match_id"] == result.candidates[0].match_id
+        assert top["total"] == result.candidates[0].score.total
+        assert {"quality", "closeness", "stakes", "form", "penalty", "flags"} <= set(top)
+
     def test_ranks_the_top_of_table_clash_first(self):
         result = run()
         assert result.error is None
