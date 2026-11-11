@@ -53,9 +53,9 @@ to its parent with the child's competition queued (`selectLeague`). Two guards
 keep the watched cascade honest: an identical table request already in flight
 is not repeated, and only the newest request's answer is shown.
 
-Not changed here, tracked separately: ranking by points-per-match with the
-official tiebreakers (SB-1028), and Flex conference rosters built from
-registration rather than from where fixtures were filed (SB-1038).
+Not changed here, tracked separately: Flex conference rosters built from
+registration rather than from where fixtures were filed (SB-1038). Ranking is
+under "Ranked by points per match" below.
 
 The Matches tab speaks the same language (SB-1040): its chips are
 **Conference** chips, grouped by competition when more than one is present
@@ -160,6 +160,40 @@ Three consequences worth knowing:
   `coverage.shootout_points` lists which counted competitions score a
   shootout, and `LeagueTable.vue` captions the table with it whenever the list
   is non-empty. `mt competitions` shows the same flag.
+
+## Ranked by points per match (SB-1623, SB-1028)
+
+MLS NEXT ranks a table by **points per match**, not total points. Teams play
+different numbers of games, more so once Flex fixtures sit beside League ones,
+so a total rewards the busier team. The U15 New England Flex table on
+mlssoccer.com shows it: IFA 9 from 4 (2.25) sits above NEFC 11 from 5 (2.20).
+
+Order, from the 2026-27 Allstate Homegrown Division Rules and Regulations,
+XIII.k-l ([PDF](https://images.mlssoccer.com/image/upload/v1783990779/assets/MLS_NEXT_HD_Rules_and_Regulations_2026-27_Final_Web_Version_hwmkha.pdf);
+the Academy Division rules read the same):
+
+1. Points per match.
+2. Head-to-head, **only for a tie of exactly two clubs**. In a tie of three or
+   more it is skipped and never comes back.
+3. Wins per match. Regulation wins only: a Flex shootout win is a draw.
+4. Goal difference per match.
+5. Goals for per match.
+6. Away goal difference per match, then away goals for per match.
+7. Home goal difference per match, then home goals for per match.
+8. Fewest disciplinary points, then a coin toss. MT records neither, so a tie
+   that survives step 7 falls back to team name, which keeps the order stable.
+
+`rank_table` in `backend/dao/standings.py` does this. Ranking compares exact
+fractions; the rows carry `points_per_match`, `gd_per_match`, `gf_per_match`
+and `ga_per_match` rounded to 2 decimals for display, and `null` for a team
+that has not played (a missing rate is not a rate of zero). Head-to-head
+points are scored the same way as the table, so a Flex shootout between the
+two counts 2 and 1.
+
+The same order applies to every table MT builds: League, Flex and the combined
+views. Every client numbers rows by array order and none re-sorts, so the
+order, `position_change`, MOTW's positions and mt-mcp's `position` all follow
+from this one function.
 
 ## What "in this division" means
 

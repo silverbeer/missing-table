@@ -187,7 +187,7 @@ class StandingsOption(BaseModel):
 
 
 class StandingsRow(BaseModel):
-    position: int  # 1-based, in table order (points, goal difference, goals for)
+    position: int  # 1-based, in MLS NEXT table order: points per match, then the official tiebreaks
     team: TeamRef
     played: int
     wins: int
@@ -199,6 +199,12 @@ class StandingsRow(BaseModel):
     goals_against: int
     goal_difference: int
     points: int
+    # Per match played, 2 decimals; None when the team hasn't played. The
+    # table ranks by points_per_match, so quote it when explaining an order.
+    points_per_match: float | None = None
+    gd_per_match: float | None = None
+    gf_per_match: float | None = None
+    ga_per_match: float | None = None
     form: list[str] = Field(default_factory=list)  # last five results, oldest first ("W", "D", "L")
     position_change: int = 0  # places moved since the previous match day; positive is up
     is_requested_team: bool = False

@@ -10,6 +10,7 @@ unit tested independently.
 
 from collections import defaultdict
 from datetime import date
+from fractions import Fraction
 from operator import itemgetter
 from typing import Any
 
@@ -208,10 +209,10 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
             - home_penalty_score / away_penalty_score: int or None
 
     Returns:
-        List of team standings sorted by:
-        1. Points (descending)
-        2. Goal difference (descending)
-        3. Goals scored (descending)
+        List of team standings in MLS NEXT order: points per match first,
+        then the official tiebreaks (see rank_table). Ranking by total
+        points misleads when teams have played different numbers of games,
+        as they do across League and Flex (SB-1623).
 
         Each standing contains:
         - team: Team name
@@ -226,6 +227,8 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
         - goals_against: Goals conceded
         - goal_difference: goals_for - goals_against
         - points: Total points
+        - points_per_match, gd_per_match, gf_per_match, ga_per_match:
+          per match played, to 2 decimals (see per_match_stats)
 
     Business Rules:
         - Win = 3 points
@@ -301,6 +304,11 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
     def in_table(team: dict) -> bool:
         return only_team_ids is None or team.get("id") in only_team_ids
 
+    # Inputs to the tiebreaks: points each team took from each opponent, and
+    # each team's home and away (goals for, goals against) results.
+    h2h: dict[tuple[str, str], int] = defaultdict(int)
+    venue: dict[str, dict[str, list[tuple[int, int]]]] = defaultdict(lambda: {"home": [], "away": []})
+
     for match in matches:
         home = match["home_team"]
         away = match["away_team"]
@@ -323,20 +331,129 @@ def calculate_standings(matches: list[dict], only_team_ids: set[int] | None = No
         if in_table(away):
             record(away, away_score, home_score, away_shootout)
 
+        if in_table(home):
+            venue[home["name"]]["home"].append((home_score, away_score))
+        if in_table(away):
+            venue[away["name"]]["away"].append((away_score, home_score))
+        if in_table(home) and in_table(away):
+            h2h[(home["name"], away["name"])] += _points(home_score, away_score, home_shootout)
+            h2h[(away["name"], home["name"])] += _points(away_score, home_score, away_shootout)
+
     # Convert to list and calculate goal difference
     table = []
     for team, stats in standings.items():
         stats["goal_difference"] = stats["goals_for"] - stats["goals_against"]
         stats["team"] = team
+        stats.update(per_match_stats(stats))
         table.append(stats)
 
-    # Sort by points, goal difference, goals scored (all descending)
-    table.sort(
-        key=lambda x: (x["points"], x["goal_difference"], x["goals_for"]),
-        reverse=True,
+    return rank_table(table, h2h, venue)
+
+
+def _points(goals_for: int, goals_against: int, shootout: str | None) -> int:
+    """One side's points from one result, by the same rules as record()."""
+    if goals_for > goals_against:
+        return 3
+    if goals_for < goals_against:
+        return 0
+    return 2 if shootout == "won" else 1
+
+
+def per_match_stats(row: dict) -> dict[str, float | None]:
+    """
+    Points, goal difference, goals for and goals against per match played.
+
+    Rounded to 2 decimals for display; ranking uses exact fractions, never
+    these. None when the team has not played: a missing rate is not a rate
+    of zero.
+    """
+    played = row["played"]
+    if not played:
+        return dict.fromkeys(PER_MATCH_FIELDS)
+    return {
+        "points_per_match": round(row["points"] / played, 2),
+        "gd_per_match": round(row["goal_difference"] / played, 2),
+        "gf_per_match": round(row["goals_for"] / played, 2),
+        "ga_per_match": round(row["goals_against"] / played, 2),
+    }
+
+
+PER_MATCH_FIELDS = ("points_per_match", "gd_per_match", "gf_per_match", "ga_per_match")
+
+
+def _rate(total: int, played: int) -> Fraction:
+    return Fraction(total, played) if played else Fraction(0)
+
+
+def _venue_rates(results: list[tuple[int, int]]) -> tuple[Fraction, Fraction]:
+    """Goal difference and goals for per match, over home or away results."""
+    n = len(results)
+    return (
+        _rate(sum(gf - ga for gf, ga in results), n),
+        _rate(sum(gf for gf, _ in results), n),
     )
 
-    return table
+
+def rank_table(
+    table: list[dict],
+    h2h: dict[tuple[str, str], int] | None = None,
+    venue: dict[str, dict[str, list[tuple[int, int]]]] | None = None,
+) -> list[dict]:
+    """
+    Order a table the way MLS NEXT ranks one (2026-27 rules, XIII.l).
+
+    1. Points per match.
+    2. Head-to-head points, only when exactly two clubs are level. In a
+       tie of three or more it is skipped and never comes back.
+    3. Wins per match (regulation wins: a Flex shootout win is a draw).
+    4. Goal difference per match.
+    5. Goals for per match.
+    6. Away goal difference per match, then away goals for per match.
+    7. Home goal difference per match, then home goals for per match.
+
+    The rules then use disciplinary points and a coin toss. MT records
+    neither, so a tie that survives all of the above falls back to team
+    name, which keeps the order stable. Teams with no games sort last.
+
+    h2h maps (team, opponent) to the points the team took from that
+    opponent; venue maps team to its home and away (gf, ga) results. Both
+    come from calculate_standings(); without them those steps are skipped.
+    """
+    h2h = h2h or {}
+    venue = venue or {}
+
+    def key(row: dict) -> tuple:
+        played = row["played"]
+        sides = venue.get(row["team"], {})
+        away_gd, away_gf = _venue_rates(sides.get("away", []))
+        home_gd, home_gf = _venue_rates(sides.get("home", []))
+        return (
+            played > 0,
+            _rate(row["wins"], played),
+            _rate(row["goal_difference"], played),
+            _rate(row["goals_for"], played),
+            away_gd,
+            away_gf,
+            home_gd,
+            home_gf,
+        )
+
+    groups: dict[tuple[bool, Fraction], list[dict]] = defaultdict(list)
+    for row in table:
+        groups[(row["played"] > 0, _rate(row["points"], row["played"]))].append(row)
+
+    ranked: list[dict] = []
+    for _, group in sorted(groups.items(), key=itemgetter(0), reverse=True):
+        group.sort(key=itemgetter("team"))  # last resort: name, ascending
+        group.sort(key=key, reverse=True)
+        if len(group) == 2:
+            first, second = group
+            mine = h2h.get((first["team"], second["team"]), 0)
+            theirs = h2h.get((second["team"], first["team"]), 0)
+            if theirs > mine:
+                group.reverse()
+        ranked.extend(group)
+    return ranked
 
 
 def get_team_form(matches: list[dict], last_n: int = 5) -> dict[str, list[str]]:
