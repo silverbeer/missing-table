@@ -144,3 +144,18 @@ cd backend && umask 077 && uv run python scripts/utilities/create_service_accoun
 ```
 
   sb-agents reads it as `MT_MOTW_TOKEN` from `op://agents/mt-motw-agent/token`.
+
+## Seeing the ranking
+
+```bash
+scripts/motw.sh test                    # scoring unit tests, no network
+scripts/motw.sh rank                    # this checkout's ranking on prod data, read-only
+scripts/motw.sh rank --week 2026-11-16 --top 10
+scripts/motw.sh rank --rematches        # only fixtures flagged rematch
+scripts/motw.sh live                    # the last ranking prod actually ran, from its logs
+```
+
+`rank` previews a scoring change before it deploys. It connects with the anon key, so
+row-level security refuses any write. It needs `backend/.env.prod`, so run it from the
+main checkout. `live` reads the `motw_candidates_scored` line, and pod logs reset on each
+deploy.

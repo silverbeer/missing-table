@@ -7,16 +7,19 @@ logged goals. Nothing in a candidate may depend on user data.
 from datetime import date
 
 import pytest
-from motw_fakes import NOW, deps
+from motw_fakes import NORTHEAST, NOW, TURNPIKE, U16, default_matches, deps, match, played
 from structlog.testing import capture_logs
 
 from mt_tools.motw_candidates import (
     FEATURED_PENALTY,
     POOL,
+    REMATCH,
+    REMATCH_CLOSE,
     Pool,
     TeamStanding,
     _percentiles,
     form_score,
+    rematch_score,
     score_fixture,
     stakes_score,
     standings_from_rows,
@@ -99,6 +102,24 @@ class TestPure:
         assert stakes_score(a, c, 6, [], table) == (0.0, [])
         assert stakes_score(None, b, 6, [1], table) == (0.0, [])
 
+    def test_rematch_score_follows_the_latest_meeting(self):
+        close = {"match_date": "2026-10-01", "home_score": 2, "away_score": 1}
+        draw = {"match_date": "2026-10-01", "home_score": 1, "away_score": 1}
+        rout = {"match_date": "2026-10-20", "home_score": 5, "away_score": 0}
+        assert rematch_score([]) == 0.0
+        assert rematch_score([close]) == rematch_score([draw]) == REMATCH_CLOSE
+        assert rematch_score([rout]) == REMATCH
+        assert rematch_score([close, rout]) == REMATCH
+
+    def test_a_rematch_counts_without_table_rows(self):
+        assert stakes_score(None, None, 0, [], {}, rematch=REMATCH) == (REMATCH, ["rematch"])
+
+    def test_stakes_takes_the_highest_component(self):
+        a = TeamStanding(1, 1, 3, 7, 2, 1, 0, 0, 0)
+        b = TeamStanding(2, 2, 3, 5, 1, 2, 0, 0, 0)
+        table = {1: a, 2: b}
+        assert stakes_score(a, b, 6, [], table, rematch=REMATCH) == (1.0, ["adjacent", "rematch", "top_of_table"])
+
     def test_featured_penalty(self):
         plain = score_fixture(0.8, 0.8, 1.0, 1.0, 1.0, featured=False)
         featured = score_fixture(0.8, 0.8, 1.0, 1.0, 1.0, featured=True)
@@ -127,6 +148,57 @@ class TestPure:
 
 
 # --- the tool --------------------------------------------------------------------
+
+
+class TestRematch:
+    """Teams 4 and 5 (and 4 and 6) have not met in the default world."""
+
+    def candidate(self, fixture, *extra):
+        matches = [*default_matches(), *extra, fixture]
+        return by_id(run(d=deps(matches), limit=10))[fixture["id"]]
+
+    def fact(self, candidate):
+        return next(f for f in candidate.facts if f.id.endswith(":h2h")).text
+
+    def test_a_decided_flex_game_then_a_league_rematch(self):
+        """The Bayside vs IFA shape: a heavy Flex result, then a League game."""
+        c = self.candidate(
+            match(4, 6, "2026-11-08", NORTHEAST, mid=601),
+            played(4, 6, "2026-10-24", TURNPIKE, 5, 0),
+        )
+        assert "rematch" in c.flags
+        assert c.score.stakes >= REMATCH
+        assert self.fact(c) == "2nd meeting this season. They met on Oct 24 (Flex): Team 4 5-0 Team 6."
+
+    def test_a_close_earlier_game_is_the_highest_stakes(self):
+        c = self.candidate(
+            match(4, 6, "2026-11-08", NORTHEAST, mid=602),
+            played(4, 6, "2026-10-24", TURNPIKE, 2, 1),
+        )
+        assert c.score.stakes == REMATCH_CLOSE
+
+    @pytest.mark.parametrize("status", ["scheduled", "cancelled"])
+    def test_the_earlier_game_must_have_been_played(self, status):
+        c = self.candidate(
+            match(4, 5, "2026-11-08", TURNPIKE, mid=603),
+            match(4, 5, "2026-10-24", TURNPIKE, status=status),
+        )
+        assert "rematch" not in c.flags
+
+    def test_a_friendly_is_mentioned_but_is_not_a_rematch(self):
+        c = self.candidate(
+            match(4, 5, "2026-11-08", TURNPIKE, mid=604),
+            played(4, 5, "2026-08-20", TURNPIKE, 1, 1, mtype="Friendly"),
+        )
+        assert "rematch" not in c.flags
+        assert self.fact(c) == "They met on Aug 20 (Friendly): Team 4 1-1 Team 5."
+
+    def test_another_age_group_is_not_a_rematch(self):
+        c = self.candidate(
+            match(4, 5, "2026-11-08", TURNPIKE, mid=605),
+            played(4, 5, "2026-10-01", NORTHEAST, 1, 0, age=U16),
+        )
+        assert "rematch" not in c.flags
 
 
 class TestSuggest:
