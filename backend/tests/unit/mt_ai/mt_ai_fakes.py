@@ -8,6 +8,8 @@ events, and the tools must give full answers anyway.
 import copy
 from typing import Any
 
+from dao.standings import per_match_stats
+
 REAL_HOMEGROWN, REAL_ACADEMY, REAL_FLEX, TEST_LEAGUE = 1, 2, 3, 9
 U14, U15, U16 = 14, 15, 16
 
@@ -317,6 +319,7 @@ def standings_row(team_id: int, name: str, club_id: int | None, points: int, **o
         "position_change": 0,
     }
     row.update(overrides)
+    row.update(per_match_stats(row))
     return row
 
 

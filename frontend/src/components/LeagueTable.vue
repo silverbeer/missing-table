@@ -221,7 +221,7 @@
         <thead class="bg-brand-500">
           <tr>
             <th
-              class="px-1 sm:px-2 md:px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider"
+              class="sticky left-0 z-20 bg-brand-500 md:static w-8 min-w-[2rem] max-w-[2rem] md:w-auto md:min-w-0 md:max-w-none px-1 sm:px-2 md:px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider"
               title="Rank"
             >
               #
@@ -233,135 +233,27 @@
               +/-
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider max-w-[100px] sm:max-w-[140px] md:max-w-none"
+              class="sticky left-8 z-20 bg-brand-500 pinned-edge md:static px-2 sm:px-4 md:px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider min-w-[100px] max-w-[100px] sm:min-w-[140px] sm:max-w-[140px] md:min-w-0 md:max-w-none"
             >
               Team
             </th>
             <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
-              title="Games Played"
-              :aria-sort="ariaSort('played')"
+              v-for="col in statColumns"
+              :key="col.key"
+              class="px-2 sm:px-3 md:px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
+              :class="col.headClass || 'text-slate-300'"
+              :title="col.title"
+              :aria-sort="ariaSort(col.key)"
             >
               <button
                 type="button"
                 class="sort-header"
-                data-testid="sort-played"
-                @click="toggleSort('played')"
+                :data-testid="`sort-${col.testid}`"
+                @click="toggleSort(col.key)"
               >
-                GP<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('played')
-                }}</span>
-              </button>
-            </th>
-            <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
-              title="Wins"
-              :aria-sort="ariaSort('wins')"
-            >
-              <button
-                type="button"
-                class="sort-header"
-                data-testid="sort-wins"
-                @click="toggleSort('wins')"
-              >
-                W<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('wins')
-                }}</span>
-              </button>
-            </th>
-            <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
-              title="Draws"
-              :aria-sort="ariaSort('draws')"
-            >
-              <button
-                type="button"
-                class="sort-header"
-                data-testid="sort-draws"
-                @click="toggleSort('draws')"
-              >
-                D<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('draws')
-                }}</span>
-              </button>
-            </th>
-            <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
-              title="Losses"
-              :aria-sort="ariaSort('losses')"
-            >
-              <button
-                type="button"
-                class="sort-header"
-                data-testid="sort-losses"
-                @click="toggleSort('losses')"
-              >
-                L<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('losses')
-                }}</span>
-              </button>
-            </th>
-            <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
-              title="Goals For"
-              :aria-sort="ariaSort('goals_for')"
-            >
-              <button
-                type="button"
-                class="sort-header"
-                data-testid="sort-goals-for"
-                @click="toggleSort('goals_for')"
-              >
-                GF<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('goals_for')
-                }}</span>
-              </button>
-            </th>
-            <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
-              title="Goals Against"
-              :aria-sort="ariaSort('goals_against')"
-            >
-              <button
-                type="button"
-                class="sort-header"
-                data-testid="sort-goals-against"
-                @click="toggleSort('goals_against')"
-              >
-                GA<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('goals_against')
-                }}</span>
-              </button>
-            </th>
-            <th
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider"
-              title="Goal Difference"
-              :aria-sort="ariaSort('goal_difference')"
-            >
-              <button
-                type="button"
-                class="sort-header"
-                data-testid="sort-goal-difference"
-                @click="toggleSort('goal_difference')"
-              >
-                GD<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('goal_difference')
-                }}</span>
-              </button>
-            </th>
-            <th
-              class="px-2 sm:px-4 md:px-6 py-3 text-center text-xs font-semibold text-brand-200 uppercase tracking-wider"
-              title="Points"
-              :aria-sort="ariaSort('points')"
-            >
-              <button
-                type="button"
-                class="sort-header"
-                data-testid="sort-points"
-                @click="toggleSort('points')"
-              >
-                Pts<span class="sort-caret" aria-hidden="true">{{
-                  sortCaret('points')
+                {{ col.label
+                }}<span class="sort-caret" aria-hidden="true">{{
+                  sortCaret(col.key)
                 }}</span>
               </button>
             </th>
@@ -388,13 +280,13 @@
           <tr
             v-for="team in sortedTableData"
             :key="team.team"
-            class="hover:bg-surface-alt transition-colors"
+            class="group hover:bg-surface-alt transition-colors"
             data-testid="standings-row"
           >
             <!-- League position, not row number: sorting by GF must not renumber
                  the standings. -->
             <td
-              class="px-1 sm:px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-fg-muted"
+              class="sticky left-0 z-10 bg-card group-hover:bg-surface-alt md:static w-8 min-w-[2rem] max-w-[2rem] md:w-auto md:min-w-0 md:max-w-none px-1 sm:px-2 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-fg-muted"
             >
               {{ team.standingsRank }}
             </td>
@@ -418,7 +310,7 @@
               <span v-else class="text-fg-muted">—</span>
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm font-medium text-fg max-w-[100px] sm:max-w-[140px] md:max-w-none md:whitespace-nowrap"
+              class="sticky left-8 z-10 bg-card group-hover:bg-surface-alt pinned-edge md:static px-2 sm:px-4 md:px-6 py-3 md:py-4 text-xs sm:text-sm font-medium text-fg min-w-[100px] max-w-[100px] sm:min-w-[140px] sm:max-w-[140px] md:min-w-0 md:max-w-none md:whitespace-nowrap"
             >
               <div class="flex items-center gap-1.5">
                 <ClubLogo
@@ -439,44 +331,13 @@
               </div>
             </td>
             <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
+              v-for="col in statColumns"
+              :key="col.key"
+              class="px-2 sm:px-3 md:px-4 py-3 md:py-4 whitespace-nowrap text-sm text-center tabular-nums"
+              :class="col.cellClass"
+              :data-testid="`cell-${col.testid}`"
             >
-              {{ team.played }}
-            </td>
-            <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
-            >
-              {{ team.wins }}
-            </td>
-            <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
-            >
-              {{ team.draws }}
-            </td>
-            <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
-            >
-              {{ team.losses }}
-            </td>
-            <td
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
-            >
-              {{ team.goals_for }}
-            </td>
-            <td
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
-            >
-              {{ team.goals_against }}
-            </td>
-            <td
-              class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center text-fg-muted"
-            >
-              {{ team.goal_difference }}
-            </td>
-            <td
-              class="px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-sm text-center font-bold text-accent-600 dark:text-accent-300"
-            >
-              {{ team.points }}
+              {{ formatStat(team[col.key], col.format) }}
             </td>
             <td
               class="hidden md:table-cell px-2 sm:px-4 md:px-6 py-3 md:py-4 whitespace-nowrap text-center"
@@ -536,6 +397,11 @@ import { useFilterMemory, knownId } from '../composables/useFilterMemory';
 import PlayoffBracket from './PlayoffBracket.vue';
 import ClubLogo from './shared/ClubLogo.vue';
 import { teamDivisionFor } from '../utils/teamDivisions';
+import {
+  STAT_COLUMNS,
+  compareByColumn,
+  formatStat,
+} from '../utils/standingsFormat';
 
 export default {
   name: 'LeagueTable',
@@ -581,14 +447,10 @@ export default {
       if (!sortKey.value) return rankedTableData.value;
       const key = sortKey.value;
       const direction = sortDir.value === 'asc' ? 1 : -1;
-      return [...rankedTableData.value].sort((a, b) => {
-        const av = Number(a[key] ?? 0);
-        const bv = Number(b[key] ?? 0);
-        // Ties fall back to league position, so equal rows never shuffle.
-        return av === bv
-          ? a.standingsRank - b.standingsRank
-          : (av - bv) * direction;
-      });
+      // Ties fall back to league position, so equal rows never shuffle.
+      return [...rankedTableData.value].sort((a, b) =>
+        compareByColumn(a, b, key, direction)
+      );
     });
 
     // desc (answers "who has the most") -> asc -> back to league position.
@@ -1343,6 +1205,8 @@ export default {
       toggleSort,
       ariaSort,
       sortCaret,
+      statColumns: STAT_COLUMNS,
+      formatStat,
       hasQopData,
       qopWeekOf,
       competitions,
@@ -1404,6 +1268,18 @@ export default {
   outline: 2px solid currentColor;
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* Phones: # and Team stay put while the stats scroll under them (SB-1623).
+   A soft edge shows where the scrolling starts. md: and up drops it. */
+.pinned-edge {
+  box-shadow: 4px 0 4px -4px rgb(0 0 0 / 0.25);
+}
+
+@media (min-width: 768px) {
+  .pinned-edge {
+    box-shadow: none;
+  }
 }
 
 /* Reserve the caret's width so activating a sort doesn't nudge the columns. */

@@ -78,7 +78,7 @@ const STANDINGS = [
   },
 ];
 
-const mountTable = () => {
+const mountTable = (rows = STANDINGS) => {
   mockAuthStore = {
     isAuthenticated: { value: false },
     userRole: { value: null },
@@ -93,7 +93,7 @@ const mountTable = () => {
         return Promise.resolve({
           has_qop_data: false,
           qop_week_of: null,
-          standings: STANDINGS.map(t => ({ ...t })),
+          standings: rows.map(t => ({ ...t })),
         });
       }
       if (url.includes('/api/seasons')) {
@@ -194,5 +194,153 @@ describe('LeagueTable sorting', () => {
 
     await wrapper.find('[data-testid="sort-points"]').trigger('click');
     expect(header().getAttribute('aria-sort')).toBe('ascending');
+  });
+});
+
+// SB-1623: the API ranks by points per match and sends the per-match stats.
+// Echo has not played, so it has no rates: they must read as a dash, not 0.00.
+const PER_MATCH = [
+  {
+    ...STANDINGS[0],
+    team: 'Alpha',
+    played: 4,
+    points: 9,
+    goal_difference: 6,
+    points_per_match: 2.25,
+    gd_per_match: 1.5,
+    gf_per_match: 1.75,
+    ga_per_match: 0.25,
+  },
+  {
+    ...STANDINGS[1],
+    team: 'Bravo',
+    played: 5,
+    points: 11,
+    goal_difference: -2,
+    points_per_match: 2.2,
+    gd_per_match: -0.4,
+    gf_per_match: 1,
+    ga_per_match: 1.4,
+  },
+  {
+    ...STANDINGS[2],
+    team: 'Echo',
+    played: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    goals_for: 0,
+    goals_against: 0,
+    goal_difference: 0,
+    points: 0,
+    points_per_match: null,
+    gd_per_match: null,
+    gf_per_match: null,
+    ga_per_match: null,
+  },
+];
+
+const cell = (wrapper, rowIndex, testid) =>
+  wrapper
+    .findAll('[data-testid="standings-row"]')
+    [rowIndex].find(`[data-testid="cell-${testid}"]`)
+    .text();
+
+describe('LeagueTable per-match columns (SB-1623)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('shows the same columns as the apps, with GP, Pts and PPM first', async () => {
+    const wrapper = mountTable(PER_MATCH);
+    await flushPromises();
+    const labels = wrapper
+      .findAll('thead th')
+      .map(th => th.text().trim())
+      .filter(Boolean);
+    expect(labels).toEqual([
+      '#',
+      '+/-',
+      'Team',
+      'GP',
+      'Pts',
+      'PPM',
+      'W',
+      'D',
+      'L',
+      'GF',
+      'GA',
+      'GD',
+      'GD/M',
+      'GF/M',
+      'GA/M',
+      'Form',
+    ]);
+  });
+
+  it('keeps the API order: fewer points but more per match ranks higher', async () => {
+    const wrapper = mountTable(PER_MATCH);
+    await flushPromises();
+    const order = wrapper
+      .findAll('[data-testid="standings-row"]')
+      .map(r => r.text().match(/Alpha|Bravo|Echo/)?.[0]);
+    expect(order).toEqual(['Alpha', 'Bravo', 'Echo']);
+    expect([
+      cell(wrapper, 0, 'points'),
+      cell(wrapper, 0, 'points-per-match'),
+    ]).toEqual(['9', '2.25']);
+    expect([
+      cell(wrapper, 1, 'points'),
+      cell(wrapper, 1, 'points-per-match'),
+    ]).toEqual(['11', '2.20']);
+  });
+
+  it('formats rates to 2 decimals and signs goal difference', async () => {
+    const wrapper = mountTable(PER_MATCH);
+    await flushPromises();
+    expect(
+      ['goal-difference', 'gd-per-match', 'gf-per-match', 'ga-per-match'].map(
+        c => cell(wrapper, 0, c)
+      )
+    ).toEqual(['+6', '+1.50', '1.75', '0.25']);
+    expect(cell(wrapper, 1, 'gd-per-match')).toBe('-0.40');
+  });
+
+  it('shows a dash, not 0.00, for a team that has not played', async () => {
+    const wrapper = mountTable(PER_MATCH);
+    await flushPromises();
+    expect(
+      ['points-per-match', 'gd-per-match', 'gf-per-match', 'ga-per-match'].map(
+        c => cell(wrapper, 2, c)
+      )
+    ).toEqual(['–', '–', '–', '–']);
+  });
+
+  it('sorts a team with no rate last in both directions', async () => {
+    const wrapper = mountTable(PER_MATCH);
+    await flushPromises();
+    const btn = () => wrapper.find('[data-testid="sort-points-per-match"]');
+    const last = () =>
+      wrapper.findAll('[data-testid="standings-row"]').at(-1).text();
+
+    await btn().trigger('click');
+    expect(last()).toContain('Echo');
+    await btn().trigger('click');
+    expect(last()).toContain('Echo');
+    expect(
+      wrapper.findAll('[data-testid="standings-row"]')[0].text()
+    ).toContain('Bravo');
+  });
+
+  it('pins rank and team so phones can scroll the stats under them', async () => {
+    const wrapper = mountTable(PER_MATCH);
+    await flushPromises();
+    const [rank, , team] = wrapper
+      .findAll('[data-testid="standings-row"]')[0]
+      .findAll('td');
+    expect(rank.classes()).toEqual(
+      expect.arrayContaining(['sticky', 'left-0', 'md:static'])
+    );
+    expect(team.classes()).toEqual(
+      expect.arrayContaining(['sticky', 'left-8', 'md:static'])
+    );
   });
 });

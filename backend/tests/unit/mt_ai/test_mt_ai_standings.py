@@ -238,6 +238,21 @@ class TestTheTable:
         # A team with no club is absent, not an empty string.
         assert result.rows[2].team.club_name is None
 
+    def test_rows_carry_the_per_match_stats_the_table_ranks_by(self, make_deps, real_viewer):
+        matches = FakeMatches(
+            standings=standings_result(
+                [
+                    standings_row(IFA, "IFA", 11, 9, played=4, goals_for=7, goals_against=1, goal_difference=6),
+                    standings_row(NEFC, "NEFC", None, 0, played=0, goals_for=0, goals_against=0, goal_difference=0),
+                ]
+            )
+        )
+        ifa, nefc = get_standings(make_deps(matches), real_viewer, team_id=IFA).rows
+
+        assert (ifa.points_per_match, ifa.gd_per_match, ifa.gf_per_match, ifa.ga_per_match) == (2.25, 1.5, 1.75, 0.25)
+        # No games is no rate, not a rate of zero.
+        assert (nefc.points_per_match, nefc.gd_per_match) == (None, None)
+
     def test_coverage_ships_with_the_table(self, make_deps, real_viewer):
         result = get_standings(make_deps(northeast_u15()), real_viewer, team_id=BOSTON)
 
