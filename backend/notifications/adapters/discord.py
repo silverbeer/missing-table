@@ -28,8 +28,8 @@ class DiscordAdapter(ChannelAdapter):
         "Name it Missing Table, make sure the right channel is selected, and save.",
         "Click Copy Webhook URL and paste it here. Treat it like a password: anyone with it can post.",
         "Then click Send test to confirm a message arrives.",
-        "Use a text channel for Missing Table's posts. If you want a discussion thread per match, "
-        "make a separate Forum channel next to it; see the Discord guide in the docs.",
+        "A text channel gets every update as its own message. For one post per match, point the "
+        "webhook at a Forum channel instead and tick One post per match below.",
     )
     player_setup_steps: ClassVar[tuple[str, ...]] = (
         "Player channels are read-only with reactions: players react, only managers post.",
