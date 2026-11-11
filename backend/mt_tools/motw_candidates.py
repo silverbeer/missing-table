@@ -28,8 +28,10 @@ Eligible: League or Flex, status scheduled/tbd, not test, dated in the target we
   has not played a counted match: strength 0.5, `low_sample`.
 - **quality** = the weaker team's strength: a great match needs two good teams.
 - **closeness** = 1 - |strength difference|.
-- **stakes** = the strongest of: adjacent in the table, both near the top, and both
-  in contention at a rank a qualification rule selects (Flex conference winner).
+- **stakes** = the strongest of: adjacent in the table, both near the top, both
+  in contention at a rank a qualification rule selects (Flex conference winner), and
+  a rematch: the teams already played in League or Flex this season (more if that
+  game was a draw or decided by one goal).
   Only a rule from `qualification_rules` creates a "line"; a Homegrown league
   table has none, because no source ties a league finish to a Cup place.
 - **form** = both teams' last five League/Flex results, newest weighted most,
@@ -79,6 +81,9 @@ LOW_SAMPLE_GAMES = 3
 FORM_GAMES = 5
 FORM_WEIGHTS = (5, 4, 3, 2, 1)  # newest first
 LINE_MARGIN_POINTS = 3  # "in contention" for a ranked place: within this many points of it
+REMATCH = 0.7  # the teams already played each other this season
+REMATCH_CLOSE = 1.0  # ...and their latest meeting was a draw or this close
+CLOSE_MARGIN = 1
 MAX_LIMIT = 10
 
 ELIGIBLE_STATUSES = frozenset({"scheduled", "tbd"})
@@ -314,30 +319,65 @@ def form_score(results: list[str]) -> float | None:
     return sum(w * value[r] for w, r in zip(weights, recent, strict=True)) / sum(weights)
 
 
+def meetings_between(history: Iterable[dict], home_id: int, away_id: int, match_id: int) -> list[dict]:
+    """Played matches between the two teams in `history`, other than this fixture."""
+    return [
+        m
+        for m in history
+        if {m.get("home_team_id"), m.get("away_team_id")} == {home_id, away_id}
+        and m.get("id") != match_id
+        and result_for(m, home_id)
+    ]
+
+
+def in_pool_types(matches: Iterable[dict]) -> list[dict]:
+    """The League and Flex matches, the ones a season's rematch counts."""
+    return [m for m in matches if m.get("match_type_name") in POOL.match_types]
+
+
+def rematch_score(meetings: list[dict]) -> float:
+    """What earlier League/Flex meetings this season add to stakes; the latest decides."""
+    if not meetings:
+        return 0.0
+    last = max(meetings, key=lambda m: _date(m.get("match_date")))
+    return REMATCH_CLOSE if abs(last["home_score"] - last["away_score"]) <= CLOSE_MARGIN else REMATCH
+
+
 def stakes_score(
-    home: TeamStanding | None, away: TeamStanding | None, table_size: int, line_ranks: Iterable[int], table: dict
+    home: TeamStanding | None,
+    away: TeamStanding | None,
+    table_size: int,
+    line_ranks: Iterable[int],
+    table: dict,
+    *,
+    rematch: float = 0.0,
 ) -> tuple[float, list[str]]:
-    """How much the table says rides on it, in [0, 1], and why (flag names)."""
-    if home is None or away is None or table_size < 2:
-        return 0.0, []
+    """How much rides on it, in [0, 1], and why (flag names).
+
+    A rematch counts even without table rows: two teams can meet in Flex before either
+    has a row in the League table their next meeting counts in.
+    """
     components: dict[str, float] = {}
-    gap = abs(home.position - away.position)
-    if gap == 1:
-        components["adjacent"] = 0.7
-    elif gap == 2:
-        components["adjacent"] = 0.45
-    top = max(home.position, away.position)
-    if top <= 3:
-        components["top_of_table"] = 1.0
-    elif min(home.position, away.position) <= 2 and top <= 5:
-        components["top_of_table"] = 0.7
-    by_position = {s.position: s for s in table.values()}
-    for rank in line_ranks:
-        line = by_position.get(rank)
-        if line is None:
-            continue
-        if all(t.points >= line.points - LINE_MARGIN_POINTS for t in (home, away)):
-            components["qualifying_line"] = 1.0
+    if rematch:
+        components["rematch"] = rematch
+    if home is not None and away is not None and table_size >= 2:
+        gap = abs(home.position - away.position)
+        if gap == 1:
+            components["adjacent"] = 0.7
+        elif gap == 2:
+            components["adjacent"] = 0.45
+        top = max(home.position, away.position)
+        if top <= 3:
+            components["top_of_table"] = 1.0
+        elif min(home.position, away.position) <= 2 and top <= 5:
+            components["top_of_table"] = 0.7
+        by_position = {s.position: s for s in table.values()}
+        for rank in line_ranks:
+            line = by_position.get(rank)
+            if line is None:
+                continue
+            if all(t.points >= line.points - LINE_MARGIN_POINTS for t in (home, away)):
+                components["qualifying_line"] = 1.0
     if not components:
         return 0.0, []
     best = max(components.values())
@@ -472,21 +512,17 @@ def build_facts(
         if text:
             facts.append(MotwFact(id=f"{mid}:streak:{side}", kind="form", team_id=team_id, text=text))
 
-    meetings = [
-        m
-        for m in history
-        if {m.get("home_team_id"), m.get("away_team_id")} == {home_id, away_id}
-        and m.get("id") != mid
-        and result_for(m, home_id)
-    ]
+    meetings = meetings_between(history, home_id, away_id, mid)
     if meetings:
-        last = max(meetings, key=lambda m: _date(m.get("match_date")))
+        rematches = in_pool_types(meetings)
+        last = max(rematches or meetings, key=lambda m: _date(m.get("match_date")))
+        nth = f"{_ordinal(len(rematches) + 1)} meeting this season. " if rematches else ""
         facts.append(
             MotwFact(
                 id=f"{mid}:h2h",
                 kind="rivalry",
                 text=(
-                    f"They met on {_date(last['match_date']):%b %-d} ({last.get('match_type_name')}): "
+                    f"{nth}They met on {_date(last['match_date']):%b %-d} ({last.get('match_type_name')}): "
                     f"{names.get(last['home_team_id'], last.get('home_team_name'))} {last['home_score']}-"
                     f"{last['away_score']} {names.get(last['away_team_id'], last.get('away_team_name'))}."
                 ),
@@ -814,7 +850,10 @@ def _candidate(
             if "low_sample" not in flags:
                 flags.append("low_sample")
 
-    stakes, stake_flags = stakes_score(table.get(home_id), table.get(away_id), len(table), line_ranks, table)
+    rematch = rematch_score(in_pool_types(meetings_between(history, home_id, away_id, match["id"])))
+    stakes, stake_flags = stakes_score(
+        table.get(home_id), table.get(away_id), len(table), line_ranks, table, rematch=rematch
+    )
     flags.extend(stake_flags)
     is_featured = bool({home_id, away_id} & featured)
     if is_featured:
