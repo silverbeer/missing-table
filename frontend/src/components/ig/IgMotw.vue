@@ -47,14 +47,21 @@
       <MlsNextBadge v-if="isHomegrownLeague" class="mls-badge" />
     </header>
 
+    <!--
+      One pick per age group and pool (SB-1639), so the plaque says whose:
+      "U16 Match of the Week". The Pathway pick names the Pathway in place of
+      the meta line, which would otherwise spell out "Northeast (Pro Player
+      Pathway)" and run off a 24px line.
+    -->
     <div class="plaque-wrap">
-      <div class="plaque">Match of the Week</div>
+      <div class="plaque" data-testid="ig-motw-plaque">{{ plaqueLabel }}</div>
       <div class="context">
         <span v-if="weekLabel" data-testid="ig-motw-week">{{ weekLabel }}</span>
         <span v-if="weekLabel" class="context-dot" aria-hidden="true">·</span>
-        <span data-testid="ig-age-chip">{{ ageGroupLabel }}</span>
-        <span class="context-dot" aria-hidden="true">·</span>
-        <span data-testid="ig-meta">{{ metaLabel }}</span>
+        <span v-if="isPathway" data-testid="ig-motw-pool"
+          >Pro Player Pathway</span
+        >
+        <span v-else data-testid="ig-meta">{{ metaLabel }}</span>
       </div>
     </div>
 
@@ -266,6 +273,18 @@ export default {
       props.weekNumber ? `Week ${props.weekNumber}` : null
     );
 
+    // The slot, read off the match the same way the API files it: its age
+    // group, and the Pathway pool when its division is the Pathway.
+    const plaqueLabel = computed(() => {
+      const age = props.match?.age_group_name;
+      return age && age !== 'Unknown'
+        ? `${age} Match of the Week`
+        : 'Match of the Week';
+    });
+    const isPathway = computed(() =>
+      /pro player pathway/i.test(props.match?.division_name || '')
+    );
+
     return {
       root,
       ...data,
@@ -277,6 +296,8 @@ export default {
       homeRuleColor,
       awayRuleColor,
       weekLabel,
+      plaqueLabel,
+      isPathway,
     };
   },
 };

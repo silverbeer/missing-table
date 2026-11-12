@@ -337,6 +337,48 @@ describe('IgMotw template (SB-1010)', () => {
     expect(wrapper.text()).toContain('Match of the Week');
   });
 
+  it("names the pick's age group on the plaque (SB-1639)", () => {
+    const wrapper = mountCard('motw', {
+      match: createMockMatch({ age_group_name: 'U16' }),
+      weekNumber: 3,
+    });
+
+    expect(wrapper.find('[data-testid="ig-motw-plaque"]').text()).toBe(
+      'U16 Match of the Week'
+    );
+    expect(wrapper.find('[data-testid="ig-motw-week"]').text()).toBe('Week 3');
+    expect(wrapper.find('[data-testid="ig-meta"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="ig-motw-pool"]').exists()).toBe(false);
+  });
+
+  it('keeps the plain plaque when the age group is unknown', () => {
+    const wrapper = mountCard('motw', {
+      match: createMockMatch({ age_group_name: null }),
+    });
+
+    expect(wrapper.find('[data-testid="ig-motw-plaque"]').text()).toBe(
+      'Match of the Week'
+    );
+  });
+
+  it('names the Pro Player Pathway on a Pathway pick', () => {
+    const wrapper = mountCard('motw', {
+      match: createMockMatch({
+        age_group_name: 'U17',
+        division_name: 'Northeast (Pro Player Pathway)',
+      }),
+    });
+
+    expect(wrapper.find('[data-testid="ig-motw-plaque"]').text()).toBe(
+      'U17 Match of the Week'
+    );
+    expect(wrapper.find('[data-testid="ig-motw-pool"]').text()).toBe(
+      'Pro Player Pathway'
+    );
+    // The division would say the same thing again, at twice the length.
+    expect(wrapper.find('[data-testid="ig-meta"]').exists()).toBe(false);
+  });
+
   it('carries the editorial blurb through the dispatcher', () => {
     const wrapper = mountCard('motw', { blurb: 'Two unbeaten records.' });
 

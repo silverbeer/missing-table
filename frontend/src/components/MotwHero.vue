@@ -2,9 +2,10 @@
   <!--
     Match of the Week (SB-1010).
 
-    Deliberately a strip and not a billboard. The pick crosses every age group,
-    so it is never the thing the person came to this tab for — it sits above
-    Week Navigation as one line and only opens when asked.
+    Deliberately a strip and not a billboard. It is never the thing the person
+    came to this tab for — it sits above Week Navigation as one line and only
+    opens when asked. Since SB-1639 it shows the pick for the age group (and
+    pool) the Matches filters are on.
 
     Closed, it withholds the fixture on purpose: one pick a week is small
     enough to be worth revealing rather than announcing, and the reveal is the
@@ -35,9 +36,8 @@
       </span>
       <!--
         The age group rides in the closed strip, not just in the expanded
-        meta line. This banner renders on every age group — the pick is
-        global — so a U16 fixture teased under a U15 filter has to say which
-        age group it is before anyone opens it.
+        meta line: there is one pick per age group, so the strip says whose
+        pick it is before anyone opens it.
       -->
       <span v-if="ageGroupLabel" class="motw-age" data-testid="motw-age">
         {{ ageGroupLabel }}
