@@ -166,8 +166,9 @@ kubectl exec -n match-scraper -it <pod-name> -- \
 # Verify image exists in Rancher Desktop
 nerdctl --namespace k8s.io images | grep missing-table-worker
 
-# Re-import if needed
-docker save missing-table-worker:latest | nerdctl --namespace k8s.io load
+# Re-import if needed. Run it from $HOME: nerdctl runs inside the Rancher VM,
+# which only sees your home folder, so from /tmp it fails with "can't cd".
+cd ~ && docker save missing-table-worker:<tag> | nerdctl --namespace k8s.io load
 ```
 
 ### Redis Connection Warnings

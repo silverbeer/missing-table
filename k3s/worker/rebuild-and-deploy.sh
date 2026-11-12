@@ -93,7 +93,11 @@ import_image() {
     log_info "Importing image to Rancher Desktop..."
     echo ""
 
-    if docker save "$IMAGE_NAME" | nerdctl --namespace k8s.io load; then
+    # nerdctl runs inside the Rancher Desktop VM and starts by cd-ing into the
+    # caller's directory. Only $HOME is shared into the VM, so a repo checked
+    # out under /tmp (a worktree, say) fails with "can't cd". build_image has
+    # already cd'd into the repo, hence the subshell.
+    if (cd "$HOME" && docker save "$IMAGE_NAME" | nerdctl --namespace k8s.io load); then
         log_success "Image imported to Rancher Desktop"
         return 0
     else
