@@ -12,7 +12,8 @@ Two layers, so the scoring is testable without a database:
 
 `POOL` names the leagues, conferences, age groups and match types the suggestion
 draws from. Names are resolved against the divisions MT actually has; a name that
-does not resolve is an error, not a silently smaller pool.
+does not resolve is an error, not a silently smaller pool. `PRO_PATHWAY_POOL` is
+the Northeast Pro Player Pathway on its own, for a separate pick.
 
 Eligible: League or Flex, status scheduled/tbd, not test, dated in the target week
 (Monday-Sunday) and not before today.
@@ -101,16 +102,25 @@ class Pool:
     conferences: tuple[tuple[str, str], ...]
 
 
+# League from Homegrown Northeast, Flex from the three conferences around it (SB-1635).
+# Each holds a single match type, so a conference list is enough.
 POOL = Pool(
     age_groups=("U15", "U16", "U17", "U19"),
     match_types=("League", "Flex"),
     conferences=(
         ("Homegrown", "Northeast"),
-        ("Homegrown", "Northeast (Pro Player Pathway)"),
         ("Flex", "Empire"),
         ("Flex", "New England"),
         ("Flex", "Turnpike"),
     ),
+)
+
+# The pro academies get a pick of their own rather than competing in POOL: their
+# table is a different competition, and teams there play up an age group (SB-1635).
+PRO_PATHWAY_POOL = Pool(
+    age_groups=POOL.age_groups,
+    match_types=("League",),
+    conferences=(("Homegrown", "Northeast (Pro Player Pathway)"),),
 )
 
 
