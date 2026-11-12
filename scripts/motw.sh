@@ -3,7 +3,7 @@
 #
 #   scripts/motw.sh test                    scoring unit tests, no network
 #   scripts/motw.sh rank                    this checkout's ranking on prod data, read-only
-#     [--week YYYY-MM-DD] [--top N] [--rematches] [--env local]
+#     [--week YYYY-MM-DD] [--top N] [--rematches] [--env local] [--pool pathway] [--age-group U16]
 #   scripts/motw.sh live [--since 24h]      the last ranking prod actually ran, from its logs
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

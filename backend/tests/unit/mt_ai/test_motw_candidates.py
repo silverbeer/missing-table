@@ -4,10 +4,11 @@ The world here is MT's default: scraped fixtures and results, no rosters, no
 logged goals. Nothing in a candidate may depend on user data.
 """
 
+import dataclasses
 from datetime import date
 
 import pytest
-from motw_fakes import NORTHEAST, NOW, TURNPIKE, U16, default_matches, deps, match, played
+from motw_fakes import NORTHEAST, NOW, TURNPIKE, U16, FakeMotw, default_matches, deps, match, played
 from structlog.testing import capture_logs
 
 from mt_tools.motw_candidates import (
@@ -25,6 +26,7 @@ from mt_tools.motw_candidates import (
     stakes_score,
     standings_from_rows,
     streak_text,
+    suggest_from_deps,
     suggest_motw_candidates,
     team_strengths,
     week_bounds,
@@ -360,3 +362,48 @@ class TestSuggest:
         d.matches.get_all_matches = spy
         run(d=d)
         assert calls and not any(calls)
+
+
+class TestSlots:
+    """SB-1638: candidates and the current pick for one (pool, age group) slot."""
+
+    def test_age_group_narrows_to_that_age(self):
+        result = run(age_group="U15")
+        assert result.error is None
+        assert result.age_group == "U15" and result.pool == "main"
+        assert result.candidates and {c.age_group.name for c in result.candidates} == {"U15"}
+
+    def test_pathway_pool_has_no_u15(self):
+        result = run(pool=PRO_PATHWAY_POOL, age_group="U15")
+        assert result.error.kind == "invalid_args"
+
+    def test_pathway_u16_slot(self):
+        result = run(pool=PRO_PATHWAY_POOL, age_group="U16")
+        assert result.pool == "pathway"
+        assert {c.match_id for c in result.candidates} == {507}
+
+    def test_current_pick_is_the_slot_s_own(self):
+        u16 = {"pool": "main", "age_group": "U16", "match_id": 900, "match": {"id": 900}}
+
+        def picks(week):
+            return [u16] if week == "2026-11-02" else []
+
+        assert run(picks=picks, age_group="U15").current_pick is None
+        assert run(picks=picks, age_group="U16").current_pick.match_id == 900
+
+    def test_a_pathway_pick_is_not_the_main_pool_s(self):
+        pathway = {"pool": "pathway", "age_group": "U16", "match_id": 900, "match": {"id": 900}}
+        assert run(picks=lambda w: [pathway], age_group="U16").current_pick is None
+
+    def test_recently_featured_only_within_the_slot(self):
+        # Team 1 was picked two weeks ago, but in U16: the U15 slot is not penalised.
+        old = {"pool": "main", "age_group": "U16", "match": {"id": 1, "home_team_id": 1, "away_team_id": 9}}
+
+        def picks(week):
+            return [old] if week == "2026-10-26" else []
+
+        assert "recently_featured" not in by_id(run(picks=picks, age_group="U15"))[501].flags
+
+    def test_unknown_pool_key_is_invalid(self):
+        result = suggest_from_deps(dataclasses.replace(deps(), motw=FakeMotw()), pool="academy", now=NOW)
+        assert result.error.kind == "invalid_args"

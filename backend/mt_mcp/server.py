@@ -16,7 +16,7 @@ an unknown tool, so a hidden tool's existence is not disclosed.
 """
 
 from collections.abc import Callable, Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import anyio.to_thread
 import structlog
@@ -227,20 +227,29 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
 
     @server.tool(name="suggest_motw_candidates")
     async def suggest_motw_candidates_tool(
-        week: str | None = None, limit: Annotated[int, Field(ge=1, le=10)] = 5
+        week: str | None = None,
+        limit: Annotated[int, Field(ge=1, le=10)] = 5,
+        pool: Literal["main", "pathway"] = "main",
+        age_group: str | None = None,
     ) -> MotwCandidatesResult:
-        """Match of the Week candidates: the week's best fixtures in the Northeast pool
-        (Homegrown Northeast and Northeast PPP, Flex Empire/New England/Turnpike;
-        U15-U19; League and Flex), ranked by score (quality, closeness, stakes, form).
-        `week` is any YYYY-MM-DD date in the wanted Monday-Sunday week; default this
-        week (New York time). Each candidate carries "facts" with ids
-        ("<match_id>:<slug>") and the qualification "rules" its table feeds: cite a
-        fact id for every claim, and state a fact with confirmed=false only as
-        unconfirmed. "current_pick" is the week's existing pick: never replace it
-        without asking. "candidates" [] with "reason" means nothing eligible that
-        week; null with "error" means MT could not check. Always state "coverage"."""
+        """Match of the Week candidates for one slot: a pool and an age group. There is
+        one Match of the Week per age group in each pool. pool "main" = Homegrown
+        Northeast League + Flex Empire/New England/Turnpike, U15/U16/U17/U19; pool
+        "pathway" = Northeast Pro Player Pathway League, U16/U17/U19. `age_group`
+        (e.g. "U16") narrows to that slot; omitted ranks every age in the pool.
+        Ranked by score (quality, closeness, stakes, form). `week` is any YYYY-MM-DD
+        date in the wanted Monday-Sunday week; default this week (New York time).
+        Each candidate carries "facts" with ids ("<match_id>:<slug>") and the
+        qualification "rules" its table feeds: cite a fact id for every claim, and
+        state a fact with confirmed=false only as unconfirmed. "current_pick" is the
+        slot's existing pick: never replace it without asking. "candidates" [] with
+        "reason" means nothing eligible that week; null with "error" means MT could
+        not check. Always state "coverage"."""
         _caller()
-        return await _run(lambda: suggest_from_deps(deps(), week, limit=limit), "suggest_motw_candidates")
+        return await _run(
+            lambda: suggest_from_deps(deps(), week, limit=limit, pool=pool, age_group=age_group),
+            "suggest_motw_candidates",
+        )
 
     # --- my tier --------------------------------------------------------------
 

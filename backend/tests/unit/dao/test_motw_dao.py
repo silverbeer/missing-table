@@ -1,6 +1,7 @@
-"""MotwDAO (SB-1010).
+"""MotwDAO (SB-1010, SB-1638).
 
-The Match of the Week is singular by construction: one row per week_start.
+The Match of the Week is singular per slot by construction: one row per
+(week_start, pool, age_group_id).
 The interesting behaviour here is all about which week a pick lands in, and
 about the two ways a pick can exist in the table but not be showable.
 """
@@ -9,11 +10,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from dao.motw_dao import MotwDAO, week_start_for
+from dao.motw_dao import MotwDAO, pool_for_match, week_start_for
 
 MATCH = {
     "id": 77,
     "match_date": "2026-09-05",
+    "age_group_id": 3,
+    "age_group_name": "U16",
+    "division_name": "Northeast",
     "home_team_name": "NEFC",
     "away_team_name": "IFA",
     "match_status": "scheduled",
@@ -23,6 +27,8 @@ ROW = {
     "id": 1,
     "match_id": 77,
     "week_start": "2026-08-31",
+    "pool": "main",
+    "age_group_id": 3,
     "blurb": "Two unbeaten records.",
     "selected_by": "admin-uuid",
     "created_at": "2026-09-01T10:00:00Z",
@@ -35,7 +41,7 @@ def _dao(table_data=None, table_error=None, match=MATCH, pick_count=1):
     dao.connection_holder = MagicMock()
 
     table = MagicMock()
-    for method in ("select", "eq", "in_", "lte", "limit", "upsert", "delete"):
+    for method in ("select", "eq", "in_", "lte", "limit", "order", "upsert", "delete"):
         getattr(table, method).return_value = table
     # `count` backs the pick ordinal; without it the mock hands back another
     # MagicMock and the assertion passes on something that is not a number.
@@ -126,7 +132,28 @@ class TestSetForMatch:
         payload = dao._table.upsert.call_args.args[0]
         assert payload["week_start"] == "2026-08-31"
         assert payload["match_id"] == 77
-        assert dao._table.upsert.call_args.kwargs["on_conflict"] == "week_start"
+        assert dao._table.upsert.call_args.kwargs["on_conflict"] == "week_start,pool,age_group_id"
+
+    def test_files_the_pick_under_the_match_s_age_group_and_pool(self):
+        dao = _dao(table_data=[ROW])
+        dao.set_for_match(77)
+
+        payload = dao._table.upsert.call_args.args[0]
+        assert (payload["pool"], payload["age_group_id"]) == ("main", 3)
+
+    def test_a_pathway_match_fills_the_pathway_slot(self):
+        pathway = {**MATCH, "division_name": "Northeast (Pro Player Pathway)"}
+        dao = _dao(table_data=[ROW], match=pathway)
+        dao.set_for_match(77)
+
+        assert dao._table.upsert.call_args.args[0]["pool"] == "pathway"
+
+    def test_reads_back_the_slot_it_wrote(self):
+        dao = _dao(table_data=[ROW])
+        dao.set_for_match(77)
+
+        eqs = {c.args for c in dao._table.eq.call_args_list}
+        assert {("pool", "main"), ("age_group_id", 3)} <= eqs
 
     def test_records_who_picked_it(self):
         dao = _dao(table_data=[ROW])
@@ -155,6 +182,61 @@ class TestSetForMatch:
         dao.set_for_match(77)
 
         assert dao._match_dao.get_match_by_id.call_args.kwargs["include_test"] is True
+
+
+@pytest.mark.unit
+class TestSlots:
+    """SB-1638: one pick per (pool, age group) a week."""
+
+    def test_pool_for_match(self):
+        assert pool_for_match({"division_name": "Northeast"}) == "main"
+        assert pool_for_match({"division_name": "Empire"}) == "main"
+        assert pool_for_match({"division_name": "Northeast (Pro Player Pathway)"}) == "pathway"
+        assert pool_for_match({}) == "main"
+
+    def test_pick_carries_its_slot(self):
+        result = _dao(table_data=[ROW]).get_for_week("2026-08-31")
+        assert (result["pool"], result["age_group_id"], result["age_group"]) == ("main", 3, "U16")
+
+    def test_named_slot_filters_the_read(self):
+        dao = _dao(table_data=[ROW])
+        dao.get_for_week("2026-08-31", pool="pathway", age_group_id=4)
+        eqs = {c.args for c in dao._table.eq.call_args_list}
+        assert {("pool", "pathway"), ("age_group_id", 4)} <= eqs
+
+    def test_no_slot_named_reads_main_pool_first(self):
+        # An app released before SB-1638 asks for "the" pick and shows one hero.
+        dao = _dao(table_data=[ROW])
+        dao.get_for_week("2026-08-31")
+        assert [c.args for c in dao._table.order.call_args_list][:2] == [("pool",), ("age_group_id",)]
+        # The read itself names only the week; the slot filters that follow
+        # belong to the pick-number count.
+        assert dao._table.eq.call_args_list[0].args == ("week_start", "2026-08-31")
+
+    def test_pick_number_counts_within_the_slot(self):
+        dao = _dao(table_data=[ROW], pick_count=2)
+        assert dao.get_for_week("2026-08-31")["pick_number"] == 2
+        eqs = {c.args for c in dao._table.eq.call_args_list}
+        assert {("pool", "main"), ("age_group_id", 3)} <= eqs
+
+    def test_list_for_week_returns_every_slot(self):
+        u15 = {**ROW, "id": 2, "match_id": 78, "age_group_id": 2}
+        assert len(_dao(table_data=[ROW, u15]).list_for_week("2026-08-31")) == 2
+
+    def test_list_for_week_empty_and_failing_are_empty(self):
+        assert _dao(table_data=[]).list_for_week("2026-08-31") == []
+        assert _dao(table_error=RuntimeError("down")).list_for_week("2026-08-31") == []
+
+    def test_clear_one_slot(self):
+        dao = _dao(table_data=[ROW])
+        assert dao.clear_week("2026-08-31", pool="main", age_group_id=3) is True
+        eqs = {c.args for c in dao._table.eq.call_args_list}
+        assert {("pool", "main"), ("age_group_id", 3)} <= eqs
+
+    def test_clear_whole_week_names_no_slot(self):
+        dao = _dao(table_data=[ROW])
+        dao.clear_week("2026-08-31")
+        assert [c.args for c in dao._table.eq.call_args_list] == [("week_start", "2026-08-31")]
 
 
 @pytest.mark.unit

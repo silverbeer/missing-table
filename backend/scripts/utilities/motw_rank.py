@@ -44,6 +44,8 @@ def main() -> None:
     parser.add_argument("--top", type=int, help="show only the first N")
     parser.add_argument("--rematches", action="store_true", help="only fixtures flagged rematch")
     parser.add_argument("--env", choices=("prod", "local"), default="prod")
+    parser.add_argument("--pool", choices=("main", "pathway"), default="main", help="MOTW pool (SB-1638)")
+    parser.add_argument("--age-group", help="one slot, e.g. U16 (default: every age in the pool)")
     args = parser.parse_args()
 
     deps = connect(args.env)
@@ -51,7 +53,7 @@ def main() -> None:
 
     # The result stops at MAX_LIMIT; the log line has every eligible fixture.
     with capture_logs() as logs:
-        result = suggest_from_deps(deps, args.week, limit=MAX_LIMIT)
+        result = suggest_from_deps(deps, args.week, limit=MAX_LIMIT, pool=args.pool, age_group=args.age_group)
     if result.error:
         raise SystemExit(f"{result.error.kind}: {result.error.message}")
     lines = [e for e in logs if e["event"] == "motw_candidates_scored"]
@@ -60,7 +62,9 @@ def main() -> None:
     line = lines[0]
 
     console = Console(width=150)
-    table = Table(title=f"Week of {line['week_start']}: {line['eligible']} eligible of {line['fixtures_in_week']}")
+    table = Table(
+        title=f"Week of {line['week_start']} ({args.pool} {args.age_group or 'all ages'}): {line['eligible']} eligible of {line['fixtures_in_week']}"
+    )
     table.add_column("#", justify="right")
     table.add_column("TOTAL", justify="right", style="bold")
     for header in COLUMNS.values():

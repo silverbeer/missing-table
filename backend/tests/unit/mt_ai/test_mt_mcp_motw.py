@@ -47,7 +47,7 @@ class TestOverMcp:
     async def test_schema(self):
         async with served(motw_deps()) as s, s.session("fan") as session:
             tool = next(t for t in (await session.list_tools()).tools if t.name == "suggest_motw_candidates")
-        assert set(tool.input_schema["properties"]) == {"week", "limit"}
+        assert set(tool.input_schema["properties"]) == {"week", "limit", "pool", "age_group"}
         assert set(tool.output_schema["properties"]) >= {"candidates", "current_pick", "coverage", "reason", "error"}
 
     async def test_existing_pick_is_reported(self):
