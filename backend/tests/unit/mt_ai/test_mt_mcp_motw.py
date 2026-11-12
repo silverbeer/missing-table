@@ -41,7 +41,7 @@ class TestOverMcp:
         data = result.structured_content
         assert data["week_start"] == "2026-11-02"
         assert data["candidates"][0]["match_id"] == 501
-        assert data["coverage"]["eligible"] == 4
+        assert data["coverage"]["eligible"] == 3
         assert all(f["id"].startswith("501:") for f in data["candidates"][0]["facts"])
 
     async def test_schema(self):

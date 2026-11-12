@@ -13,6 +13,7 @@ from structlog.testing import capture_logs
 from mt_tools.motw_candidates import (
     FEATURED_PENALTY,
     POOL,
+    PRO_PATHWAY_POOL,
     REMATCH,
     REMATCH_CLOSE,
     Pool,
@@ -207,8 +208,8 @@ class TestSuggest:
             result = run(limit=1)
         [line] = [e for e in logs if e["event"] == "motw_candidates_scored"]
         assert len(result.candidates) == 1
-        assert (line["eligible"], line["returned"]) == (4, 1)
-        assert len(line["candidates"]) == 4
+        assert (line["eligible"], line["returned"]) == (3, 1)
+        assert len(line["candidates"]) == 3
         top = line["candidates"][0]
         assert top["match_id"] == result.candidates[0].match_id
         assert top["total"] == result.candidates[0].score.total
@@ -225,13 +226,27 @@ class TestSuggest:
         assert 504 not in ids  # in the week but before today
         assert 505 not in ids  # cancelled
         assert 506 not in ids  # another week
-        assert {501, 502, 503, 507} <= ids
+        assert {501, 502, 503} <= ids
+        assert 507 not in ids  # Pro Player Pathway has its own pool
+
+    def test_pool_is_northeast_league_and_three_flex_conferences(self):
+        assert POOL.conferences == (
+            ("Homegrown", "Northeast"),
+            ("Flex", "Empire"),
+            ("Flex", "New England"),
+            ("Flex", "Turnpike"),
+        )
+        assert PRO_PATHWAY_POOL.conferences == (("Homegrown", "Northeast (Pro Player Pathway)"),)
+        assert PRO_PATHWAY_POOL.age_groups == ("U16", "U17", "U19")
+
+    def test_pro_pathway_pool_ranks_only_its_own_fixtures(self):
+        assert set(by_id(run(pool=PRO_PATHWAY_POOL))) == {507}
 
     def test_coverage_states_the_denominator(self):
         cov = run().coverage
-        assert cov.divisions == 5
-        assert cov.fixtures_in_week == 6  # 501-505 and 507
-        assert cov.eligible == 4
+        assert cov.divisions == 4
+        assert cov.fixtures_in_week == 5  # 501-505
+        assert cov.eligible == 3
         assert cov.rules_season == "2026-27"
 
     def test_flex_fixture_carries_flex_rules(self):
@@ -269,7 +284,7 @@ class TestSuggest:
         assert streaks and "unbeaten" in streaks[0]
 
     def test_teams_with_no_games_are_low_sample_not_zero(self):
-        ppp = by_id(run())[507]
+        ppp = by_id(run(pool=PRO_PATHWAY_POOL))[507]
         assert "low_sample" in ppp.flags
         assert ppp.home.position is None and ppp.home.points is None
         assert ppp.home.strength == 0.5 and ppp.home.form is None
