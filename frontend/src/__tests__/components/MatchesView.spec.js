@@ -619,8 +619,8 @@ describe('MatchesView', () => {
     });
 
     it('shows the hero even when no fixture matches the current filters', async () => {
-      // One pick a week, global: the pick can be U13 while the table is
-      // filtered to U15, and it still gets its card.
+      // The pick is the slot's, not the table's: an empty week for these
+      // filters still gets its card.
       setupMockApiResponses({ matches: [], motw: motwPayload() });
       const wrapper = mountMatchesView();
       await flushPromises();
@@ -646,6 +646,8 @@ describe('MatchesView', () => {
     it('nudges an admin when nobody has picked', async () => {
       setupMockApiResponses({ matches: [], motw: { motw: null } });
       const wrapper = mountMatchesView();
+      await flushPromises();
+      wrapper.vm.selectAgeGroup(4); // U16 has a slot; the default U12 does not
       await flushPromises();
 
       expect(wrapper.find('[data-testid="motw-empty-admin"]').exists()).toBe(
@@ -702,6 +704,173 @@ describe('MatchesView', () => {
       );
       expect(call[0]).toContain('/api/admin/motw/');
       expect(wrapper.vm.motw).toBe(null);
+    });
+
+    // ---- one pick per age group and pool (SB-1639) ----------------------
+
+    const motwUrls = () =>
+      mockAuthStore.apiRequest.mock.calls
+        .map(([url]) => url)
+        .filter(url => url.includes('/api/motw'));
+
+    const pick = (pool, ageGroupId, match, extra = {}) => ({
+      week_start: '2026-08-31',
+      pool,
+      age_group_id: ageGroupId,
+      pick_number: 1,
+      blurb: null,
+      match,
+      ...extra,
+    });
+
+    it('asks for the pick of the selected age group, main pool', async () => {
+      setupMockApiResponses({ matches: [], motw: { motw: null, picks: [] } });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      const url = motwUrls().at(-1);
+      expect(url).toContain(`age_group_id=${wrapper.vm.selectedAgeGroupId}`);
+      expect(url).toContain('pool=main');
+    });
+
+    it('re-asks when the age group changes', async () => {
+      setupMockApiResponses({ matches: [], motw: { motw: null, picks: [] } });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      wrapper.vm.selectAgeGroup(4);
+      await flushPromises();
+
+      expect(motwUrls().at(-1)).toContain('age_group_id=4');
+    });
+
+    it('asks for the Pathway pick when only Pathway conferences are selected', async () => {
+      const matches = [
+        createHomegrownMatch({
+          id: 1,
+          division_id: 1,
+          division_name: 'Northeast',
+        }),
+        createHomegrownMatch({
+          id: 2,
+          division_id: 2,
+          division_name: 'Northeast (Pro Player Pathway)',
+        }),
+      ];
+      setupMockApiResponses({ matches, motw: { motw: null, picks: [] } });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await wrapper.find('[data-testid="division-2"]').trigger('click');
+      await flushPromises();
+      expect(wrapper.vm.motwPool).toBe('pathway');
+      expect(motwUrls().at(-1)).toContain('pool=pathway');
+
+      // Pathway plus a main conference is not the Pathway.
+      await wrapper.find('[data-testid="division-1"]').trigger('click');
+      await flushPromises();
+      expect(wrapper.vm.motwPool).toBe('main');
+      expect(motwUrls().at(-1)).toContain('pool=main');
+    });
+
+    it('names the slot in the admin nudge', async () => {
+      setupMockApiResponses({ matches: [], motw: { motw: null, picks: [] } });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      wrapper.vm.selectAgeGroup(4);
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="motw-empty-admin"]').text()).toContain(
+        'No U16 Match of the Week'
+      );
+    });
+
+    it('does not nudge admins about an age group with no slot', async () => {
+      setupMockApiResponses({ matches: [], motw: { motw: null, picks: [] } });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+      wrapper.vm.selectAgeGroup(3); // U14: no Match of the Week
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="motw-empty-admin"]').exists()).toBe(
+        false
+      );
+    });
+
+    it('flags every slot pick in the table, not just the one in the strip', async () => {
+      const main = createHomegrownMatch({ id: 77 });
+      const pathway = createHomegrownMatch({
+        id: 78,
+        division_id: 2,
+        division_name: 'Northeast (Pro Player Pathway)',
+      });
+      setupMockApiResponses({
+        matches: [main, pathway],
+        motw: {
+          motw: pick('main', 3, main),
+          picks: [pick('main', 3, main), pick('pathway', 3, pathway)],
+        },
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      expect(wrapper.vm.isMotw({ id: 77 })).toBe(true);
+      expect(wrapper.vm.isMotw({ id: 78 })).toBe(true);
+      expect(wrapper.vm.isMotw({ id: 79 })).toBe(false);
+    });
+
+    it('clears only the slot of the pick being unpicked', async () => {
+      const main = createHomegrownMatch({ id: 77 });
+      const pathway = createHomegrownMatch({ id: 78, division_id: 2 });
+      setupMockApiResponses({
+        matches: [main, pathway],
+        motw: {
+          motw: pick('main', 3, main),
+          picks: [pick('main', 3, main), pick('pathway', 3, pathway)],
+        },
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      await wrapper.vm.toggleMotw({ id: 78 });
+      await flushPromises();
+
+      const call = mockAuthStore.apiRequest.mock.calls.find(
+        ([, opts]) => opts && opts.method === 'DELETE'
+      );
+      expect(call[0]).toContain('/api/admin/motw/2026-08-31?');
+      expect(call[0]).toContain('pool=pathway');
+      expect(call[0]).toContain('age_group_id=3');
+      // The other slot's pick, and the strip, are untouched.
+      expect(wrapper.vm.isMotw({ id: 78 })).toBe(false);
+      expect(wrapper.vm.isMotw({ id: 77 })).toBe(true);
+      expect(wrapper.vm.motw.match.id).toBe(77);
+    });
+
+    it('gives the detail view the pick of the match it opened', async () => {
+      const main = createHomegrownMatch({ id: 77 });
+      const pathway = createHomegrownMatch({ id: 78, division_id: 2 });
+      setupMockApiResponses({
+        matches: [main, pathway],
+        motw: {
+          motw: pick('main', 3, main, { blurb: 'Main line.' }),
+          picks: [
+            pick('main', 3, main, { blurb: 'Main line.' }),
+            pick('pathway', 3, pathway, {
+              blurb: 'Pathway line.',
+              pick_number: 4,
+            }),
+          ],
+        },
+      });
+      const wrapper = mountMatchesView();
+      await flushPromises();
+
+      wrapper.vm.viewMatch({ id: 78 });
+      await flushPromises();
+
+      expect(wrapper.vm.selectedMatchMotw.blurb).toBe('Pathway line.');
+      expect(wrapper.vm.selectedMatchMotw.pick_number).toBe(4);
     });
   });
 

@@ -5,10 +5,12 @@
       v-if="selectedMatchId"
       :matchId="selectedMatchId"
       :auto-open-share="detailAutoShare"
-      :is-motw="isMotw({ id: selectedMatchId })"
-      :motw-blurb="motw && motw.blurb"
-      :motw-reasons="motw ? (motw.reasons ?? null) : null"
-      :motw-week-number="motw && motw.pick_number"
+      :is-motw="!!selectedMatchMotw"
+      :motw-blurb="selectedMatchMotw && selectedMatchMotw.blurb"
+      :motw-reasons="
+        selectedMatchMotw ? (selectedMatchMotw.reasons ?? null) : null
+      "
+      :motw-week-number="selectedMatchMotw && selectedMatchMotw.pick_number"
       @back="handleBackFromDetail"
     />
 
@@ -272,14 +274,13 @@
             </div>
 
             <!--
-              Match of the Week (SB-1010).
+              Match of the Week (SB-1010, SB-1639).
 
-              Deliberately outside the age-group and division filters: one pick a
-              week, global, so it shows on whatever week you are looking at even
-              when the table beneath is filtered to a different age group. Sits
-              above Week Navigation as a one-line strip rather than a hero: the
-              pick crosses every age group, so it is never what the person came
-              to this tab for.
+              One pick per week, pool and age group: the strip shows the pick
+              for the age group selected above, and the Pro Player Pathway
+              pick when only Pathway conferences are selected. It sits above
+              Week Navigation as a one-line strip rather than a hero, because
+              it is still not what the person came to this tab for.
             -->
             <template v-if="selectedViewTab === 'all'">
               <MotwHero
@@ -302,7 +303,9 @@
                 into one).
               -->
               <div
-                v-else-if="authStore.isAdmin.value && !motwLoading"
+                v-else-if="
+                  authStore.isAdmin.value && !motwLoading && motwSlotExists
+                "
                 class="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-line px-4 py-2.5"
                 data-testid="motw-empty-admin"
               >
@@ -310,8 +313,9 @@
                   >◆</span
                 >
                 <span class="text-sm text-fg-muted">
-                  No Match of the Week for {{ weekRangeDisplay }} — pick one
-                  from the ◆ button on any row.
+                  No {{ motwSlotLabel }} Match of the Week for
+                  {{ weekRangeDisplay }} — pick one from the ◆ button on any
+                  row.
                 </span>
               </div>
             </template>
@@ -2058,35 +2062,145 @@ export default {
     const displayedWeekStart = () =>
       getWeekBoundaries(weekOffset.value).start_date;
 
+    // The slot on screen (SB-1639): one pick per week, pool and age group. The
+    // pool is the Pro Player Pathway only when every selected conference is
+    // a Pathway one; any other selection, including none, is the main pool.
+    const isPathwayDivisionName = name =>
+      /pro player pathway/i.test(name || '');
+    const motwPool = computed(() => {
+      const selected = selectedDivisionIds.value;
+      if (selected.length === 0) return 'main';
+      const names = new Map(visibleDivisions.value.map(d => [d.id, d.name]));
+      return selected.every(id => isPathwayDivisionName(names.get(id)))
+        ? 'pathway'
+        : 'main';
+    });
+    const motwSlotKey = computed(
+      () => `${selectedAgeGroupId.value ?? ''}:${motwPool.value}`
+    );
+
+    // "U16" or "U16 Pro Player Pathway", for copy that names the slot.
+    const motwSlotLabel = computed(() => {
+      const ageGroup = ageGroups.value.find(
+        ag => ag.id === selectedAgeGroupId.value
+      );
+      return [
+        ageGroup?.name,
+        motwPool.value === 'pathway' ? 'Pro Player Pathway' : null,
+      ]
+        .filter(Boolean)
+        .join(' ');
+    });
+
+    // The age groups that have a slot in each pool (backend POOLS, SB-1635).
+    // Any other age (e.g. U14) has no Match of the Week, so no admin nudge.
+    const MOTW_SLOT_AGES = {
+      main: ['U15', 'U16', 'U17', 'U19'],
+      pathway: ['U16', 'U17', 'U19'],
+    };
+    const motwSlotExists = computed(() => {
+      if (selectedAgeGroupId.value == null) return true;
+      const ageGroup = ageGroups.value.find(
+        ag => ag.id === selectedAgeGroupId.value
+      );
+      return (MOTW_SLOT_AGES[motwPool.value] || []).includes(ageGroup?.name);
+    });
+
+    // Every slot's pick for the week on screen. The row badge and the detail
+    // view read this rather than `motw`: a row is the pick of its own slot
+    // whether or not that slot is the one the hero is showing.
+    const motwPicks = ref([]);
+    const sameMotwSlot = (a, b) =>
+      a.pool === b.pool && a.age_group_id === b.age_group_id;
+    const inViewedMotwSlot = pick =>
+      pick.pool === motwPool.value &&
+      (selectedAgeGroupId.value == null ||
+        pick.age_group_id === selectedAgeGroupId.value);
+
+    // Responses can land out of order when the age group and the conference
+    // change together; only the latest request is allowed to write.
+    let motwRequest = 0;
     const fetchMotw = async () => {
+      const request = ++motwRequest;
       motwLoading.value = true;
       try {
+        // With no age group and no Pathway filter, name no slot at all: the
+        // API then answers with the week's first pick, as before SB-1639.
+        const params = new URLSearchParams({
+          week_start: displayedWeekStart(),
+        });
+        if (selectedAgeGroupId.value != null) {
+          params.set('age_group_id', selectedAgeGroupId.value);
+        }
+        if (selectedAgeGroupId.value != null || motwPool.value === 'pathway') {
+          params.set('pool', motwPool.value);
+        }
         const data = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/motw?week_start=${displayedWeekStart()}`
+          `${getApiBaseUrl()}/api/motw?${params}`
         );
+        if (request !== motwRequest) return;
         motw.value = data?.motw || null;
+        motwPicks.value = data?.picks ?? (data?.motw ? [data.motw] : []);
       } catch (err) {
+        if (request !== motwRequest) return;
         // A missing hero is a far smaller failure than a broken Matches tab,
         // so this never surfaces an error state — it just stays unpicked.
         console.error('Error fetching match of the week:', err);
         motw.value = null;
+        motwPicks.value = [];
       } finally {
-        motwLoading.value = false;
+        if (request === motwRequest) motwLoading.value = false;
       }
     };
 
-    const isMotw = match => !!motw.value && motw.value.match.id === match.id;
+    // A pick the admin just wrote replaces whatever held its slot. One that
+    // landed in another week (the match's own date decides) is not this
+    // week's to show.
+    const storeMotwPick = pick => {
+      if (pick.week_start && pick.week_start !== displayedWeekStart()) return;
+      motwPicks.value = [
+        ...motwPicks.value.filter(p => !sameMotwSlot(p, pick)),
+        pick,
+      ];
+      if (
+        (motw.value && sameMotwSlot(motw.value, pick)) ||
+        inViewedMotwSlot(pick)
+      ) {
+        motw.value = pick;
+      }
+    };
+
+    const motwPickFor = id =>
+      motwPicks.value.find(p => p.match && p.match.id === id) || null;
+
+    const isMotw = match => !!motwPickFor(match.id);
+
+    // The pick behind the detail view. Opened from a row it can be another
+    // slot's pick than the one in the hero.
+    const selectedMatchMotw = computed(() =>
+      selectedMatchId.value ? motwPickFor(selectedMatchId.value) : null
+    );
 
     // Pick, or unpick if it is already the pick. One button, because the
     // second click a person wants after picking the wrong match is undo.
     const toggleMotw = async match => {
       try {
-        if (isMotw(match)) {
+        const current = motwPickFor(match.id);
+        if (current) {
+          // Name the slot: a DELETE without one empties the whole week.
+          const params = new URLSearchParams({ pool: current.pool || 'main' });
+          if (current.age_group_id != null) {
+            params.set('age_group_id', current.age_group_id);
+          }
+          const weekStart = current.week_start || displayedWeekStart();
           await authStore.apiRequest(
-            `${getApiBaseUrl()}/api/admin/motw/${displayedWeekStart()}`,
+            `${getApiBaseUrl()}/api/admin/motw/${weekStart}?${params}`,
             { method: 'DELETE' }
           );
-          motw.value = null;
+          motwPicks.value = motwPicks.value.filter(p => p !== current);
+          if (motw.value && motw.value.match?.id === match.id) {
+            motw.value = null;
+          }
           return;
         }
         const result = await authStore.apiRequest(
@@ -2097,7 +2211,7 @@ export default {
             body: JSON.stringify({ match_id: match.id }),
           }
         );
-        motw.value = result || null;
+        if (result) storeMotwPick(result);
       } catch (err) {
         console.error('Error setting match of the week:', err);
         // Re-read rather than trusting the optimistic value: the pick may have
@@ -2126,6 +2240,7 @@ export default {
           }
         );
         motw.value = result || motw.value;
+        if (result) storeMotwPick(result);
       } catch (err) {
         // Leave the editor open with the text still in it rather than
         // silently dropping what someone just wrote.
@@ -2154,12 +2269,19 @@ export default {
           }
         );
         motw.value = result || motw.value;
+        if (result) storeMotwPick(result);
       } catch (err) {
         console.error('Error saving match of the week reasons:', err);
       } finally {
         motwSaving.value = false;
       }
     };
+
+    // A different age group or pool is a different slot. Waits for the filter
+    // restore, which makes the first fetch itself.
+    watch(motwSlotKey, () => {
+      if (filtersRestored.value) fetchMotw();
+    });
 
     const shareMotw = match => {
       detailAutoShare.value = true;
@@ -2519,6 +2641,11 @@ export default {
       isChipSelected,
       selectMatchTypeChip,
       motw,
+      motwPicks,
+      motwPool,
+      motwSlotLabel,
+      motwSlotExists,
+      selectedMatchMotw,
       motwLoading,
       motwSaving,
       saveMotwBlurb,
