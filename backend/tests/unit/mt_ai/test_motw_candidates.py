@@ -237,6 +237,7 @@ class TestSuggest:
             ("Flex", "Turnpike"),
         )
         assert PRO_PATHWAY_POOL.conferences == (("Homegrown", "Northeast (Pro Player Pathway)"),)
+        assert PRO_PATHWAY_POOL.age_groups == ("U16", "U17", "U19")
 
     def test_pro_pathway_pool_ranks_only_its_own_fixtures(self):
         assert set(by_id(run(pool=PRO_PATHWAY_POOL))) == {507}

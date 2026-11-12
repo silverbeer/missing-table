@@ -118,7 +118,7 @@ POOL = Pool(
 # The pro academies get a pick of their own rather than competing in POOL: their
 # table is a different competition, and teams there play up an age group (SB-1635).
 PRO_PATHWAY_POOL = Pool(
-    age_groups=POOL.age_groups,
+    age_groups=("U16", "U17", "U19"),  # the pathway has no U15
     match_types=("League",),
     conferences=(("Homegrown", "Northeast (Pro Player Pathway)"),),
 )
