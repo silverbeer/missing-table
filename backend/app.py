@@ -125,6 +125,7 @@ from dao.match_type_dao import MatchTypeDAO
 from dao.moderation_dao import ModerationDAO
 from dao.motd_dao import MotdDAO, MotdPickError
 from dao.motw_dao import KEEP as MOTW_KEEP_REASONS
+from dao.motw_dao import POOLS as MOTW_POOLS
 from dao.motw_dao import MotwDAO, week_start_for
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
@@ -9234,28 +9235,52 @@ class MotwPick(BaseModel):
     )
 
 
+def _motw_pool(pool: str | None) -> str | None:
+    if pool is not None and pool not in MOTW_POOLS:
+        raise HTTPException(status_code=400, detail=f"pool must be one of {', '.join(MOTW_POOLS)}")
+    return pool
+
+
 @app.get("/api/motw")
 async def get_match_of_the_week(
     week_start: str | None = None,
+    age_group_id: int | None = None,
+    pool: str | None = None,
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
-    """The featured match for a week (SB-1010).
+    """The featured matches for a week (SB-1010, SB-1638).
 
     `week_start` is any date in the week of interest; it is snapped to that
     week's Monday, so the Matches tab can pass the Monday it is already
     showing and a caller poking at the API can pass a Saturday and still get
     the right answer. Defaults to the current week.
 
-    Returns `{"week_start": ..., "motw": null}` with **200** when nobody has
-    picked. A week with no pick is the ordinary state of this feature — most
-    weeks will start that way — and a 404 would put it on the error path where
-    it triggers retries and alerts (CLAUDE.md rule 1).
+    One pick per (pool, age group) slot. `motw` is the pick for the slot named by
+    `age_group_id` and `pool` (`main` or `pathway`); with no age group it is the
+    week's first pick, main pool first, which is what apps released before
+    SB-1638 show. `picks` is every slot's pick.
+
+    Returns `motw: null` and `picks: []` with **200** when nobody has picked. A
+    week with no pick is the ordinary state of this feature, and a 404 would put
+    it on the error path where it triggers retries and alerts (CLAUDE.md rule 1).
     """
+    pool = _motw_pool(pool)
     try:
         target = week_start_for(week_start) if week_start else week_start_for(datetime.now(UTC).date())
         include_test = viewer_sees_test_content(current_user)
-        motw = motw_dao.get_for_week(target, include_test=include_test)
-        return {"week_start": target, "motw": motw}
+        picks = motw_dao.list_for_week(target, include_test=include_test)
+        if age_group_id is None and pool is None:
+            motw = picks[0] if picks else None
+        else:
+            motw = next(
+                (
+                    p
+                    for p in picks
+                    if (age_group_id is None or p["age_group_id"] == age_group_id) and p["pool"] == (pool or "main")
+                ),
+                None,
+            )
+        return {"week_start": target, "motw": motw, "picks": picks}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid week_start: {week_start}") from e
     except Exception as e:
@@ -9267,9 +9292,14 @@ async def get_match_of_the_week(
 async def get_motw_candidates(
     week: str | None = None,
     limit: int = Query(5, ge=1, le=10),
+    pool: str = "main",
+    age_group: str | None = None,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Ranked Match of the Week candidates for a week (SB-1551), as `mt motw suggest` shows them.
+
+    `pool` (`main` or `pathway`) and `age_group` (e.g. `U16`) name the slot
+    (SB-1638); with no age group every age in the pool ranks together.
 
     The same result as mt-mcp's suggest_motw_candidates: candidates with a score
     breakdown, fact ids and the qualification rules each table feeds. An empty
@@ -9277,7 +9307,9 @@ async def get_motw_candidates(
     """
     from mt_tools.motw_candidates import suggest_from_deps
 
-    result = await asyncio.to_thread(suggest_from_deps, _my_team_deps(), week, limit=limit)
+    result = await asyncio.to_thread(
+        suggest_from_deps, _my_team_deps(), week, limit=limit, pool=pool, age_group=age_group
+    )
     if result.error and result.error.kind == "invalid_args":
         raise HTTPException(status_code=400, detail=result.error.message)
     if result.error:
@@ -9321,14 +9353,15 @@ async def set_match_of_the_week(
     body: MotwPick,
     current_user: dict[str, Any] = Depends(require_motw_editor),
 ):
-    """Feature a match, replacing whatever held its week (SB-1010).
+    """Feature a match, replacing whatever held its slot (SB-1010, SB-1638).
 
     Admins, and the MOTW agent's service account (`manage_motw`, SB-1553).
 
-    The week comes from the match's own date, not from today, so picking next
-    week's fixture in advance fills next week's slot instead of overwriting
-    this week's. One pick per week is enforced by a UNIQUE constraint rather
-    than by this handler checking first — two admin tabs would beat the check.
+    The slot comes from the match: its week (from its own date, not today, so
+    picking next week's fixture in advance fills next week's slot), its age
+    group, and its pool (Pro Player Pathway or main). One pick per slot is
+    enforced by a UNIQUE constraint rather than by this handler checking first
+    — two admin tabs would beat the check.
     """
     try:
         reasons: Any = MOTW_KEEP_REASONS
@@ -9355,20 +9388,27 @@ async def set_match_of_the_week(
 @app.delete("/api/admin/motw/{week_start}")
 async def clear_match_of_the_week(
     week_start: str,
+    age_group_id: int | None = None,
+    pool: str | None = None,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
-    """Unpick a week (SB-1010).
+    """Unpick one slot, or the whole week when no slot is named (SB-1010, SB-1638).
 
-    Idempotent: clearing a week nobody picked reports the same shape as
-    clearing one that was, because the caller wanted the week empty and it is.
+    `age_group_id` with `pool` (default `main`) names the slot.
+
+    Idempotent: clearing a slot nobody picked reports the same shape as
+    clearing one that was, because the caller wanted it empty and it is.
     """
+    pool = _motw_pool(pool)
+    if age_group_id is not None and pool is None:
+        pool = "main"
     try:
         target = week_start_for(week_start)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid week_start: {week_start}") from e
 
     try:
-        cleared = motw_dao.clear_week(target)
+        cleared = motw_dao.clear_week(target, pool=pool, age_group_id=age_group_id)
         return {"week_start": target, "cleared": cleared}
     except Exception as e:
         logger.error(f"Error clearing match of the week: {e}", exc_info=True)

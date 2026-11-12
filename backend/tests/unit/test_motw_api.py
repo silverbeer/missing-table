@@ -79,7 +79,7 @@ class TestReadReasons:
     def test_get_returns_reasons(self, client):
         http, dao, _ = client
         reasons = [{"text": "1st vs 3rd", "kind": "standings"}]
-        dao.get_for_week.return_value = {**PICK, "reasons": reasons}
+        dao.list_for_week.return_value = [{**PICK, "reasons": reasons}]
         r = http.get("/api/motw", params={"week_start": "2026-11-02"})
         assert r.status_code == 200
         assert r.json()["motw"]["reasons"] == reasons
@@ -177,3 +177,56 @@ class TestCanSetMotw:
         assert not can_set_motw({"role": "service_account"})
         assert not can_set_motw({"role": "team-manager", "permissions": ["manage_motw"]})
         assert not can_set_motw(None)
+
+
+U15 = {"week_start": "2026-11-09", "pool": "main", "age_group_id": 2, "match": {"id": 1}}
+U16 = {"week_start": "2026-11-09", "pool": "main", "age_group_id": 3, "match": {"id": 2}}
+PATHWAY_U16 = {"week_start": "2026-11-09", "pool": "pathway", "age_group_id": 3, "match": {"id": 3}}
+
+
+@pytest.mark.unit
+class TestSlots:
+    """SB-1638: one pick per (pool, age group) slot."""
+
+    def test_returns_every_slot_and_the_named_one(self, client):
+        http, dao, _ = client
+        dao.list_for_week.return_value = [U15, U16, PATHWAY_U16]
+        body = http.get("/api/motw", params={"week_start": "2026-11-12", "age_group_id": 3}).json()
+        assert body["week_start"] == "2026-11-09"
+        assert body["motw"]["match"]["id"] == 2
+        assert len(body["picks"]) == 3
+
+    def test_pathway_slot(self, client):
+        http, dao, _ = client
+        dao.list_for_week.return_value = [U15, U16, PATHWAY_U16]
+        body = http.get("/api/motw", params={"age_group_id": 3, "pool": "pathway"}).json()
+        assert body["motw"]["match"]["id"] == 3
+
+    def test_no_slot_named_is_the_first_pick_for_old_apps(self, client):
+        http, dao, _ = client
+        dao.list_for_week.return_value = [U15, U16]
+        assert http.get("/api/motw").json()["motw"]["match"]["id"] == 1
+
+    def test_an_unpicked_slot_is_null_not_404(self, client):
+        http, dao, _ = client
+        dao.list_for_week.return_value = [U15]
+        r = http.get("/api/motw", params={"age_group_id": 5})
+        assert r.status_code == 200
+        assert r.json()["motw"] is None and len(r.json()["picks"]) == 1
+
+    def test_unknown_pool_is_400(self, client):
+        http, _, _ = client
+        assert http.get("/api/motw", params={"pool": "academy"}).status_code == 400
+
+    def test_clear_one_slot(self, client):
+        http, dao, _ = client
+        dao.clear_week.return_value = True
+        r = http.delete("/api/admin/motw/2026-11-12", params={"age_group_id": 3})
+        assert r.status_code == 200
+        assert dao.clear_week.call_args.kwargs == {"pool": "main", "age_group_id": 3}
+
+    def test_clear_whole_week(self, client):
+        http, dao, _ = client
+        dao.clear_week.return_value = True
+        http.delete("/api/admin/motw/2026-11-12")
+        assert dao.clear_week.call_args.kwargs == {"pool": None, "age_group_id": None}

@@ -7,15 +7,15 @@ call the same admin endpoints.
 | | Match of the Week (SB-1010) | Tournament Match of the Day (SB-1559) |
 |---|---|---|
 | Table | `match_of_the_week` | `tournament_match_of_the_day` |
-| One pick per | calendar week (Monday start), global | tournament **and** day |
-| Uniqueness | `UNIQUE(week_start)` | `UNIQUE(tournament_id, match_date)` |
-| Key derived from | the match's own date → its Monday | the match's own date |
+| One pick per | calendar week (Monday start), pool and age group (SB-1638) | tournament **and** day |
+| Uniqueness | `UNIQUE(week_start, pool, age_group_id)` | `UNIQUE(tournament_id, match_date)` |
+| Key derived from | the match's date → its Monday; its age group; its division → pool | the match's own date |
 | Extra fields | `blurb`, `reasons` (SB-1552) | `blurb`, `reasons` |
-| Read | `GET /api/motw?week_start=` | `GET /api/tournaments/{id}/motd?date=` |
+| Read | `GET /api/motw?week_start=&age_group_id=&pool=` | `GET /api/tournaments/{id}/motd?date=` |
 | Write | `POST /api/admin/motw` | `POST /api/admin/tournaments/{id}/motd` |
-| Clear | `DELETE /api/admin/motw/{week_start}` | `DELETE /api/admin/tournaments/{id}/motd/{date}` |
+| Clear | `DELETE /api/admin/motw/{week_start}?age_group_id=&pool=` | `DELETE /api/admin/tournaments/{id}/motd/{date}` |
 
-They are separate tables on purpose: MOTW's global uniqueness and its pick ordinal
+They are separate tables on purpose: MOTW's slot uniqueness and its pick ordinal
 ("Week 6") would both have to loosen to admit tournament rows.
 
 ## Rules both follow
@@ -34,6 +34,17 @@ They are separate tables on purpose: MOTW's global uniqueness and its pick ordin
   editorial history.
 
 ## Match of the Week specifics
+
+- **One pick per slot (SB-1638).** A slot is (week, pool, age group). Pool `main` is
+  Homegrown Northeast League plus Flex Empire, New England and Turnpike, U15/U16/U17/U19;
+  pool `pathway` is the Northeast Pro Player Pathway, U16/U17/U19. That makes 7 picks a
+  week. SB-1010 started with one global pick; the product changed to one per age group.
+  A match's pool comes from its division name (`pool_for_match`), as the migration's
+  backfill does.
+- **`GET /api/motw`** returns `picks` (every slot's pick, main pool first, then by age
+  group) and `motw`: the slot named by `age_group_id` and `pool`, or with no age group
+  the week's first pick, which is what apps released before SB-1638 show.
+- **The pick ordinal counts within the slot**: U16's "Week 3" is the third U16 pick.
 
 - **Omitted `reasons` on a re-pick of the same match keeps them** (SB-1552). The hero's
   blurb editor re-posts `{match_id, blurb}`, and must not wipe a "Why" list the agent
@@ -55,10 +66,12 @@ They are separate tables on purpose: MOTW's global uniqueness and its pick ordin
 functions plus one gathering function, `suggest_motw_candidates(deps, week, picks=...)`,
 over the MT AI `ToolDeps` protocols and public data only.
 
-- **Pool**: Homegrown Northeast and Northeast (Pro Player Pathway), Flex Empire, New
-  England and Turnpike; U15, U16, U17, U19; League and Flex; status scheduled/tbd; dated
-  in the week and not before today (New York time). A pool name MT does not have is an
-  error, never a smaller pool.
+- **Pools** (`POOLS`): `main` is Homegrown Northeast League and Flex Empire, New England
+  and Turnpike, U15-U19 (SB-1635); `pathway` is Northeast (Pro Player Pathway) League,
+  U16/U17/U19. `age_group` narrows a run to one slot; the slot's own pick is
+  `current_pick`, and only that slot's earlier picks count as recently featured.
+  Eligible: status scheduled/tbd, dated in the week and not before today (New York
+  time). A pool name MT does not have is an error, never a smaller pool.
 - **Score** = 0.40 quality + 0.25 closeness + 0.20 stakes + 0.15 form, ×0.5 when a team
   was in either of the last two picks. Strength is a team's percentile in the fixture's
   own table (PPG and GD per game), so tables of different ages compare; under 3 games it

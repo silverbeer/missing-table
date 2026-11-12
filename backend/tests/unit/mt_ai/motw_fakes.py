@@ -231,10 +231,11 @@ def deps(matches=None, fail=False) -> ToolDeps:
 
 
 class FakeMotw:
-    """Stands in for MotwDAO.get_for_week: {week_start: pick}."""
+    """Stands in for MotwDAO.list_for_week: {week_start: pick or [picks]}."""
 
-    def __init__(self, picks: dict[str, dict] | None = None) -> None:
+    def __init__(self, picks: dict[str, dict | list[dict]] | None = None) -> None:
         self.picks = picks or {}
 
-    def get_for_week(self, week_start: str, *, include_test: bool = False) -> dict | None:
-        return self.picks.get(week_start)
+    def list_for_week(self, week_start: str, *, include_test: bool = False) -> list[dict]:
+        got = self.picks.get(week_start)
+        return got if isinstance(got, list) else ([got] if got else [])

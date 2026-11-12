@@ -64,7 +64,7 @@ class RosterSource(Protocol):
 
 
 class MotwSource(Protocol):
-    def get_for_week(self, week_start: str, *, include_test: bool = False) -> dict | None: ...
+    def list_for_week(self, week_start: str, *, include_test: bool = False) -> list[dict]: ...
 
 
 class SeasonSource(Protocol):

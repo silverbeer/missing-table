@@ -51,7 +51,7 @@ were eligible, and how many teams had too few games to judge.
 """
 
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
@@ -100,6 +100,8 @@ class Pool:
     match_types: tuple[str, ...]
     # (league, division) pairs, as MT names them.
     conferences: tuple[tuple[str, str], ...]
+    # The slot key MT stores picks under (match_of_the_week.pool, SB-1638).
+    key: str = "main"
 
 
 # League from Homegrown Northeast, Flex from the three conferences around it (SB-1635).
@@ -121,7 +123,11 @@ PRO_PATHWAY_POOL = Pool(
     age_groups=("U16", "U17", "U19"),  # the pathway has no U15
     match_types=("League",),
     conferences=(("Homegrown", "Northeast (Pro Player Pathway)"),),
+    key="pathway",
 )
+
+# One Match of the Week per age group in each pool (SB-1638).
+POOLS: dict[str, Pool] = {p.key: p for p in (POOL, PRO_PATHWAY_POOL)}
 
 
 class PoolConfigError(Exception):
@@ -201,15 +207,17 @@ class CandidatesCoverage(BaseModel):
 
 
 class MotwCandidatesResult(BaseModel):
-    """Ranked candidates for one week.
+    """Ranked candidates for one week's slot: a pool, and an age group or all of them.
 
     `candidates` is [] with `reason` when the week has nothing eligible, and null
-    with `error` when MT could not check. `current_pick` is the week's pick if one
+    with `error` when MT could not check. `current_pick` is the slot's pick if one
     exists: candidates are still returned, but an agent must not overwrite a pick.
     """
 
     week_start: date
     week_end: date
+    pool: str = "main"
+    age_group: str | None = None  # null: every age group in the pool
     today: date | None = None
     season: SeasonRef | None = None
     current_pick: CurrentPick | None = None
@@ -638,7 +646,7 @@ def resolve_pool(index: TeamIndex, pool: Pool = POOL) -> list[PoolDivision]:
     ]
 
 
-PickReader = Callable[[str], dict | None]
+PickReader = Callable[[str], dict | list[dict] | None]
 
 
 def week_bounds(week: str | date | None, today: date) -> tuple[date, date]:
@@ -656,8 +664,13 @@ def suggest_motw_candidates(
     limit: int = 5,
     now: datetime | None = None,
     pool: Pool = POOL,
+    age_group: str | None = None,
 ) -> MotwCandidatesResult:
-    """Top `limit` Match of the Week candidates for a week, public data only."""
+    """Top `limit` Match of the Week candidates for a week's slot, public data only.
+
+    `age_group` (e.g. "U16") narrows the pool to that age's fixtures and its pick;
+    None ranks every age group in the pool together.
+    """
     current = now or datetime.now(UTC)
     if current.tzinfo is None:
         current = current.replace(tzinfo=UTC)
@@ -669,16 +682,26 @@ def suggest_motw_candidates(
         return MotwCandidatesResult(
             week_start=start,
             week_end=start + timedelta(days=6),
+            pool=pool.key,
+            age_group=age_group,
             error=ToolError(kind="invalid_args", message="week must be a date (YYYY-MM-DD) in the week wanted."),
         )
 
     def fail(kind: Literal["unavailable", "invalid_args"], message: str) -> MotwCandidatesResult:
         return MotwCandidatesResult(
-            week_start=week_start, week_end=week_end, today=today, error=ToolError(kind=kind, message=message)
+            week_start=week_start,
+            week_end=week_end,
+            pool=pool.key,
+            age_group=age_group,
+            today=today,
+            error=ToolError(kind=kind, message=message),
         )
 
     if not 1 <= limit <= MAX_LIMIT:
         return fail("invalid_args", f"limit must be between 1 and {MAX_LIMIT}.")
+    if age_group is not None and age_group not in pool.age_groups:
+        return fail("invalid_args", f"age_group must be one of {', '.join(pool.age_groups)} for the {pool.key} pool.")
+    scope = replace(pool, age_groups=(age_group,)) if age_group else pool
 
     viewer = Viewer(include_test=False)
     try:
@@ -687,7 +710,7 @@ def suggest_motw_candidates(
             raise DataUnavailableError("no current season")
         season = SeasonRef(id=season_row["id"], name=season_row["name"])
         index = load_team_index(deps, viewer)
-        divisions = resolve_pool(index, pool)
+        divisions = resolve_pool(index, scope)
         history: dict[tuple[int, int], list[dict]] = {}
         for division in divisions:
             for age in division.age_groups:
@@ -698,8 +721,8 @@ def suggest_motw_candidates(
                     include_test=False,
                     raise_on_error=True,
                 )
-        current_pick = _current_pick(picks, week_start)
-        featured = _recently_featured(picks, week_start)
+        current_pick = _current_pick(picks, week_start, pool.key, age_group)
+        featured = _recently_featured(picks, week_start, pool.key, age_group)
     except PoolConfigError as exc:
         logger.error("motw_pool_config", error=str(exc))
         return fail("unavailable", str(exc))
@@ -766,6 +789,8 @@ def suggest_motw_candidates(
     logger.info(
         "motw_candidates_scored",
         week_start=week_start.isoformat(),
+        pool=pool.key,
+        age_group=age_group,
         divisions=coverage.divisions,
         fixtures_in_week=coverage.fixtures_in_week,
         eligible=coverage.eligible,
@@ -783,6 +808,8 @@ def suggest_motw_candidates(
     return MotwCandidatesResult(
         week_start=week_start,
         week_end=week_end,
+        pool=pool.key,
+        age_group=age_group,
         today=today,
         season=season,
         current_pick=current_pick,
@@ -890,10 +917,30 @@ def _candidate(
     )
 
 
-def _current_pick(picks: PickReader, week_start: date) -> CurrentPick | None:
-    pick = picks(week_start.isoformat())
-    if not pick:
+def _slot_picks(picks: PickReader, week: date, pool_key: str, age_group: str | None) -> list[dict]:
+    """The picks a reader returns for a week that sit in this slot.
+
+    A reader returns one pick, a list of the week's picks (SB-1638), or None. A pick
+    that does not say its pool or age group counts as in the slot: before SB-1638
+    there was one pick a week, and it was everyone's.
+    """
+    got = picks(week.isoformat())
+    items = got if isinstance(got, list) else ([got] if got else [])
+
+    def in_slot(pick: dict) -> bool:
+        if (pick.get("pool") or pool_key) != pool_key:
+            return False
+        age = pick.get("age_group") or (pick.get("match") or {}).get("age_group_name")
+        return age_group is None or age in (None, age_group)
+
+    return [p for p in items if in_slot(p)]
+
+
+def _current_pick(picks: PickReader, week_start: date, pool_key: str, age_group: str | None) -> CurrentPick | None:
+    found = _slot_picks(picks, week_start, pool_key, age_group)
+    if not found:
         return None
+    pick = found[0]
     match = pick.get("match") or {}
     return CurrentPick(
         match_id=match.get("id") or pick.get("match_id"),
@@ -902,13 +949,13 @@ def _current_pick(picks: PickReader, week_start: date) -> CurrentPick | None:
     )
 
 
-def _recently_featured(picks: PickReader, week_start: date) -> set[int]:
-    """Teams in the picks of the FEATURED_WEEKS weeks before this one."""
+def _recently_featured(picks: PickReader, week_start: date, pool_key: str, age_group: str | None) -> set[int]:
+    """Teams in the slot's picks of the FEATURED_WEEKS weeks before this one."""
     teams: set[int] = set()
     for back in range(1, FEATURED_WEEKS + 1):
-        pick = picks((week_start - timedelta(weeks=back)).isoformat())
-        match = (pick or {}).get("match") or {}
-        teams.update(t for t in (match.get("home_team_id"), match.get("away_team_id")) if t is not None)
+        for pick in _slot_picks(picks, week_start - timedelta(weeks=back), pool_key, age_group):
+            match = pick.get("match") or {}
+            teams.update(t for t in (match.get("home_team_id"), match.get("away_team_id")) if t is not None)
     return teams
 
 
@@ -919,15 +966,26 @@ def _date(value: Any) -> date:
 
 
 def suggest_from_deps(
-    deps: ToolDeps, week: str | None = None, *, limit: int = 5, now: datetime | None = None
+    deps: ToolDeps,
+    week: str | None = None,
+    *,
+    limit: int = 5,
+    pool: str = "main",
+    age_group: str | None = None,
+    now: datetime | None = None,
 ) -> MotwCandidatesResult:
     """`suggest_motw_candidates` reading the picks from `deps.motw` (mt-mcp, the API)."""
     motw = deps.motw
-    if motw is None:
+    chosen = POOLS.get(pool)
+    if motw is None or chosen is None:
         start, end = week_bounds(None, (now or datetime.now(UTC)).astimezone(POOL_TIMEZONE).date())
-        return MotwCandidatesResult(
-            week_start=start,
-            week_end=end,
-            error=ToolError(kind="unavailable", message="MOTW candidates are unavailable right now."),
+        kind: Literal["unavailable", "invalid_args"] = "unavailable" if motw is None else "invalid_args"
+        message = (
+            "MOTW candidates are unavailable right now." if motw is None else f"pool must be one of {', '.join(POOLS)}."
         )
-    return suggest_motw_candidates(deps, week, picks=lambda w: motw.get_for_week(w), limit=limit, now=now)
+        return MotwCandidatesResult(
+            week_start=start, week_end=end, pool=pool, age_group=age_group, error=ToolError(kind=kind, message=message)
+        )
+    return suggest_motw_candidates(
+        deps, week, picks=lambda w: motw.list_for_week(w), limit=limit, now=now, pool=chosen, age_group=age_group
+    )
