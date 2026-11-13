@@ -159,6 +159,68 @@ class TestResolveTeamByNameScopedToLeague:
         assert dao.resolve_team_by_name("Some Brand New Club", league_id=1) is None
 
 
+@pytest.mark.unit
+class TestLeagueScopedAliasBeatsExactName:
+    """SB-1652: a club's Homegrown team holds the bare club name.
+
+    The Academy feed sends 'FC Greater Boston Bolts' for the club's Academy
+    team, which MT keeps as 'FC Greater Boston Bolts Academy'. With the exact
+    name checked first, 22 Academy fixtures landed on Homegrown team rows and
+    no alias could redirect them.
+    """
+
+    ACADEMY = 2
+    HG_BOLTS = {"id": 17, "name": "FC Greater Boston Bolts", "city": "Waltham, MA", "club_id": 15}
+    AC_BOLTS = {"id": 178, "name": "FC Greater Boston Bolts Academy", "city": None, "club_id": 15}
+
+    def test_an_alias_scoped_to_the_league_wins_over_the_exact_name(self):
+        dao = _team_dao(
+            direct=self.HG_BOLTS,
+            alias_rows=[{"team_id": 178, "league_id": self.ACADEMY, "source": "mlssoccer.com"}],
+            by_id=self.AC_BOLTS,
+        )
+        assert dao.resolve_team_by_name("FC Greater Boston Bolts", league_id=self.ACADEMY)["id"] == 178
+
+    def test_another_league_still_gets_the_exact_name(self):
+        # Homegrown ingest of the same string must stay on the Homegrown row.
+        dao = _team_dao(
+            direct=self.HG_BOLTS,
+            alias_rows=[{"team_id": 178, "league_id": self.ACADEMY, "source": "mlssoccer.com"}],
+            by_id=self.AC_BOLTS,
+        )
+        assert dao.resolve_team_by_name("FC Greater Boston Bolts", league_id=1)["id"] == 17
+        dao.get_team_by_id.assert_not_called()
+
+    def test_a_league_agnostic_alias_does_not_override_the_exact_name(self):
+        # Only a deliberate, league-scoped alias jumps the queue; the existing
+        # NULL-league aliases keep their old precedence.
+        dao = _team_dao(
+            direct=self.HG_BOLTS,
+            alias_rows=[{"team_id": 178, "league_id": None, "source": "mlssoccer.com"}],
+            by_id=self.AC_BOLTS,
+        )
+        assert dao.resolve_team_by_name("FC Greater Boston Bolts", league_id=self.ACADEMY)["id"] == 17
+
+    def test_without_a_league_the_exact_name_wins_as_before(self):
+        dao = _team_dao(
+            direct=self.HG_BOLTS,
+            alias_rows=[{"team_id": 178, "league_id": self.ACADEMY, "source": "mlssoccer.com"}],
+            by_id=self.AC_BOLTS,
+        )
+        assert dao.resolve_team_by_name("FC Greater Boston Bolts")["id"] == 17
+
+    def test_two_teams_scoped_to_the_same_league_refuse_to_guess(self):
+        dao = _team_dao(
+            direct=self.HG_BOLTS,
+            alias_rows=[
+                {"team_id": 178, "league_id": self.ACADEMY, "source": "mlssoccer.com"},
+                {"team_id": 999, "league_id": self.ACADEMY, "source": "kitman"},
+            ],
+            by_id=self.AC_BOLTS,
+        )
+        assert dao.resolve_team_by_name("FC Greater Boston Bolts", league_id=self.ACADEMY) is None
+
+
 def _tournament_dao(exact=None, alias_team_id=None):
     from dao.tournament_dao import TournamentDAO
 
