@@ -271,22 +271,32 @@ class TeamDAO(BaseDAO):
         still ambiguous after scoping — this returns None rather than guessing,
         because picking the wrong team silently is worse than reporting the
         name as unresolved.
+
+        An alias scoped to `league_id` is checked BEFORE the exact team name
+        (SB-1652). Team names are globally unique, so a club's Homegrown team
+        holds the bare club name ('FC Greater Boston Bolts') that the Academy
+        feed also sends for the club's separate Academy team. With the exact
+        name first, Academy fixtures landed on the Homegrown row and no alias
+        could redirect them. A league-scoped alias is a deliberate statement
+        about that league, so it wins; with none, resolution is unchanged.
         """
         normalized = " ".join((name or "").strip().split())
         if not normalized:
             return None
 
+        rows: list[dict] | None = None
+        if league_id is not None:
+            rows = self._alias_rows(normalized)
+            in_league = [r for r in rows if r.get("league_id") == league_id]
+            if in_league:
+                return self._resolve_alias_rows(normalized, in_league, league_id)
+
         direct = self.get_team_by_name(normalized)
         if direct:
             return direct
 
-        alias_resp = (
-            self.client.table("team_aliases")
-            .select("team_id, league_id, source")
-            .ilike("external_name", normalized)
-            .execute()
-        )
-        rows = alias_resp.data or []
+        if rows is None:
+            rows = self._alias_rows(normalized)
         if league_id is not None:
             # A row with no league applies everywhere; a row with one applies
             # only to that league. Narrow before checking for ambiguity.
@@ -295,7 +305,20 @@ class TeamDAO(BaseDAO):
                 rows = scoped
         if not rows:
             return None
+        return self._resolve_alias_rows(normalized, rows, league_id)
 
+    def _alias_rows(self, normalized: str) -> list[dict]:
+        """Every team_aliases row whose external_name matches, any league."""
+        alias_resp = (
+            self.client.table("team_aliases")
+            .select("team_id, league_id, source")
+            .ilike("external_name", normalized)
+            .execute()
+        )
+        return alias_resp.data or []
+
+    def _resolve_alias_rows(self, normalized: str, rows: list[dict], league_id: int | None) -> dict | None:
+        """The team the alias rows point at, or None if they disagree."""
         team_ids = {r["team_id"] for r in rows}
         if len(team_ids) > 1:
             logger.warning(
@@ -320,9 +343,7 @@ class TeamDAO(BaseDAO):
 
     # Words too generic to be a useful near-match signal — every other club is
     # a "Soccer Club" and matching on that returns noise, not candidates.
-    _SIMILAR_STOPWORDS = frozenset(
-        {"city", "club", "team", "boys", "girls", "academy", "united", "soccer", "football"}
-    )
+    _SIMILAR_STOPWORDS = frozenset({"city", "club", "team", "boys", "girls", "academy", "united", "soccer", "football"})
 
     def reconcile_names(self, names: list[str], league_id: int | None = None, similar_limit: int = 5) -> list[dict]:
         """Report which of these names MT already knows. Creates nothing (SB-823).
@@ -358,9 +379,7 @@ class TeamDAO(BaseDAO):
 
             direct = self.get_team_by_name(normalized)
             if direct:
-                results.append(
-                    {"name": raw, "status": "known", "team_id": direct["id"], "team_name": direct["name"]}
-                )
+                results.append({"name": raw, "status": "known", "team_id": direct["id"], "team_name": direct["name"]})
                 continue
 
             resolved = self.resolve_team_by_name(normalized, league_id=league_id)
