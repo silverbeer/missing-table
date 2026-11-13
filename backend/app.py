@@ -8285,8 +8285,9 @@ async def create_team_alias(
 
         # A string that already resolves somewhere is the ambiguity this table
         # exists to prevent, so say where rather than raising a constraint error.
-        existing = team_dao.resolve_team_by_name(name)
-        if existing and existing["id"] != team_id:
+        # A league-scoped alias only collides inside its league (SB-1652).
+        existing = team_dao.alias_conflict(name, team_id, league_id=payload.league_id)
+        if existing:
             raise HTTPException(
                 status_code=409,
                 detail=f"'{name}' already resolves to team {existing['id']} ({existing.get('name')})",
