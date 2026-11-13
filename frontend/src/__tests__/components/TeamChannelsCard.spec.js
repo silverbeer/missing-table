@@ -324,3 +324,73 @@ describe('community-run labelling (SB-1612)', () => {
     expect(w.find('[data-testid="channel-age-note"]').text()).toContain('13');
   });
 });
+
+describe('manager review (SB-1671)', () => {
+  const stubs = {
+    ChannelManager: { template: '<div />' },
+    ChannelAccessPanel: {
+      template: '<div data-testid="panel-stub" />',
+      props: ['teamId', 'fanChannels'],
+    },
+  };
+  const SQUADS = [{ id: 9, name: 'U15' }];
+  const mountWith = async (body, requests) => {
+    apiRequest.mockImplementation(url =>
+      url.includes('/me/channels')
+        ? Promise.resolve(body)
+        : url.includes('/channels/requests')
+          ? Promise.resolve(requests)
+          : Promise.reject(new Error('unexpected'))
+    );
+    const wrapper = mount(TeamChannelsCard, {
+      props: { teamId: 10 },
+      global: { stubs },
+    });
+    await flushPromises();
+    return wrapper;
+  };
+
+  it('badges pending requests on the manage button', async () => {
+    const w = await mountWith(
+      response({ can_manage: true, age_groups: SQUADS }),
+      [{ user_id: 'a' }, { user_id: 'b' }]
+    );
+    expect(w.find('[data-testid="pending-badge"]').text()).toBe('2 requests');
+  });
+
+  it('shows no badge when nobody is waiting', async () => {
+    const w = await mountWith(
+      response({ can_manage: true, age_groups: SQUADS }),
+      []
+    );
+    expect(w.find('[data-testid="pending-badge"]').exists()).toBe(false);
+  });
+
+  it('hands the panel only this team’s squad fan channels', async () => {
+    const fans = channel({ id: 1, state: 'member' });
+    const players = channel({ id: 2, audience: 'players', state: 'member' });
+    const club = channel({ id: 3, scope_type: 'club', team_id: null });
+    const w = await mountWith(
+      response({
+        can_manage: true,
+        age_groups: SQUADS,
+        channels: [fans, players, club],
+      }),
+      []
+    );
+    await w.find('[data-testid="manage-btn"]').trigger('click');
+    const panel = w.findComponent(stubs.ChannelAccessPanel).props();
+    expect(panel.teamId).toBe(10);
+    expect(panel.fanChannels.map(c => c.id)).toEqual([1]);
+  });
+});
+
+describe('awaiting an invite link (SB-1671)', () => {
+  it('says channels are being set up instead of "ask a manager"', async () => {
+    const w = await mountCard(response({ awaiting_link: 2 }));
+    expect(w.find('[data-testid="awaiting-link"]').text()).toContain(
+      'being set up'
+    );
+    expect(w.find('[data-testid="member-empty"]').exists()).toBe(false);
+  });
+});

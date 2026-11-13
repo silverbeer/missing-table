@@ -323,7 +323,21 @@ MT does not add people to chat rooms. It decides who may see a channel's **invit
 | `GET /api/me/channels[?team_id=]` | any signed-in user: the profile card's view, with `has_team`, `managed` (claimed) and `can_manage` |
 | `POST /api/channels/{id}/join`, `POST`/`DELETE /api/channels/{id}/request` | the user |
 | `GET /api/channels/requests?team_id=` | admin, club manager, the team's manager |
+| `GET /api/channels/members?team_id=` | same: active members, to revoke (SB-1671) |
+| `GET /api/channels/{id}/candidates` | same: club fans who may be invited to a fan channel and have no access or pending request yet; empty for player channels (SB-1671) |
 | `PUT /api/channels/{id}/members/{user_id}` (`active`, `denied`, `revoked`) | same |
+
+### Manager review (SB-1671)
+
+`components/notifications/ChannelAccessPanel.vue` sits at the top of **Manage chat channels** on the team page. It lists pending requests (Approve / Deny), members (Revoke) and offers **Invite a fan** for the squad's fan channels that have an invite link. The manage button carries a pending-request badge.
+
+MT only decides who sees the link, so each decision ends with the platform step: on Slack, add the person to the private channel (the link only admits them to the workspace); on Discord, give them the squad's role (the link only admits them to the server); on Telegram, approve their join request if the link asks for approval. Revoking reminds the manager to remove the person on the platform too.
+
+Club channels have no requests: eligible people join directly. The old **Admin → Handle Requests (old)** screen is the retired `channel_access_requests` flow and does not show these.
+
+`/api/me/channels` also returns `awaiting_link`: enabled channels the viewer could see once they have an invite link. A fan's card then says the club's channels are being set up, instead of "ask your team manager".
+
+Fan and player invitation emails say where club chat channels live (Profile → Community channels). They never carry an invite link: emails get forwarded, and the card shows only the current link, only to people the rules let in.
 
 ### Team chat channels card (SB-1609)
 
@@ -334,6 +348,7 @@ MT does not add people to chat rooms. It decides who may see a channel's **invit
 | No club or team | "Channels show up here once you belong to a club or team" |
 | Unclaimed team (`managed: false`) | claim prompt |
 | No channels, viewer manages | channels appear once they have an invite link |
+| No channels, some awaiting an invite link (`awaiting_link`) | "being set up" (SB-1671) |
 | No channels, viewer is a member | ask your team manager |
 | `can_request` / `requested` | Request invite / Request pending, with Withdraw |
 | `can_join` | Join |

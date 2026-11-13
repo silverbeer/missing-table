@@ -1,7 +1,13 @@
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold text-fg">Channel Access Requests</h2>
+      <div>
+        <h2 class="text-xl font-bold text-fg">Chat Handle Requests (old)</h2>
+        <p class="text-sm text-fg-muted" data-testid="legacy-note">
+          The old Telegram/Discord handle requests. Requests for a squad's chat
+          channels are reviewed on the team's page, under Manage chat channels.
+        </p>
+      </div>
       <div class="flex items-center gap-4">
         <!-- Stats -->
         <div v-if="stats" class="text-sm text-fg-muted">

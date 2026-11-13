@@ -336,7 +336,7 @@ export default {
       },
       {
         id: 'channel-requests',
-        name: 'Channel Requests',
+        name: 'Handle Requests (old)',
         adminOnly: false,
         category: 'access',
       },

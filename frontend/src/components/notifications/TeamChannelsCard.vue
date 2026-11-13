@@ -109,6 +109,10 @@
       }}
     </p>
 
+    <p v-else-if="awaitingLink" class="card-msg" data-testid="awaiting-link">
+      Your club's chat channels are being set up. Check back soon.
+    </p>
+
     <p v-else class="card-msg" data-testid="member-empty">
       No chat channels yet. Ask your team manager to set one up.
     </p>
@@ -126,6 +130,13 @@
         @click="managing = true"
       >
         Manage chat channels
+        <span
+          v-if="pendingCount"
+          class="pending-badge"
+          data-testid="pending-badge"
+        >
+          {{ pendingCount }} {{ pendingCount === 1 ? 'request' : 'requests' }}
+        </span>
       </button>
       <template v-else>
         <label v-if="squads.length > 1" class="squad-picker">
@@ -136,6 +147,11 @@
             </option>
           </select>
         </label>
+        <ChannelAccessPanel
+          :team-id="teamId"
+          :fan-channels="squadFanChannels"
+          @changed="load"
+        />
         <ChannelManager
           scope-type="team"
           :team-id="teamId"
@@ -160,6 +176,7 @@ import { computed, ref, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import ChannelManager from '@/components/notifications/ChannelManager.vue';
+import ChannelAccessPanel from '@/components/notifications/ChannelAccessPanel.vue';
 
 /**
  * The chat channels a viewer may join (SB-1609), from /api/me/channels.
@@ -176,7 +193,7 @@ import ChannelManager from '@/components/notifications/ChannelManager.vue';
  */
 export default {
   name: 'TeamChannelsCard',
-  components: { ChannelManager },
+  components: { ChannelManager, ChannelAccessPanel },
   props: {
     teamId: { type: Number, default: null },
     ageGroupId: { type: Number, default: null },
@@ -196,6 +213,10 @@ export default {
     // The team's squads, sent only to someone who can manage it. null = not
     // sent (or unknown); [] = registered in no age group.
     const squads = ref(null);
+    // SB-1671: enabled channels the viewer could see once they get an invite
+    // link, and the manager's pending request count.
+    const awaitingLink = ref(0);
+    const pendingCount = ref(0);
     const squadId = ref(null);
     const squadName = computed(
       () => squads.value?.find(s => s.id === squadId.value)?.name || 'Squad'
@@ -219,6 +240,7 @@ export default {
         managed.value = data?.managed ?? null;
         canManage.value = Boolean(data?.can_manage);
         squads.value = data?.age_groups ?? null;
+        awaitingLink.value = data?.awaiting_link || 0;
         const ids = (squads.value || []).map(s => s.id);
         if (!ids.includes(squadId.value)) {
           squadId.value = ids.includes(props.ageGroupId)
@@ -230,7 +252,34 @@ export default {
       } finally {
         loaded.value = true;
       }
+      await loadPending();
     };
+
+    // The badge on "Manage chat channels". A failure just hides it.
+    const loadPending = async () => {
+      if (!canSetUp.value) {
+        pendingCount.value = 0;
+        return;
+      }
+      try {
+        const reqs = await authStore.apiRequest(
+          `${base()}/channels/requests?team_id=${props.teamId}`
+        );
+        pendingCount.value = (reqs || []).length;
+      } catch {
+        pendingCount.value = 0;
+      }
+    };
+
+    // This team's squad fan channels a fan could be invited to.
+    const squadFanChannels = computed(() =>
+      channels.value.filter(
+        c =>
+          c.scope_type === 'team' &&
+          c.audience === 'fans' &&
+          c.team_id === props.teamId
+      )
+    );
 
     const replace = updated => {
       channels.value = channels.value.map(c =>
@@ -295,6 +344,9 @@ export default {
       squadId,
       squadName,
       canSetUp,
+      awaitingLink,
+      pendingCount,
+      squadFanChannels,
       load,
       act,
       withdraw,
@@ -321,6 +373,15 @@ export default {
   border-radius: 6px;
   background: rgb(var(--color-card));
   color: rgb(var(--color-fg));
+}
+
+.pending-badge {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgb(220 38 38);
+  color: #fff;
 }
 
 .manage-block {
