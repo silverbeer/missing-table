@@ -320,3 +320,55 @@ class TestGetOrCreateOpponentTeamUsesAliases:
 
         assert dao.get_or_create_opponent_team("IFA", age_group_id=2) == 19
         assert [c for c in created["calls"] if "name" in c] == []
+
+
+@pytest.mark.unit
+class TestAliasConflict:
+    """SB-1652: the create-alias guard must not block the alias the fix needs.
+
+    It asked 'does this string resolve anywhere?', so an Academy-scoped
+    'Bayside FC' was refused because the Homegrown team owns that name.
+    """
+
+    ACADEMY, HOMEGROWN = 2, 1
+    HG_BAYSIDE = {"id": 11, "name": "Bayside FC", "city": None, "club_id": 11}
+    AC_BAYSIDE = {"id": 175, "name": "Bayside FC Academy", "city": None, "club_id": 11}
+
+    def _dao(self, direct=None, alias_rows=None, leagues=None, by_id=None):
+        dao = _team_dao(direct=direct, alias_rows=alias_rows, by_id=by_id or direct)
+        dao._team_league_id = MagicMock(side_effect=lambda tid: (leagues or {}).get(tid))
+        return dao
+
+    def test_a_scoped_alias_does_not_collide_with_another_leagues_exact_name(self):
+        dao = self._dao(direct=self.HG_BAYSIDE, leagues={11: self.HOMEGROWN})
+        assert dao.alias_conflict("Bayside FC", 175, league_id=self.ACADEMY) is None
+
+    def test_a_scoped_alias_collides_with_an_exact_name_in_its_own_league(self):
+        dao = self._dao(direct=self.HG_BAYSIDE, leagues={11: self.ACADEMY})
+        assert dao.alias_conflict("Bayside FC", 175, league_id=self.ACADEMY)["id"] == 11
+
+    def test_a_scoped_alias_collides_with_another_alias_in_its_league(self):
+        dao = self._dao(
+            direct=None,
+            alias_rows=[{"team_id": 11, "league_id": self.ACADEMY, "source": "kitman"}],
+            by_id=self.HG_BAYSIDE,
+        )
+        assert dao.alias_conflict("Bayside FC", 175, league_id=self.ACADEMY)["id"] == 11
+
+    def test_a_league_agnostic_alias_elsewhere_does_not_block_a_scoped_one(self):
+        # 'Intercontinental Football Academy of New England' -> IFA (Homegrown)
+        # is NULL-league; an Academy-scoped alias to IFA Academy must be allowed.
+        dao = self._dao(
+            direct=None,
+            alias_rows=[{"team_id": 19, "league_id": None, "source": "mlssoccer.com"}],
+            leagues={19: self.HOMEGROWN},
+        )
+        assert dao.alias_conflict(LONG_NAME, 123, league_id=self.ACADEMY) is None
+
+    def test_without_a_league_any_other_team_is_a_conflict_as_before(self):
+        dao = self._dao(direct=self.HG_BAYSIDE)
+        assert dao.alias_conflict("Bayside FC", 175)["id"] == 11
+
+    def test_pointing_at_the_team_that_already_owns_it_is_not_a_conflict(self):
+        dao = self._dao(direct=self.HG_BAYSIDE, leagues={11: self.ACADEMY})
+        assert dao.alias_conflict("Bayside FC", 11, league_id=self.ACADEMY) is None

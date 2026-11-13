@@ -307,6 +307,38 @@ class TeamDAO(BaseDAO):
             return None
         return self._resolve_alias_rows(normalized, rows, league_id)
 
+    def alias_conflict(self, name: str, team_id: int, league_id: int | None = None) -> dict | None:
+        """The team an alias for `team_id` would collide with, or None.
+
+        Without a league, any other team the string already resolves to is a
+        collision. With one, only a team the string reaches *inside that
+        league* is: an Academy-scoped 'FC Greater Boston Bolts' pointing at
+        the club's Academy team does not collide with the Homegrown team that
+        owns the bare name (SB-1652). That case is the reason league-scoped
+        aliases exist.
+        """
+        normalized = " ".join((name or "").strip().split())
+        if league_id is None:
+            existing = self.resolve_team_by_name(normalized)
+            return existing if existing and existing["id"] != team_id else None
+
+        for row in self._alias_rows(normalized):
+            if row["team_id"] == team_id:
+                continue
+            if row.get("league_id") == league_id or (
+                row.get("league_id") is None and self._team_league_id(row["team_id"]) == league_id
+            ):
+                return self.get_team_by_id(row["team_id"])
+
+        direct = self.get_team_by_name(normalized)
+        if direct and direct["id"] != team_id and self._team_league_id(direct["id"]) == league_id:
+            return direct
+        return None
+
+    def _team_league_id(self, team_id: int) -> int | None:
+        response = self.client.table("teams").select("league_id").eq("id", team_id).limit(1).execute()
+        return response.data[0].get("league_id") if response.data else None
+
     def _alias_rows(self, normalized: str) -> list[dict]:
         """Every team_aliases row whose external_name matches, any league."""
         alias_resp = (
