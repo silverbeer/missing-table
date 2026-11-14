@@ -149,17 +149,57 @@ class ChannelMembersDAO(BaseDAO):
 
     def requested(self, channel_ids: list[int]) -> list[dict]:
         """Pending requests on these channels, oldest first, with who asked."""
+        return self.with_status(channel_ids, "requested")
+
+    def with_status(self, channel_ids: list[int], status: str) -> list[dict]:
+        """Grants in one status on these channels, oldest first, with who they are (SB-1671)."""
         if not channel_ids:
             return []
         return self._rows(
-            "requested",
+            f"with_status_{status}",
             lambda: self.client.table(TABLE)
             .select(
-                "channel_id, user_id, created_at, user_profiles!channel_members_user_id_fkey(display_name, username)"
+                "channel_id, user_id, source, created_at, decided_at, "
+                "user_profiles!channel_members_user_id_fkey(display_name, username)"
             )
             .in_("channel_id", channel_ids)
-            .eq("status", "requested")
+            .eq("status", status)
             .order("created_at"),
+        )
+
+    def granted_user_ids(self, channel_id: int) -> set[str]:
+        """Everyone with an active or pending grant on this channel."""
+        rows = self._rows(
+            "granted_user_ids",
+            lambda: self.client.table(TABLE)
+            .select("user_id")
+            .eq("channel_id", channel_id)
+            .in_("status", ["active", "requested"]),
+        )
+        return {r["user_id"] for r in rows}
+
+    def club_people(self, club_id: int, roles: list[str], limit: int = 500) -> list[dict]:
+        """Profiles in these roles whose club is this one, directly or through their team (SB-1671).
+
+        Carries only what the access rules and a picker need.
+        """
+        team_ids = [
+            r["id"]
+            for r in self._rows(
+                "club_teams", lambda: self.client.table("teams").select("id").eq("club_id", club_id).limit(1000)
+            )
+        ]
+        club_filter = f"club_id.eq.{club_id}"
+        if team_ids:
+            club_filter += f",team_id.in.({','.join(str(t) for t in team_ids)})"
+        return self._rows(
+            "club_people",
+            lambda: self.client.table("user_profiles")
+            .select("id, role, club_id, team_id, display_name, username")
+            .in_("role", roles)
+            .or_(club_filter)
+            .order("display_name")
+            .limit(limit),
         )
 
     def channels_for_teams(self, team_ids: set[int], club_ids: set[int]) -> list[dict]:

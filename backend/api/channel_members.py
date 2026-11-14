@@ -7,6 +7,8 @@ Channel access API (SB-1607): who may join which notification channel.
 - POST   /api/channels/{channel_id}/request          ask a manager for access
 - DELETE /api/channels/{channel_id}/request          withdraw a pending request
 - GET    /api/channels/requests?team_id=             pending requests a manager may decide
+- GET    /api/channels/members?team_id=              active members a manager may revoke (SB-1671)
+- GET    /api/channels/{channel_id}/candidates       fans a manager may invite (SB-1671)
 - PUT    /api/channels/{channel_id}/members/{user_id} approve, deny, invite or revoke
 
 The rules are in `notifications/membership.py`; the caller's standing comes from
@@ -92,6 +94,9 @@ class MyChannels(BaseModel):
     managed: bool | None
     can_manage: bool
     age_groups: list[SquadAgeGroup] | None = None
+    # Enabled channels this caller could see but that have no invite link yet
+    # (SB-1671): the card then says "being set up", not "ask a manager".
+    awaiting_link: int = 0
 
 
 class MemberDecision(BaseModel):
@@ -113,6 +118,24 @@ class PendingRequest(BaseModel):
     platform: str
     audience: str
     age_group_name: str | None
+
+
+class ActiveMember(BaseModel):
+    """Someone a manager can revoke (SB-1671). `source`: eligible, request or invite."""
+
+    channel_id: int
+    user_id: str
+    display_name: str | None
+    since: str | None
+    source: str | None
+    platform: str
+    audience: str
+    age_group_name: str | None
+
+
+class InviteCandidate(BaseModel):
+    user_id: str
+    display_name: str | None
 
 
 def _not_found() -> HTTPException:
@@ -224,18 +247,33 @@ def _visible(
     statuses = dao.statuses(user_id, [r["id"] for r in rows]) if user_id else {}
     out: list[AvailableChannel] = []
     for row in rows:
-        facts = ChannelFacts(
-            scope_type=row["scope_type"],
-            audience=row["audience"],
-            club_id=row.get("club_id") if row["scope_type"] == "club" else clubs.get(row.get("team_id")),
-            team_id=row.get("team_id"),
-            age_group_id=row.get("age_group_id"),
-            age_group_name=names.get(row.get("age_group_id")),
-        )
+        facts = _row_facts(row, clubs, names)
         state = viewer_state(channel_access(viewer, facts), statuses.get(row["id"]))
         if state is not None:
             out.append(_to_available(row, facts, state))
     return out
+
+
+def _row_facts(row: dict, clubs: dict[int, int | None], names: dict[int, str]) -> ChannelFacts:
+    return ChannelFacts(
+        scope_type=row["scope_type"],
+        audience=row["audience"],
+        club_id=row.get("club_id") if row["scope_type"] == "club" else clubs.get(row.get("team_id")),
+        team_id=row.get("team_id"),
+        age_group_id=row.get("age_group_id"),
+        age_group_name=names.get(row.get("age_group_id")),
+    )
+
+
+def _awaiting_link(
+    dao: ChannelMembersDAO, viewer: ChannelViewer, rows: list[dict], clubs: dict[int, int | None]
+) -> int:
+    """Enabled channels the viewer could see once they have an invite link."""
+    pending = [r for r in rows if r.get("enabled") and not r.get("invite_url")]
+    if not pending:
+        return 0
+    names = dao.age_group_names({r["age_group_id"] for r in pending if r.get("age_group_id")})
+    return sum(channel_access(viewer, _row_facts(r, clubs, names)) != "hidden" for r in pending)
 
 
 @router.get("/me/channels", response_model=MyChannels)
@@ -267,6 +305,7 @@ def my_channels(team_id: int | None = None, current_user: dict = Depends(get_cur
         managed=dao.is_managed(team_ids, club_ids),
         can_manage=can_manage,
         age_groups=None if squads is None else [SquadAgeGroup(**s) for s in squads],
+        awaiting_link=_awaiting_link(dao, viewer, rows, clubs),
     )
 
 
@@ -339,13 +378,81 @@ def _can_manage(current_user: dict, row: dict) -> bool:
     return True
 
 
+def _managed_team_channels(dao: ChannelMembersDAO, team_id: int, current_user: dict) -> list[dict]:
+    """This team's (and its club's) channels the caller manages; 403 when none."""
+    rows = [r for r in dao.channels_for_team(team_id, dao.team_club_id(team_id)) if _can_manage(current_user, r)]
+    if not rows:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to review this team's channels")
+    return rows
+
+
+# Fan roles a manager can invite to a fan channel. Players join their own
+# channels directly, so there is nobody to invite there.
+_FAN_ROLES = ["team-fan", "club-fan", "team_fan", "club_fan"]
+
+
+@router.get("/channels/members", response_model=list[ActiveMember])
+def active_members(team_id: int, current_user: dict = Depends(get_current_user_required)) -> list[ActiveMember]:
+    """Who has access to this team's channels the caller manages, so it can be revoked (SB-1671)."""
+    dao = _dao()
+    rows = _managed_team_channels(dao, team_id, current_user)
+    by_id = {r["id"]: r for r in rows}
+    names = dao.age_group_names({r["age_group_id"] for r in rows if r.get("age_group_id")})
+    out = []
+    for grant in dao.with_status(list(by_id), "active"):
+        channel = by_id[grant["channel_id"]]
+        profile = grant.get("user_profiles") or {}
+        out.append(
+            ActiveMember(
+                channel_id=grant["channel_id"],
+                user_id=grant["user_id"],
+                display_name=profile.get("display_name") or profile.get("username"),
+                since=grant.get("decided_at") or grant.get("created_at"),
+                source=grant.get("source"),
+                platform=channel["platform"],
+                audience=channel["audience"],
+                age_group_name=names.get(channel.get("age_group_id")),
+            )
+        )
+    return out
+
+
+@router.get("/channels/{channel_id}/candidates", response_model=list[InviteCandidate])
+def invite_candidates(
+    channel_id: int, current_user: dict = Depends(get_current_user_required)
+) -> list[InviteCandidate]:
+    """Fans a manager may invite to this fan channel without waiting for a request (SB-1671).
+
+    Only people the rules already let ask or join, minus anyone with access or
+    a pending request. Empty for player channels: players join on their own.
+    """
+    dao = _dao()
+    row = dao.channel(channel_id)
+    if row is None:
+        raise _not_found()
+    _ensure_scope_access(current_user, _scope(row))
+    if row["audience"] != "fans":
+        return []
+    facts = _facts(dao, row)
+    if facts.club_id is None:
+        return []
+    taken = dao.granted_user_ids(channel_id)
+    out = []
+    for person in dao.club_people(facts.club_id, _FAN_ROLES):
+        if person["id"] in taken:
+            continue
+        if can_be_granted(channel_access(_viewer(dao, person, person["id"]), facts)):
+            out.append(
+                InviteCandidate(user_id=person["id"], display_name=person.get("display_name") or person.get("username"))
+            )
+    return out
+
+
 @router.get("/channels/requests", response_model=list[PendingRequest])
 def pending_requests(team_id: int, current_user: dict = Depends(get_current_user_required)) -> list[PendingRequest]:
     """Requests on this team's channels that the caller manages. Team managers included."""
     dao = _dao()
-    rows = [r for r in dao.channels_for_team(team_id, dao.team_club_id(team_id)) if _can_manage(current_user, r)]
-    if not rows:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to review this team's channels")
+    rows = _managed_team_channels(dao, team_id, current_user)
     by_id = {r["id"]: r for r in rows}
     names = dao.age_group_names({r["age_group_id"] for r in rows if r.get("age_group_id")})
     out = []

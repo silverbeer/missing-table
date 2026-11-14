@@ -239,6 +239,21 @@ class EmailService:
                 f"3. Open Missing Table and sign up with this code: {invite_code}\n\n"
             )
 
+        # Club chat channels (SB-1671): point at the profile card, never at an
+        # invite link. Emails get forwarded; the card shows the link only to
+        # people the club's rules let in, and always the current one.
+        channels_html = ""
+        channels_text = ""
+        if invite_type in ("club_fan", "team_fan", "team_player"):
+            channels_html = (
+                '<p style="color: #374151;">If your club runs chat channels, you will find them '
+                "in Missing Table under <strong>Profile → Community channels</strong>.</p>"
+            )
+            channels_text = (
+                "If your club runs chat channels, you will find them in Missing Table "
+                "under Profile -> Community channels.\n\n"
+            )
+
         html_body = f"""
 <!DOCTYPE html>
 <html>
@@ -262,6 +277,7 @@ class EmailService:
       Or paste this code on the signup page: <strong>{invite_code}</strong>
     </p>
     {expiry_html}
+    {channels_html}
     {ios_html}
     {_support_html_block()}
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
@@ -278,6 +294,7 @@ class EmailService:
             f"{redemption_url}\n\n"
             f"Or paste this code on the signup page: {invite_code}\n\n"
             f"{expiry_text}"
+            f"{channels_text}"
             f"{ios_text}"
             f"{_support_text_block()}"
             "— Missing Table"

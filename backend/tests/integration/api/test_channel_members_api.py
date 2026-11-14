@@ -262,6 +262,7 @@ class TestMyChannels:
             "managed": None,
             "can_manage": False,
             "age_groups": None,
+            "awaiting_link": 0,
         }
 
     def test_club_only_fan_sees_club_channel(self, world):
@@ -293,6 +294,7 @@ class TestMyChannels:
                 "managed": False,
                 "can_manage": False,
                 "age_groups": None,
+                "awaiting_link": 0,
             }
         finally:
             client.table("teams").delete().eq("id", team["id"]).execute()
@@ -322,3 +324,60 @@ class TestMyChannels:
         with as_user(world["manager"]) as c:
             body = c.get("/api/me/channels", params={"team_id": world["team"]}).json()
         assert body["age_groups"] == []
+
+
+class TestManagerReview:
+    """The manager's review screen (SB-1671): members to revoke, fans to invite."""
+
+    def test_members_lists_an_invited_fan_until_revoked(self, world):
+        squad = world["channel"]()
+        fan_id = world["fan"]["user_id"]
+        with as_user(world["manager"]) as c:
+            c.put(f"/api/channels/{squad}/members/{fan_id}", json={"status": "active"})
+            members = c.get("/api/channels/members", params={"team_id": world["team"]}).json()
+            assert [(m["channel_id"], m["user_id"], m["source"]) for m in members] == [(squad, fan_id, "invite")]
+            assert members[0]["age_group_name"] == "U15"
+            c.put(f"/api/channels/{squad}/members/{fan_id}", json={"status": "revoked"})
+            assert c.get("/api/channels/members", params={"team_id": world["team"]}).json() == []
+
+    def test_a_fan_cannot_list_members(self, world):
+        world["channel"]()
+        with as_user(world["fan"]) as c:
+            assert c.get("/api/channels/members", params={"team_id": world["team"]}).status_code == 403
+
+    def test_candidates_are_club_fans_without_access(self, world):
+        squad = world["channel"]()
+        fan_id = world["fan"]["user_id"]
+        with as_user(world["manager"]) as c:
+            before = {p["user_id"] for p in c.get(f"/api/channels/{squad}/candidates").json()}
+            assert fan_id in before
+            c.put(f"/api/channels/{squad}/members/{fan_id}", json={"status": "active"})
+            after = {p["user_id"] for p in c.get(f"/api/channels/{squad}/candidates").json()}
+        assert fan_id not in after
+
+    def test_player_channels_have_no_candidates(self, world):
+        players = world["channel"](audience="players")
+        with as_user(world["manager"]) as c:
+            assert c.get(f"/api/channels/{players}/candidates").json() == []
+
+    def test_a_fan_cannot_list_candidates(self, world):
+        squad = world["channel"]()
+        with as_user(world["fan"]) as c:
+            assert c.get(f"/api/channels/{squad}/candidates").status_code == 403
+
+
+class TestAwaitingLink:
+    """A channel set up without an invite link reads as "being set up" (SB-1671)."""
+
+    def test_fan_channel_without_link_is_counted(self, isolated):
+        isolated["channel"]("club", invite_url=None)
+        isolated["channel"](audience="players", invite_url=None)  # hidden from fans: not counted
+        with as_user(isolated["fan"]) as c:
+            body = c.get("/api/me/channels", params={"team_id": isolated["team"]}).json()
+        assert (body["channels"], body["awaiting_link"]) == ([], 1)
+
+    def test_linked_channels_are_not_counted(self, isolated):
+        isolated["channel"]("club")
+        with as_user(isolated["fan"]) as c:
+            body = c.get("/api/me/channels", params={"team_id": isolated["team"]}).json()
+        assert body["awaiting_link"] == 0

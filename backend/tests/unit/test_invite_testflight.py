@@ -337,3 +337,29 @@ class TestApiRoles:
         service.retry_testflight.side_effect = LookupError("Invitation not found")
         resp = client.post("/api/invites/admin/nope/testflight/retry")
         assert resp.status_code == 404
+
+
+class TestInvitationEmailChannels:
+    """Fans and players are pointed at the profile card, never sent a chat link (SB-1671)."""
+
+    @pytest.fixture
+    def sent(self, monkeypatch):
+        monkeypatch.setenv("RESEND_API_KEY", "re_test_key")
+        from services.email_service import EmailService
+
+        payloads: list[dict] = []
+        with patch("resend.Emails.send", side_effect=lambda p: payloads.append(p) or {"id": "x"}):
+            yield EmailService(), payloads
+
+    @pytest.mark.parametrize("invite_type", ["club_fan", "team_fan", "team_player"])
+    def test_fans_and_players_hear_about_channels(self, sent, invite_type):
+        service, payloads = sent
+        service.send_invitation("a@example.com", "ABCDEFGHJKLM", invite_type)
+        assert "Profile -> Community channels" in payloads[0]["text"]
+        assert "Profile → Community channels" in payloads[0]["html"]
+
+    @pytest.mark.parametrize("invite_type", ["club_manager", "team_manager", None])
+    def test_managers_do_not(self, sent, invite_type):
+        service, payloads = sent
+        service.send_invitation("a@example.com", "ABCDEFGHJKLM", invite_type)
+        assert "Community channels" not in payloads[0]["text"]
