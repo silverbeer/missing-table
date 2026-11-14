@@ -115,16 +115,12 @@ By completing this implementation, you will become an expert in:
 
 ---
 
-### [Phase 5: Observability & Monitoring](./05-PHASE-5-OBSERVABILITY.md) 📋 Planned
-**Duration:** 3-4 days
+### Phase 5: Observability & Monitoring (retired)
 
-- Configure Prometheus exporters (RabbitMQ, Celery)
-- Set up Grafana Cloud integration
-- Create monitoring dashboards
-- Define alert rules
-- Test alerting
-
-**Key Deliverable:** Monitoring dashboards + "Distributed Systems Observability" guide
+The in-cluster Prometheus + celery-exporter with Grafana Cloud remote_write that
+this phase built stopped running around October 2025 and was removed from
+`helm/messaging-platform` in SB-1688, together with its guide. Observability now
+goes through Grafana Alloy, managed in the `missingtable-platform-bootstrap` repo.
 
 ---
 
