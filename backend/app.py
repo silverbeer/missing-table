@@ -160,6 +160,7 @@ load_environment()
 
 # Configure structured logging with JSON output for Loki
 from clock_correction import retime_events
+from filter_memory import FilterMemoryUpdate, View, read_filter_memory
 from logging_config import get_logger, setup_logging
 from match_minutes import compute_minutes_played
 from user_preferences import UnknownAgeGroupError, merge_preferences, read_preferences
@@ -1237,6 +1238,7 @@ async def get_profile(current_user: dict[str, Any] = Depends(get_current_user_re
             "telegram_handle": profile.get("telegram_handle"),
             "discord_handle": profile.get("discord_handle"),
             "preferences": read_preferences(profile.get("preferences")),
+            "filter_memory": read_filter_memory(profile.get("filter_memory")),
             # Personal info
             "first_name": profile.get("first_name"),
             "last_name": profile.get("last_name"),
@@ -1409,6 +1411,26 @@ async def update_profile(profile_data: UserProfile, current_user: dict[str, Any]
     except Exception as e:
         logger.error(f"Update profile error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to update profile") from e
+
+
+@app.put("/api/auth/filter-memory/{view}")
+async def save_filter_memory(
+    view: View,
+    update: FilterMemoryUpdate,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Remember one tab's filters for this account (SB-1715).
+
+    Merges into the view's entry: unsent fields are kept, ``filters: null``
+    forgets them. The browser keeps its own copy, so a failure here costs the
+    viewer nothing on this device — it is a 503, never a reason to retry hard.
+    """
+    try:
+        player_dao.set_filter_memory(current_user["user_id"], view, update.to_patch())
+    except Exception as e:
+        logger.warning("filter_memory_save_failed", view=view, error=str(e))
+        raise HTTPException(status_code=503, detail="Could not save filters") from e
+    return {"success": True}
 
 
 # =============================================================================
@@ -2148,6 +2170,7 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user_re
                     "telegram_handle": profile.get("telegram_handle"),
                     "discord_handle": profile.get("discord_handle"),
                     "preferences": read_preferences(profile.get("preferences")),
+                    "filter_memory": read_filter_memory(profile.get("filter_memory")),
                     # Admin-set; shows the web's Android download link (SB-1460).
                     # Absent before the migration reaches an environment.
                     "android_user": bool(profile.get("android_user")),

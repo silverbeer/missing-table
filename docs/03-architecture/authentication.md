@@ -213,13 +213,15 @@ preference is a field there plus a UI control — no migration. Absent key means
 Table and Matches choose their opening age group in this order
 (`utils/defaultAgeGroup.js`):
 
-1. the pick remembered in this browser (`useFilterMemory`, SB-1112) — **last pick wins**
+1. the remembered pick (`useFilterMemory`, SB-1112) — **last pick wins**. Kept in
+   this browser and, signed in, on the account (`user_profiles.filter_memory`,
+   SB-1715), so it follows the viewer to another device; the later-saved copy wins
 2. `preferences.default_age_group_id`
 3. the roster row's age group (above)
 4. U14
 
-Saving the preference clears both views' remembered filters in that browser, so
-the change shows on the next visit. jsonb carries no foreign key, so a
+Saving the preference clears both views' remembered filters, in that browser and
+on the account, so the change shows on the next visit on every device. jsonb carries no foreign key, so a
 preference naming a deleted age group falls through to the next rung. The roster
 row's `league`/`division` are applied only when the chosen age group *is* the
 roster row's; otherwise the division comes from the team's primary division

@@ -77,36 +77,31 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+import { useFilterMemory } from '@/composables/useFilterMemory';
 
 const props = defineProps({
-  /** Which tab's panel this is — the localStorage key and the test id. */
+  /** Which tab's panel this is — the memory key and the test id. */
   view: { type: String, required: true },
   /** One line of what is narrowing the list; shown while closed. */
   summary: { type: String, default: '' },
 });
 
-const STORAGE_PREFIX = 'mt.filterPanel.v1.';
-const storageKey = `${STORAGE_PREFIX}${props.view}`;
 const testid = `filter-panel-${props.view}`;
 const bodyId = `${testid}-body`;
 
-// localStorage may throw (Safari private mode); a failure is "open".
-const readOpen = () => {
-  try {
-    return window.localStorage.getItem(storageKey) !== 'closed';
-  } catch {
-    return true;
-  }
-};
+// Per viewer, and kept on the account when signed in (SB-1715): two people
+// on one iPad no longer share it, and it follows a viewer to a new device.
+const authStore = useAuthStore();
+const memory = useFilterMemory(
+  props.view,
+  () => authStore.state?.profile?.id ?? authStore.state?.user?.id ?? null
+);
 
-const open = ref(readOpen());
+const open = ref(memory.loadPanel());
 
 const toggle = () => {
   open.value = !open.value;
-  try {
-    window.localStorage.setItem(storageKey, open.value ? 'open' : 'closed');
-  } catch {
-    // Remembering is a convenience; the toggle still works this visit.
-  }
+  memory.savePanel(open.value);
 };
 </script>

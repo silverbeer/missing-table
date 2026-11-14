@@ -10,7 +10,7 @@ Handles all database operations related to players/user profiles including:
 
 import structlog
 
-from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import BaseDAO, clear_cache, dao_cache, invalidates_cache
 
 logger = structlog.get_logger()
 
@@ -250,6 +250,24 @@ class PlayerDAO(BaseDAO):
         except Exception as e:
             logger.error(f"Error creating/updating user profile: {e}")
             return None
+
+    def set_filter_memory(self, user_id: str, view: str, patch: dict) -> None:
+        """Merge one view's remembered filters into ``user_profiles.filter_memory`` (SB-1715).
+
+        Atomic in the database (``set_filter_memory`` RPC), so Table and Matches
+        saving at once cannot drop each other's entry.
+
+        Invalidates only this user's cached profile. ``update_user_profile``
+        clears ``mt:dao:players:*`` — every user's — which is fine for a Profile
+        save and not for a write that follows filter clicks.
+
+        Raises on failure; the endpoint decides what the client sees.
+        """
+        self.client.rpc(
+            "set_filter_memory",
+            {"p_user_id": user_id, "p_view": view, "p_patch": patch},
+        ).execute()
+        clear_cache(f"mt:dao:players:profile:{user_id}")
 
     @invalidates_cache(PLAYERS_CACHE_PATTERN)
     def update_user_profile(self, user_id: str, update_data: dict) -> dict | None:
