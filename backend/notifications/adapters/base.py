@@ -133,7 +133,8 @@ class ChannelAdapter(ABC):
     # Shown wherever a channel on this platform is offered (SB-1612): the
     # platform's own minimum age, from its terms. None: nothing to say.
     age_note: ClassVar[str | None] = None
-    # Extra steps for a player channel, which is read-only with reactions.
+    # Extra steps for player channels: club announcements are read-only with
+    # reactions; a squad channel is the team's chat (SB-1673).
     # Empty: the platform has no such setting to describe.
     player_setup_steps: ClassVar[tuple[str, ...]] = ()
 

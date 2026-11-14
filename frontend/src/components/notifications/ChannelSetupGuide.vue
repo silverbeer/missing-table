@@ -26,28 +26,39 @@
       <div class="guide-body">
         <!-- Start here -->
         <section v-if="tab === 'start'" data-testid="guide-start">
-          <p>{{ START.intro }}</p>
-          <h3>Three kinds of room</h3>
-          <ul class="types">
-            <li v-for="t in START.types" :key="t.tab">
-              <button class="link-btn" @click="tab = t.tab">
-                {{ t.title }}
-              </button>
-              — {{ t.text }}
-            </li>
-          </ul>
-          <h3>Example: IFA</h3>
-          <ul>
-            <li v-for="(line, i) in START.example" :key="i">{{ line }}</li>
-          </ul>
-          <h3>Good to know</h3>
-          <ul>
-            <li v-for="(line, i) in START.advice" :key="i">{{ line }}</li>
-          </ul>
-          <h3>In order</h3>
+          <p class="lead">{{ START.lead }}</p>
+          <div class="decisions">
+            <button
+              v-for="d in START.decisions"
+              :key="d.tab"
+              class="decision"
+              :data-testid="`guide-decision-${d.tab}`"
+              @click="go(d.tab, d.platform)"
+            >
+              <span class="who">{{ d.who }}</span>
+              <span class="pick">{{ d.pick }}</span>
+              <span class="why">{{ d.why }}</span>
+            </button>
+          </div>
+          <p class="both" data-testid="guide-both">{{ START.both }}</p>
+          <p class="example">{{ START.example }}</p>
+
+          <h3>Then set up</h3>
           <ol>
-            <li v-for="(line, i) in START.order" :key="i">{{ line }}</li>
+            <li v-for="n in START.next" :key="n.tab">
+              <button class="link-btn" @click="go(n.tab)">
+                {{ tabLabel(n.tab) }}
+              </button>
+              — {{ n.text }}
+            </li>
           </ol>
+
+          <details class="good" data-testid="guide-good-to-know">
+            <summary>Good to know</summary>
+            <ul>
+              <li v-for="(line, i) in START.goodToKnow" :key="i">{{ line }}</li>
+            </ul>
+          </details>
         </section>
 
         <!-- One channel type, per platform -->
@@ -68,33 +79,52 @@
 
           <p class="summary" data-testid="guide-summary">{{ entry.summary }}</p>
 
-          <h3>1. Create the room</h3>
-          <ol>
-            <li v-for="(s, i) in entry.steps" :key="i">{{ s }}</li>
-          </ol>
-
-          <h3>2. Connect Missing Table</h3>
-          <ol>
-            <li v-for="(s, i) in entry.connect" :key="i">{{ s }}</li>
-          </ol>
-
-          <h3>3. Make an invite link</h3>
-          <ol>
-            <li v-for="(s, i) in entry.invite" :key="i">{{ s }}</li>
-          </ol>
-
-          <h3>4. Add it in Missing Table</h3>
-          <ol data-testid="guide-register">
-            <li v-for="(s, i) in registerSteps(tab)" :key="i">{{ s }}</li>
-          </ol>
-
-          <div
-            v-if="entry.notes?.length"
-            class="notes"
-            data-testid="guide-notes"
+          <button
+            v-if="entry.unavailable"
+            class="link-btn use-instead"
+            data-testid="guide-use-discord"
+            @click="platform = 'discord'"
           >
-            <p v-for="(n, i) in entry.notes" :key="i">{{ n }}</p>
-          </div>
+            Show the Discord steps
+          </button>
+
+          <template v-else>
+            <h3>1. Create the channels</h3>
+            <div
+              v-for="(c, ci) in entry.channels"
+              :key="ci"
+              class="channel"
+              :data-testid="`guide-channel-${ci}`"
+            >
+              <h4>{{ c.title }}</h4>
+              <ol>
+                <li v-for="(s, i) in c.steps" :key="i">{{ s }}</li>
+              </ol>
+            </div>
+
+            <h3>2. Connect Missing Table</h3>
+            <ol>
+              <li v-for="(s, i) in entry.connect" :key="i">{{ s }}</li>
+            </ol>
+
+            <h3>3. Make an invite link</h3>
+            <ol>
+              <li v-for="(s, i) in entry.invite" :key="i">{{ s }}</li>
+            </ol>
+
+            <h3>4. Add them in Missing Table</h3>
+            <ol data-testid="guide-register">
+              <li v-for="(s, i) in registerSteps(tab)" :key="i">{{ s }}</li>
+            </ol>
+
+            <div
+              v-if="entry.notes?.length"
+              class="notes"
+              data-testid="guide-notes"
+            >
+              <p v-for="(n, i) in entry.notes" :key="i">{{ n }}</p>
+            </div>
+          </template>
         </section>
       </div>
     </div>
@@ -103,9 +133,10 @@
 
 <script setup>
 /**
- * How a club manager sets up chat rooms (SB-1672): a tab per channel type
- * (club announcements, fan chat, players), each with Slack, Telegram and
- * Discord steps. Words live in channelGuide.js.
+ * How a club manager sets up chat channels (SB-1672, SB-1673): Start here
+ * picks a platform per audience; a tab per audience (fans, players) then
+ * walks through its two channels on each platform. Words live in
+ * channelGuide.js.
  */
 import { computed, ref } from 'vue';
 import ModalOverlay from '@/components/ui/ModalOverlay.vue';
@@ -133,6 +164,13 @@ const platform = ref(
 );
 
 const entry = computed(() => GUIDE[tab.value]?.[platform.value] || {});
+
+const tabLabel = id => TABS.find(t => t.id === id)?.label || id;
+
+function go(nextTab, nextPlatform) {
+  tab.value = nextTab;
+  if (nextPlatform) platform.value = nextPlatform;
+}
 </script>
 
 <style scoped>
@@ -208,9 +246,81 @@ const entry = computed(() => GUIDE[tab.value]?.[platform.value] || {});
   margin: 4px 0;
 }
 
-.types {
-  list-style: none !important;
-  padding-left: 0 !important;
+.lead {
+  margin: 0 0 12px;
+}
+
+.decisions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.decision {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-card));
+  color: rgb(var(--color-fg));
+  cursor: pointer;
+}
+
+.decision:hover {
+  border-color: rgb(37 99 235);
+}
+
+.who {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgb(var(--color-fg-muted));
+}
+
+.pick {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgb(37 99 235);
+}
+
+.why {
+  font-size: 13px;
+}
+
+.both {
+  margin: 12px 0 4px;
+}
+
+.example {
+  margin: 0;
+  color: rgb(var(--color-fg-muted));
+}
+
+.good {
+  margin-top: 16px;
+}
+
+.good summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.good ul {
+  margin-top: 6px;
+}
+
+.channel h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+  color: rgb(var(--color-fg-muted));
+}
+
+.use-instead {
+  margin-top: 10px;
 }
 
 .platforms {

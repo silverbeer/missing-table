@@ -575,11 +575,11 @@ describe('setup guide (SB-1672)', () => {
     expect(w.find('[data-testid="open-guide"]').exists()).toBe(false);
   });
 
-  it('opens from the form at the club announcements tab for its platform', async () => {
+  it('opens a fan form at the fans tab', async () => {
     const w = await mountManager();
     await w.find('[data-testid="add-channel"]').trigger('click');
     await w.find('[data-testid="form-open-guide"]').trigger('click');
-    expect(w.find('[data-testid="guide-announce"]').exists()).toBe(true);
+    expect(w.find('[data-testid="guide-fans"]').exists()).toBe(true);
   });
 
   it('opens a squad player form at the players tab', async () => {

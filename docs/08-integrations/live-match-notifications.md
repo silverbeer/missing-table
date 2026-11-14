@@ -117,7 +117,7 @@ The flow: create the platform destination (once per club), then paste the identi
 3. Name it (e.g. `Missing Table`), pick the channel, copy the **Webhook URL**.
 4. The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. Treat it like a password — anyone with this URL can post to your channel.
 
-Full guide, including forum channels for match threads (SB-1606) and read-only player rooms: [discord-setup.md](discord-setup.md).
+Full guide, including forum channels for match threads (SB-1606) and player channels (read-only club announcements, squad chat): [discord-setup.md](discord-setup.md).
 
 ### Slack
 
