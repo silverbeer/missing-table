@@ -1,7 +1,7 @@
 <template>
   <div>
-    <!-- Filters Section -->
-    <div class="mb-6 space-y-4">
+    <!-- Filters Section — collapsible (SB-1714) -->
+    <FilterPanel view="table" :summary="filterSummaryText" class="mb-6">
       <!-- Age Group Links -->
       <div data-testid="age-group-filter">
         <h3 class="text-sm font-medium text-fg mb-3">Age Groups</h3>
@@ -121,7 +121,7 @@
           </select>
         </div>
       </div>
-    </div>
+    </FilterPanel>
 
     <!-- Playoff bracket toggle -->
     <div v-if="bracketExists" class="mb-4 flex justify-end">
@@ -396,6 +396,8 @@ import { pickDefaultAgeGroupId } from '../utils/defaultAgeGroup';
 import { useFilterMemory, knownId } from '../composables/useFilterMemory';
 import PlayoffBracket from './PlayoffBracket.vue';
 import ClubLogo from './shared/ClubLogo.vue';
+import FilterPanel from './ui/FilterPanel.vue';
+import { filterSummary } from '../utils/filterSummary';
 import { teamDivisionFor } from '../utils/teamDivisions';
 import {
   STAT_COLUMNS,
@@ -405,7 +407,7 @@ import {
 
 export default {
   name: 'LeagueTable',
-  components: { PlayoffBracket, ClubLogo },
+  components: { PlayoffBracket, ClubLogo, FilterPanel },
   props: {
     initialAgeGroupId: {
       type: Number,
@@ -1197,7 +1199,23 @@ export default {
       }
     );
 
+    // The closed filter panel's one line (SB-1714). Every Table filter is
+    // single-select and always set, so every part narrows the table.
+    const nameOf = (list, id) =>
+      (list || []).find(item => item.id === id)?.name ?? null;
+    const filterSummaryText = computed(() =>
+      filterSummary([
+        nameOf(seasons.value, selectedSeasonId.value),
+        nameOf(ageGroups.value, selectedAgeGroupId.value),
+        nameOf(leagues.value, selectedLeagueId.value),
+        competitionChips.value.find(c => c.value === selectedMatchType.value)
+          ?.label ?? null,
+        nameOf(divisions.value, selectedDivisionId.value),
+      ])
+    );
+
     return {
+      filterSummaryText,
       tableData,
       sortedTableData,
       sortKey,
