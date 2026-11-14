@@ -478,3 +478,5 @@ A channel with `post_as_threads` posts each match as its own thread and every la
 - **Checking it live:** Send test on a threaded channel creates a "Missing Table test" post, then replies into it with the returned id. It reports an error if no thread id came back.
 - **Limits:** the API refuses `post_as_threads` (422) on a platform without threads, and on a club players channel, which stays flat until read-only permissions are confirmed to work with forum posts.
 - **Not built (follow-ups):** Slack threads need a bot token and `chat.postMessage`, because webhooks do not return `ts`. Telegram would use forum topics (`message_thread_id`, with an admin bot holding `can_manage_topics`) or reply chains.
+
+The in-app setup guide for club managers (tabs per channel type, Slack / Telegram / Discord) is described in [channel-setup-guide.md](channel-setup-guide.md) (SB-1672).

@@ -31,10 +31,11 @@ class SlackAdapter(ChannelAdapter):
     placeholder: ClassVar[str] = "https://hooks.slack.com/services/…"
     hint: ClassVar[str] = "Add an Incoming Webhook to your Slack channel and paste the full webhook URL."
     setup_steps: ClassVar[tuple[str, ...]] = (
-        "Go to api.slack.com/apps and create an app (From scratch) in your workspace, or open one you already have.",
+        "Go to api.slack.com/apps → Create New App → Pick features, name it Missing Table and pick your "
+        "workspace, or open the app you already made.",
         "Under Features → Incoming Webhooks, turn Activate Incoming Webhooks on.",
-        "Click Add New Webhook, pick the channel to post to, and allow it. "
-        "Each webhook posts to one channel; another channel needs another webhook.",
+        "Click Add New Webhook to Workspace, pick the channel and click Authorize. If the channel is set to "
+        "Private in Slack, join it first or it is not listed. Each webhook posts to one channel.",
         "Copy the Webhook URL (it starts https://hooks.slack.com/services/) and paste it here. "
         "Treat it like a password.",
         "Then click Send test to confirm a message arrives.",

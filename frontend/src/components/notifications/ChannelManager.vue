@@ -14,7 +14,22 @@
         Table does not. Invite links can be passed on, so treat a room as open
         to anyone who has its link.
       </p>
+      <button
+        v-if="scopeType !== 'global'"
+        class="link-btn mt-1"
+        data-testid="open-guide"
+        @click="openGuide()"
+      >
+        Setup guide: Slack, Telegram and Discord
+      </button>
     </header>
+
+    <ChannelSetupGuide
+      v-if="guide"
+      :initial-tab="guide.tab"
+      :initial-platform="guide.platform"
+      @close="guide = null"
+    />
 
     <div
       v-if="flash"
@@ -164,6 +179,7 @@
             :busy="busyId === channel.id"
             @submit="saveEdit(channel)"
             @cancel="closeForm"
+            @open-guide="openGuide"
           />
         </li>
       </ul>
@@ -179,6 +195,7 @@
           :busy="busyId === 'new'"
           @submit="create"
           @cancel="closeForm"
+          @open-guide="openGuide"
         />
       </div>
       <button
@@ -198,6 +215,7 @@ import { onMounted, ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import ChannelForm from '@/components/notifications/ChannelForm.vue';
+import ChannelSetupGuide from '@/components/notifications/ChannelSetupGuide.vue';
 
 /**
  * Set up the chat channels for one scope (SB-1605): a squad (team + age
@@ -219,6 +237,20 @@ const props = defineProps({
   heading: { type: String, default: '' },
 });
 const emit = defineEmits(['changed']);
+
+// SB-1672: the setup guide, opened at the tab for what is being set up.
+const guide = ref(null);
+const openGuide = ({ platform, audience } = {}) => {
+  const tab =
+    audience === 'players'
+      ? 'players'
+      : platform
+        ? props.scopeType === 'club'
+          ? 'announce'
+          : 'fans'
+        : 'start';
+  guide.value = { tab, platform: platform || 'slack' };
+};
 
 const authStore = useAuthStore();
 const api = () => `${getApiBaseUrl()}/api`;

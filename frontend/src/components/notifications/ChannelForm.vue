@@ -202,6 +202,19 @@
         You own and moderate this room. Missing Table only posts match updates
         to it.
       </p>
+      <button
+        type="button"
+        class="guide-link"
+        data-testid="form-open-guide"
+        @click="
+          emit('open-guide', {
+            platform: form.platform,
+            audience: form.audience,
+          })
+        "
+      >
+        Full guide: permissions, invite links and private rooms
+      </button>
     </details>
 
     <div class="flex gap-2 mt-1">
@@ -242,7 +255,7 @@ const props = defineProps({
   editing: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
 });
-const emit = defineEmits(['submit', 'cancel']);
+const emit = defineEmits(['submit', 'cancel', 'open-guide']);
 
 const platform = computed(() =>
   props.platforms.find(p => p.id === form.value?.platform)
@@ -385,6 +398,16 @@ const submit = () => {
 }
 .setup-note {
   margin: 0.5rem 0 0;
+}
+.guide-link {
+  margin-top: 0.5rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: rgb(37 99 235);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
 }
 .btn {
   padding: 0.4rem 0.8rem;

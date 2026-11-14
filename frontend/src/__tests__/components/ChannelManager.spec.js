@@ -551,3 +551,46 @@ describe('match threads (SB-1606)', () => {
     expect(w.find('[data-testid="threads-7"]').text()).toBe('Match threads');
   });
 });
+
+describe('setup guide (SB-1672)', () => {
+  const mountManager = async (props = { scopeType: 'club', clubId: 5 }) => {
+    const wrapper = mount(ChannelManager, {
+      props,
+      global: { stubs: { teleport: true } },
+    });
+    await flushPromises();
+    return wrapper;
+  };
+
+  it('opens the guide on Start here from the header', async () => {
+    const w = await mountManager();
+    await w.find('[data-testid="open-guide"]').trigger('click');
+    expect(w.find('[data-testid="guide-start"]').exists()).toBe(true);
+    await w.find('[data-testid="modal-close"]').trigger('click');
+    expect(w.find('[data-testid="channel-guide"]').exists()).toBe(false);
+  });
+
+  it('has no guide for the every-match feed', async () => {
+    const w = await mountManager({ scopeType: 'global' });
+    expect(w.find('[data-testid="open-guide"]').exists()).toBe(false);
+  });
+
+  it('opens from the form at the club announcements tab for its platform', async () => {
+    const w = await mountManager();
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    await w.find('[data-testid="form-open-guide"]').trigger('click');
+    expect(w.find('[data-testid="guide-announce"]').exists()).toBe(true);
+  });
+
+  it('opens a squad player form at the players tab', async () => {
+    const w = await mountManager({
+      scopeType: 'team',
+      teamId: 7,
+      ageGroupId: 3,
+    });
+    await w.find('[data-testid="add-channel"]').trigger('click');
+    await w.find('[data-testid="form-audience-players"]').setValue();
+    await w.find('[data-testid="form-open-guide"]').trigger('click');
+    expect(w.find('[data-testid="guide-players"]').exists()).toBe(true);
+  });
+});
