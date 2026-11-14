@@ -331,7 +331,7 @@
           </div>
 
           <!-- Profile (auth required) -->
-          <div v-if="currentTab === 'profile'" class="p-4">
+          <div v-if="currentTab === 'profile'" class="p-2 sm:p-4">
             <ProfileRouter
               @logout="handleLogout"
               @switch-tab="handleSwitchTab"

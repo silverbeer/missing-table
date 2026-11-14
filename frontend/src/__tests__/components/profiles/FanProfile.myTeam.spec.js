@@ -81,7 +81,11 @@ beforeEach(() => {
 const mountProfile = async () => {
   const wrapper = mount(FanProfile, {
     global: {
-      stubs: { LiveUpdatesTeaser: true, TeamChannelsCard: true },
+      stubs: {
+        LiveUpdatesTeaser: true,
+        TeamChannelsCard: true,
+        NotificationsCard: true,
+      },
     },
   });
   await flushPromises();
@@ -219,7 +223,7 @@ describe('FanProfile Match alerts card (SB-1608, SB-1618)', () => {
     );
     expect(wrapper.find('[data-testid="choose-squads"]').exists()).toBe(false);
     // The rest of the profile still renders.
-    expect(wrapper.find('.quick-access-section').exists()).toBe(true);
+    expect(wrapper.find('.hero-card').exists()).toBe(true);
   });
 
   it('does not ask for options for a role that cannot pick', async () => {

@@ -253,107 +253,9 @@
       </p>
     </div>
 
-    <!-- Club Teams Section (for Club Fans) - Grouped by League > Division -->
-    <div
-      v-if="club && groupedTeams.length > 0"
-      class="club-teams-section"
-      :style="clubTeamsStyle"
-    >
-      <h3>{{ club.name }} Teams</h3>
-      <div class="leagues-container">
-        <div
-          v-for="league in groupedTeams"
-          :key="league.id"
-          class="league-group"
-        >
-          <div class="league-header" :style="leagueHeaderStyle">
-            <span class="league-icon">🏆</span>
-            <span class="league-name">{{ league.name }}</span>
-          </div>
-          <div class="divisions-container">
-            <div
-              v-for="division in league.divisions"
-              :key="division.id"
-              class="division-group"
-            >
-              <div class="division-header" :style="divisionHeaderStyle">
-                {{ division.name }}
-              </div>
-              <div class="age-groups-list">
-                <div
-                  v-for="ageGroup in division.ageGroups"
-                  :key="ageGroup.id"
-                  class="age-group-row"
-                >
-                  <span class="age-group-name">{{ ageGroup.name }}</span>
-                  <div class="age-group-links">
-                    <button
-                      class="link-btn table-link"
-                      :style="tableLinkStyle"
-                      @click="
-                        goToTableWithFilters(
-                          ageGroup.id,
-                          league.id,
-                          division.id
-                        )
-                      "
-                    >
-                      Table
-                    </button>
-                    <button
-                      class="link-btn matches-link"
-                      :style="matchesLinkStyle"
-                      @click="
-                        goToMatchesWithFilters(
-                          ageGroup.id,
-                          league.id,
-                          division.id
-                        )
-                      "
-                    >
-                      Matches
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Quick Access Section -->
-    <div class="quick-access-section">
-      <h3>Quick Access</h3>
-      <div class="quick-cards">
-        <div class="quick-card" @click="goToStandings">
-          <div class="quick-icon">📊</div>
-          <div class="quick-content">
-            <h4>League Standings</h4>
-            <p>Check current league positions</p>
-          </div>
-          <div class="quick-arrow">&rarr;</div>
-        </div>
-
-        <div class="quick-card" @click="goToSchedule">
-          <div class="quick-icon">📅</div>
-          <div class="quick-content">
-            <h4>Match Schedule</h4>
-            <p>See upcoming fixtures</p>
-          </div>
-          <div class="quick-arrow">&rarr;</div>
-        </div>
-
-        <div class="quick-card" @click="goToTeams">
-          <div class="quick-icon">👥</div>
-          <div class="quick-content">
-            <h4>All Teams</h4>
-            <p>Explore team profiles</p>
-          </div>
-          <div class="quick-arrow">&rarr;</div>
-        </div>
-      </div>
-    </div>
+    <!-- SB-1675: alerts, notification settings and chat channels sit together -->
+    <NotificationsCard />
+    <TeamChannelsCard />
 
     <!-- Upcoming Matches -->
     <div v-if="upcomingMatches.length > 0" class="upcoming-section">
@@ -377,40 +279,82 @@
       </div>
     </div>
 
-    <!-- Fan Features -->
-    <div class="features-section">
-      <h3>Fan Features</h3>
-      <p class="section-description">
-        As a {{ club ? club.name : 'league' }} fan, you have access to these
-        features:
-      </p>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <h4>Live Standings</h4>
-          <p>Track league positions in real-time</p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">📅</div>
-          <h4>Full Schedule</h4>
-          <p>Access all upcoming fixtures</p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">⚽</div>
-          <h4>Match Results</h4>
-          <p>View scores and match details</p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">👥</div>
-          <h4>Team Profiles</h4>
-          <p>Explore all teams in the league</p>
-        </div>
-      </div>
+    <!-- Club Teams: one line per league · division, age groups as chips (SB-1675) -->
+    <div
+      v-if="club && groupedTeams.length > 0"
+      class="club-teams-section"
+      :style="clubTeamsStyle"
+      data-testid="club-teams"
+    >
+      <h3>{{ club.name }} Teams</h3>
+      <ul class="team-lines">
+        <template v-for="league in groupedTeams" :key="league.id">
+          <li
+            v-for="division in league.divisions"
+            :key="`${league.id}-${division.id}`"
+            class="team-line"
+            data-testid="club-team-line"
+          >
+            <span class="line-label">
+              <strong>{{ league.name }}</strong> · {{ division.name }}
+            </span>
+            <div class="age-chips">
+              <button
+                v-for="ageGroup in division.ageGroups"
+                :key="ageGroup.id"
+                type="button"
+                :class="[
+                  'age-chip',
+                  { active: isPicked(league, division, ageGroup) },
+                ]"
+                :aria-expanded="isPicked(league, division, ageGroup)"
+                data-testid="age-chip"
+                @click="pickSquad(league, division, ageGroup)"
+              >
+                {{ ageGroup.name }}
+              </button>
+            </div>
+            <div
+              v-if="picked && picked.key === lineKey(league, division)"
+              class="chip-actions"
+              data-testid="squad-actions"
+            >
+              <span class="chip-actions-label">{{ picked.ageGroup.name }}</span>
+              <button
+                type="button"
+                class="squad-btn"
+                :style="tableLinkStyle"
+                data-testid="squad-table"
+                @click="
+                  goToTableWithFilters(
+                    picked.ageGroup.id,
+                    league.id,
+                    division.id
+                  )
+                "
+              >
+                Table
+              </button>
+              <button
+                type="button"
+                class="squad-btn"
+                :style="matchesLinkStyle"
+                data-testid="squad-matches"
+                @click="
+                  goToMatchesWithFilters(
+                    picked.ageGroup.id,
+                    league.id,
+                    division.id
+                  )
+                "
+              >
+                Matches
+              </button>
+            </div>
+          </li>
+        </template>
+      </ul>
     </div>
-    <TeamChannelsCard />
   </div>
 </template>
 
@@ -421,6 +365,7 @@ import { getApiBaseUrl } from '../../config/api';
 import { hasAnyRole } from '../../utils/roles';
 import LiveUpdatesTeaser from './LiveUpdatesTeaser.vue';
 import TeamChannelsCard from '@/components/notifications/TeamChannelsCard.vue';
+import NotificationsCard from '@/components/notifications/NotificationsCard.vue';
 import { useTeamFollows } from '@/composables/useTeamFollows';
 import {
   useNotificationSetup,
@@ -429,7 +374,7 @@ import {
 
 export default {
   name: 'FanProfile',
-  components: { LiveUpdatesTeaser, TeamChannelsCard },
+  components: { LiveUpdatesTeaser, TeamChannelsCard, NotificationsCard },
   emits: ['logout', 'navigate'],
   setup(props, { emit }) {
     const authStore = useAuthStore();
@@ -614,20 +559,17 @@ export default {
       };
     });
 
-    const leagueHeaderStyle = computed(() => {
-      return {
-        background: `linear-gradient(135deg, ${clubColors.value.primary} 0%, ${clubColors.value.secondary} 100%)`,
-      };
-    });
-
-    const divisionHeaderStyle = computed(() => {
-      // Lighter version of primary color for division headers
-      return {
-        background: `${clubColors.value.primary}15`,
-        color: clubColors.value.primary,
-        borderLeft: `3px solid ${clubColors.value.primary}`,
-      };
-    });
+    // SB-1675: one squad's Table / Matches open at a time, under its line.
+    const picked = ref(null);
+    const lineKey = (league, division) => `${league.id}-${division.id}`;
+    const isPicked = (league, division, ageGroup) =>
+      picked.value?.key === lineKey(league, division) &&
+      picked.value.ageGroup.id === ageGroup.id;
+    const pickSquad = (league, division, ageGroup) => {
+      picked.value = isPicked(league, division, ageGroup)
+        ? null
+        : { key: lineKey(league, division), ageGroup };
+    };
 
     const tableLinkStyle = computed(() => {
       return {
@@ -866,19 +808,6 @@ export default {
       }
     };
 
-    const goToStandings = () => {
-      emit('navigate', 'table');
-    };
-
-    const goToSchedule = () => {
-      emit('navigate', 'scores');
-    };
-
-    const goToTeams = () => {
-      // Teams tab may not exist - navigate to standings as fallback
-      emit('navigate', 'table');
-    };
-
     const goToTeam = team => {
       // Extract filter IDs from team data
       // The team object from get_club_teams includes:
@@ -967,17 +896,16 @@ export default {
       upcomingMatchCount,
       heroCardStyle,
       clubTeamsStyle,
-      leagueHeaderStyle,
-      divisionHeaderStyle,
+      picked,
+      lineKey,
+      isPicked,
+      pickSquad,
       tableLinkStyle,
       matchesLinkStyle,
       formatDate,
       formatMatchDate,
       openEditProfile,
       saveProfile,
-      goToStandings,
-      goToSchedule,
-      goToTeams,
       goToTeam,
       goToTableWithFilters,
       goToMatchesWithFilters,
@@ -1145,7 +1073,7 @@ export default {
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 25px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgb(var(--color-line));
   color: rgb(var(--color-fg));
 }
 
@@ -1275,97 +1203,87 @@ export default {
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 25px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgb(var(--color-line));
 }
 
 .club-teams-section h3 {
   color: rgb(var(--color-fg));
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   font-size: 18px;
 }
 
-.leagues-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.league-group {
+.team-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   border: 1px solid rgb(var(--color-line));
   border-radius: 10px;
   overflow: hidden;
 }
 
-.league-header {
+.team-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  /* Background set via inline style for club theming */
-  color: white;
+  gap: 6px 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgb(var(--color-line));
+}
+
+.team-line:last-child {
+  border-bottom: none;
+}
+
+.line-label {
+  flex: 0 0 210px;
+  font-size: 13px;
+  color: rgb(var(--color-fg-muted));
+}
+
+.line-label strong {
+  color: rgb(var(--color-fg));
   font-weight: 600;
-  font-size: 15px;
 }
 
-.league-icon {
-  font-size: 18px;
-}
-
-.league-name {
+.age-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   flex: 1;
 }
 
-.divisions-container {
-  padding: 0;
-}
-
-.division-group {
-  border-bottom: 1px solid rgb(var(--color-line));
-}
-
-.division-group:last-child {
-  border-bottom: none;
-}
-
-.division-header {
-  padding: 10px 16px;
-  /* Background and color set via inline style for club theming */
-  font-weight: 600;
+.age-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
   font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-weight: 500;
+  border: 1px solid rgb(var(--color-line));
+  background: transparent;
+  color: rgb(var(--color-fg));
+  cursor: pointer;
 }
 
-.age-groups-list {
-  padding: 0;
+.age-chip:hover {
+  border-color: var(--club-primary);
 }
 
-.age-group-row {
+.age-chip.active {
+  background: var(--club-primary);
+  border-color: var(--club-primary);
+  color: #fff;
+}
+
+.chip-actions {
+  flex-basis: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgb(var(--color-line));
-  transition: background 0.15s;
-}
-
-.age-group-row:last-child {
-  border-bottom: none;
-}
-
-.age-group-row:hover {
-  background: rgb(var(--color-surface-alt));
-}
-
-.age-group-name {
-  font-weight: 500;
-  color: rgb(var(--color-fg));
-  font-size: 14px;
-}
-
-.age-group-links {
-  display: flex;
   gap: 8px;
+}
+
+.chip-actions-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--color-fg));
 }
 
 .link-btn {
@@ -1378,92 +1296,31 @@ export default {
   border: none;
 }
 
-.link-btn.table-link {
-  /* Background and color set via inline style for club theming */
-}
-
-.link-btn.table-link:hover {
-  filter: brightness(0.9);
-}
-
-.link-btn.matches-link {
-  /* Background and color set via inline style for club theming */
-}
-
-.link-btn.matches-link:hover {
-  filter: brightness(0.9);
-}
-
-/* Quick Access */
-.quick-access-section {
-  background: rgb(var(--color-card));
-  border-radius: 12px;
-  padding: 25px;
-  margin-bottom: 25px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.quick-access-section h3 {
-  color: rgb(var(--color-fg));
-  margin-bottom: 20px;
-  font-size: 18px;
-}
-
-.quick-cards {
-  display: grid;
-  gap: 12px;
-}
-
-.quick-card {
-  display: flex;
-  align-items: center;
-  padding: 18px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid #bae6fd;
-}
-
-.quick-card:hover {
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-}
-
-.quick-icon {
-  font-size: 28px;
-  margin-right: 18px;
-}
-
-.quick-content {
-  flex: 1;
-}
-
-.quick-content h4 {
-  margin: 0;
-  color: #1e40af;
-  font-size: 16px;
-}
-
-.quick-content p {
-  margin: 4px 0 0;
-  color: #3b82f6;
+.squad-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
   font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
 }
 
-.quick-arrow {
-  color: #3b82f6;
-  font-size: 20px;
-  font-weight: bold;
+.squad-btn:hover {
+  filter: brightness(0.9);
 }
 
-/* Upcoming Matches */
+@media (max-width: 640px) {
+  .line-label {
+    flex-basis: 100%;
+  }
+}
+
 .upcoming-section {
   background: rgb(var(--color-card));
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 25px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgb(var(--color-line));
 }
 
 .upcoming-section h3 {
@@ -1519,63 +1376,6 @@ export default {
 }
 
 /* Features Section */
-.features-section {
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  border-radius: 12px;
-  padding: 25px;
-  margin-bottom: 25px;
-  border: 1px solid #a7f3d0;
-}
-
-.features-section h3 {
-  color: #047857;
-  margin-bottom: 10px;
-  font-size: 18px;
-}
-
-.section-description {
-  color: #065f46;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 15px;
-}
-
-.feature-card {
-  background: rgb(var(--color-card));
-  padding: 20px;
-  border-radius: 10px;
-  text-align: center;
-  border: 1px solid #d1fae5;
-  transition: all 0.2s;
-}
-
-.feature-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
-}
-
-.feature-icon {
-  font-size: 28px;
-  margin-bottom: 10px;
-}
-
-.feature-card h4 {
-  margin: 0 0 8px;
-  color: #047857;
-  font-size: 15px;
-}
-
-.feature-card p {
-  margin: 0;
-  color: rgb(var(--color-fg-muted));
-  font-size: 13px;
-}
-
 /* Modal */
 .modal-overlay {
   position: fixed;
@@ -1740,6 +1540,107 @@ export default {
 
   .match-type {
     text-align: center;
+  }
+}
+
+/* Phone first (SB-1675): fans are on their phones */
+@media (max-width: 640px) {
+  .fan-dashboard {
+    padding: 0;
+  }
+
+  .hero-card {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 4px 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    text-align: left;
+    border-radius: 12px;
+  }
+
+  .hero-logo {
+    margin: 0;
+  }
+
+  .club-logo-img,
+  .club-logo-placeholder,
+  .league-logo-placeholder {
+    width: 56px;
+    height: 56px;
+  }
+
+  .club-logo-placeholder span,
+  .league-logo-placeholder span {
+    font-size: 24px;
+  }
+
+  .club-name-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin-bottom: 2px;
+  }
+
+  .club-name {
+    font-size: 20px;
+  }
+
+  .role-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  .location-line {
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  .fan-info {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 6px;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .separator {
+    display: inline;
+  }
+
+  .hero-stats {
+    justify-content: flex-start;
+    gap: 20px;
+    margin-bottom: 10px;
+  }
+
+  .stat-number {
+    font-size: 18px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+  }
+
+  .hero-actions {
+    flex-direction: row;
+  }
+
+  .action-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .my-team-section,
+  .upcoming-section,
+  .club-teams-section {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .upcoming-section,
+  .club-teams-section {
+    margin-top: 12px;
   }
 }
 </style>
