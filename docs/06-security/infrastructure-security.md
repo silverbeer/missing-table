@@ -1,5 +1,12 @@
 # Security Infrastructure Documentation
 
+> **Historical (Phase 4 plan, 2025).** The `k8s/` manifests this document refers to
+> (`k8s/rbac.yaml`, `k8s/falco/`, `k8s/gatekeeper/`, `k8s/monitoring/`, ...) do not
+> exist in this repository. Production runs on Linode LKE via ArgoCD
+> (`helm/missing-table`, `values-prod.yaml`); metrics and logs ship through
+> Grafana Alloy, managed in the `missingtable-platform-bootstrap` repo. Treat the
+> sections below as design notes, not as a description of what is deployed.
+
 This document provides a comprehensive overview of the security infrastructure implemented for the Missing Table application.
 
 ## Phase 4: Kubernetes & Infrastructure Security - Implementation Summary
@@ -103,17 +110,11 @@ This document provides a comprehensive overview of the security infrastructure i
 
 ### 7. Security Monitoring and Alerting
 
-#### Prometheus Rules
-- **Security metrics**: Falco events, authentication failures
-- **Performance monitoring**: Resource usage, response times
-- **Alert definitions**: Critical and warning thresholds
-- **Configuration**: `k8s/monitoring/prometheus-security-rules.yaml`
-
-#### Grafana Dashboard
-- **Security visualization**: Real-time security event monitoring
-- **Threat tracking**: Network and file system access events
-- **Performance metrics**: Container resource usage
-- **Configuration**: `k8s/monitoring/grafana-security-dashboard.json`
+The in-cluster Prometheus rules and Grafana dashboard planned here
+(`k8s/monitoring/prometheus-security-rules.yaml`,
+`k8s/monitoring/grafana-security-dashboard.json`) were never committed. Monitoring
+is Grafana Cloud fed by Grafana Alloy; see the `missingtable-platform-bootstrap`
+repo.
 
 ## Security Features Implemented
 
@@ -174,8 +175,6 @@ kubectl apply -f k8s/falco/falco-config.yaml
 kubectl apply -f k8s/gatekeeper/constraint-templates.yaml
 kubectl apply -f k8s/gatekeeper/constraints.yaml
 
-# Install monitoring
-kubectl apply -f k8s/monitoring/prometheus-security-rules.yaml
 ```
 
 ### 4. Secure Container Deployment
