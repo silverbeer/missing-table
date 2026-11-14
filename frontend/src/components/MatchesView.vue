@@ -57,120 +57,92 @@
           </nav>
         </div>
 
-        <!-- Filters Section -->
-        <div class="mb-6">
-          <!-- Mobile: Collapsible Filters -->
-          <div class="lg:hidden mb-4">
-            <button
-              @click="showFilters = !showFilters"
-              class="w-full flex items-center justify-between px-4 py-3 bg-brand-600 text-white rounded-lg font-medium"
-            >
-              <span>Filters</span>
-              <svg
-                :class="[
-                  'w-5 h-5 transition-transform',
-                  showFilters ? 'rotate-180' : '',
-                ]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+        <!-- Filters Section — collapsible at every width (SB-1714) -->
+        <FilterPanel view="matches" :summary="filterSummaryText" class="mb-4">
+          <!-- My Club Filters - Only show on My Club tab -->
+          <div v-if="selectedViewTab === 'myclub'" class="space-y-4">
+            <!-- Club Selector - Pre-selected for club fans/managers, browsable for all -->
+            <div>
+              <label class="block text-sm font-medium text-fg mb-2"
+                >Select Club</label
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 9l-7 7-7-7"
+              <div data-testid="club-selector">
+                <ClubCombobox
+                  v-model="selectedClubId"
+                  :clubs="filteredClubs"
+                  placeholder="Search clubs…"
                 />
-              </svg>
-            </button>
+              </div>
+            </div>
+
+            <!-- Team Selector - Rich format with League/Division -->
+            <div v-if="selectedClubId">
+              <label class="block text-sm font-medium text-fg mb-2"
+                >Select Team</label
+              >
+              <div data-testid="team-selector">
+                <TeamCombobox
+                  v-model="selectedTeamId"
+                  :teams="filteredTeamsByLeague"
+                  :allow-create="false"
+                  :label-formatter="getTeamDisplayWithContext"
+                  placeholder="Search teams…"
+                />
+              </div>
+            </div>
+
+            <!-- Prompt to select club if none selected -->
+            <div
+              v-else
+              class="p-4 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-700 rounded-lg text-brand-700 dark:text-brand-300 text-sm"
+            >
+              Please select a club to view teams and matches.
+            </div>
           </div>
 
-          <!-- Filters Content -->
-          <div :class="['space-y-4', showFilters || 'hidden lg:block']">
-            <!-- My Club Filters - Only show on My Club tab -->
-            <div v-if="selectedViewTab === 'myclub'" class="space-y-4">
-              <!-- Club Selector - Pre-selected for club fans/managers, browsable for all -->
-              <div>
-                <label class="block text-sm font-medium text-fg mb-2"
-                  >Select Club</label
-                >
-                <div data-testid="club-selector">
-                  <ClubCombobox
-                    v-model="selectedClubId"
-                    :clubs="filteredClubs"
-                    placeholder="Search clubs…"
-                  />
-                </div>
-              </div>
-
-              <!-- Team Selector - Rich format with League/Division -->
-              <div v-if="selectedClubId">
-                <label class="block text-sm font-medium text-fg mb-2"
-                  >Select Team</label
-                >
-                <div data-testid="team-selector">
-                  <TeamCombobox
-                    v-model="selectedTeamId"
-                    :teams="filteredTeamsByLeague"
-                    :allow-create="false"
-                    :label-formatter="getTeamDisplayWithContext"
-                    placeholder="Search teams…"
-                  />
-                </div>
-              </div>
-
-              <!-- Prompt to select club if none selected -->
-              <div
-                v-else
-                class="p-4 bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-700 rounded-lg text-brand-700 dark:text-brand-300 text-sm"
+          <!-- Age Group Filter -->
+          <div>
+            <h3 class="text-sm font-medium text-fg mb-2">Age Groups</h3>
+            <div
+              class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+            >
+              <button
+                v-for="ageGroup in filteredAgeGroups"
+                :key="ageGroup.id"
+                @click="selectAgeGroup(ageGroup.id)"
+                :data-testid="`age-group-${ageGroup.id}`"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  selectedAgeGroupId === ageGroup.id
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-surface-alt text-fg active:bg-line',
+                ]"
               >
-                Please select a club to view teams and matches.
-              </div>
+                {{ ageGroup.name }}
+              </button>
             </div>
+          </div>
 
-            <!-- Age Group Filter -->
-            <div>
-              <h3 class="text-sm font-medium text-fg mb-2">Age Groups</h3>
-              <div
-                class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+          <!-- Season Dropdown -->
+          <div>
+            <h3 class="text-sm font-medium text-fg mb-2">Season</h3>
+            <select
+              v-model="selectedSeasonId"
+              data-testid="season-selector"
+              class="block w-full px-4 py-3 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            >
+              <option
+                v-for="season in seasons"
+                :key="season.id"
+                :value="season.id"
               >
-                <button
-                  v-for="ageGroup in filteredAgeGroups"
-                  :key="ageGroup.id"
-                  @click="selectAgeGroup(ageGroup.id)"
-                  :data-testid="`age-group-${ageGroup.id}`"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    selectedAgeGroupId === ageGroup.id
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
-                >
-                  {{ ageGroup.name }}
-                </button>
-              </div>
-            </div>
+                {{ season.name }} ({{ formatSeasonDates(season) }})
+              </option>
+            </select>
+          </div>
 
-            <!-- Season Dropdown -->
-            <div>
-              <h3 class="text-sm font-medium text-fg mb-2">Season</h3>
-              <select
-                v-model="selectedSeasonId"
-                data-testid="season-selector"
-                class="block w-full px-4 py-3 text-base border border-line rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-              >
-                <option
-                  v-for="season in seasons"
-                  :key="season.id"
-                  :value="season.id"
-                >
-                  {{ season.name }} ({{ formatSeasonDates(season) }})
-                </option>
-              </select>
-            </div>
-
-            <!-- Match Type Filter -->
-            <!--
+          <!-- Match Type Filter -->
+          <!--
               Built from /api/match-types, not hardcoded (SB-849). The five
               literal ids that lived here never learned about Flex, so six
               fixtures were unreachable except through "All".
@@ -180,31 +152,31 @@
               state CLAUDE.md warns about. Counts are shown so a short list is
               never ambiguous between "filtered" and "broken".
             -->
-            <div v-if="matchTypeChips.length > 1">
-              <h3 class="text-sm font-medium text-fg mb-2">Match Type</h3>
-              <div
-                class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+          <div v-if="matchTypeChips.length > 1">
+            <h3 class="text-sm font-medium text-fg mb-2">Match Type</h3>
+            <div
+              class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+            >
+              <button
+                v-for="chip in matchTypeChips"
+                :key="chip.key"
+                @click="selectMatchTypeChip(chip)"
+                :data-testid="`match-type-${chip.key}`"
+                :title="chip.title || null"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  isChipSelected(chip)
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-surface-alt text-fg active:bg-line',
+                ]"
               >
-                <button
-                  v-for="chip in matchTypeChips"
-                  :key="chip.key"
-                  @click="selectMatchTypeChip(chip)"
-                  :data-testid="`match-type-${chip.key}`"
-                  :title="chip.title || null"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    isChipSelected(chip)
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line',
-                  ]"
-                >
-                  {{ chip.label }}
-                  <span class="opacity-70 ml-1">{{ chip.count }}</span>
-                </button>
-              </div>
+                {{ chip.label }}
+                <span class="opacity-70 ml-1">{{ chip.count }}</span>
+              </button>
             </div>
+          </div>
 
-            <!--
+          <!--
               Conference Filter — multi-select (SB-1007).
 
               Conferences are neighbours, not alternatives: a club near a
@@ -219,61 +191,67 @@
               in both, and two chips both saying "Florida" under one heading
               told nobody which was which.
             -->
-            <div v-if="visibleDivisions.length > 1">
-              <h3 class="text-sm font-medium text-fg mb-2">Conference</h3>
-              <div class="space-y-2">
+          <div v-if="visibleDivisions.length > 1">
+            <h3 class="text-sm font-medium text-fg mb-2">Conference</h3>
+            <div class="space-y-2">
+              <div
+                class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
+              >
+                <button
+                  @click="clearDivisionFilter"
+                  data-testid="division-all"
+                  :aria-pressed="selectedDivisionIds.length === 0"
+                  :class="[
+                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                    selectedDivisionIds.length === 0
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-surface-alt text-fg active:bg-line',
+                  ]"
+                >
+                  All Conferences
+                </button>
+              </div>
+              <div
+                v-for="group in conferenceGroups"
+                :key="group.key"
+                :data-testid="`conference-group-${group.key}`"
+              >
+                <div
+                  v-if="conferenceGroups.length > 1"
+                  class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1"
+                >
+                  {{ group.label }}
+                </div>
                 <div
                   class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
                 >
                   <button
-                    @click="clearDivisionFilter"
-                    data-testid="division-all"
-                    :aria-pressed="selectedDivisionIds.length === 0"
+                    v-for="division in group.conferences"
+                    :key="division.id"
+                    @click="toggleDivision(division.id)"
+                    :data-testid="'division-' + division.id"
+                    :aria-pressed="isDivisionSelected(division.id)"
                     :class="[
                       'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                      selectedDivisionIds.length === 0
+                      isDivisionSelected(division.id)
                         ? 'bg-brand-600 text-white'
                         : 'bg-surface-alt text-fg active:bg-line',
                     ]"
                   >
-                    All Conferences
+                    {{ division.name }}
                   </button>
-                </div>
-                <div
-                  v-for="group in conferenceGroups"
-                  :key="group.key"
-                  :data-testid="`conference-group-${group.key}`"
-                >
-                  <div
-                    v-if="conferenceGroups.length > 1"
-                    class="text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1"
-                  >
-                    {{ group.label }}
-                  </div>
-                  <div
-                    class="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2"
-                  >
-                    <button
-                      v-for="division in group.conferences"
-                      :key="division.id"
-                      @click="toggleDivision(division.id)"
-                      :data-testid="'division-' + division.id"
-                      :aria-pressed="isDivisionSelected(division.id)"
-                      :class="[
-                        'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                        isDivisionSelected(division.id)
-                          ? 'bg-brand-600 text-white'
-                          : 'bg-surface-alt text-fg active:bg-line',
-                      ]"
-                    >
-                      {{ division.name }}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </FilterPanel>
 
-            <!--
+        <!--
+          Match of the Week and Week Navigation sit outside the filter panel:
+          collapsing the filters must never hide them (SB-1714).
+        -->
+        <div v-if="selectedViewTab === 'all'" class="mb-6 space-y-4">
+          <!--
               Match of the Week (SB-1010, SB-1639).
 
               One pick per week, pool and age group: the strip shows the pick
@@ -282,75 +260,73 @@
               Week Navigation as a one-line strip rather than a hero, because
               it is still not what the person came to this tab for.
             -->
-            <template v-if="selectedViewTab === 'all'">
-              <MotwHero
-                v-if="motw"
-                :match="motw.match"
-                :blurb="motw.blurb"
-                :reasons="motw.reasons ?? null"
-                :can-share="authStore.isAuthenticated.value"
-                :can-edit="authStore.isAdmin.value"
-                :saving="motwSaving"
-                @preview="viewMatch"
-                @share="shareMotw"
-                @save-blurb="saveMotwBlurb"
-                @save-reasons="saveMotwReasons"
-              />
-              <!--
+          <template v-if="selectedViewTab === 'all'">
+            <MotwHero
+              v-if="motw"
+              :match="motw.match"
+              :blurb="motw.blurb"
+              :reasons="motw.reasons ?? null"
+              :can-share="authStore.isAuthenticated.value"
+              :can-edit="authStore.isAdmin.value"
+              :saving="motwSaving"
+              @preview="viewMatch"
+              @share="shareMotw"
+              @save-blurb="saveMotwBlurb"
+              @save-reasons="saveMotwReasons"
+            />
+            <!--
                 No pick this week. Admins get the nudge; everyone else gets
                 nothing at all, because an empty frame promising a featured match
                 is worse than no frame (CLAUDE.md: three states, never default
                 into one).
               -->
-              <div
-                v-else-if="
-                  authStore.isAdmin.value && !motwLoading && motwSlotExists
-                "
-                class="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-line px-4 py-2.5"
-                data-testid="motw-empty-admin"
+            <div
+              v-else-if="
+                authStore.isAdmin.value && !motwLoading && motwSlotExists
+              "
+              class="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-line px-4 py-2.5"
+              data-testid="motw-empty-admin"
+            >
+              <span class="text-accent-600 dark:text-accent-400 text-sm"
+                >◆</span
               >
-                <span class="text-accent-600 dark:text-accent-400 text-sm"
-                  >◆</span
-                >
-                <span class="text-sm text-fg-muted">
-                  No {{ motwSlotLabel }} Match of the Week for
-                  {{ weekRangeDisplay }} — pick one from the ◆ button on any
-                  row.
-                </span>
-              </div>
-            </template>
+              <span class="text-sm text-fg-muted">
+                No {{ motwSlotLabel }} Match of the Week for
+                {{ weekRangeDisplay }} — pick one from the ◆ button on any row.
+              </span>
+            </div>
+          </template>
 
-            <!-- Time Range Filter - Only show on "All Matches" tab -->
-            <div v-if="selectedViewTab === 'all'">
-              <h3 class="text-sm font-medium text-fg mb-2">Week Navigation</h3>
-              <div class="grid grid-cols-3 gap-2">
-                <button
-                  @click="weekOffset--"
-                  data-testid="week-prev"
-                  class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-surface-alt text-fg active:bg-line hover:bg-line"
-                >
-                  ← Previous
-                </button>
-                <button
-                  @click="weekOffset = 0"
-                  data-testid="week-current"
-                  :class="[
-                    'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
-                    weekOffset === 0
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-surface-alt text-fg active:bg-line hover:bg-line',
-                  ]"
-                >
-                  This Week
-                </button>
-                <button
-                  @click="weekOffset++"
-                  data-testid="week-next"
-                  class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-surface-alt text-fg active:bg-line hover:bg-line"
-                >
-                  Next →
-                </button>
-              </div>
+          <!-- Time Range Filter - Only show on "All Matches" tab -->
+          <div v-if="selectedViewTab === 'all'">
+            <h3 class="text-sm font-medium text-fg mb-2">Week Navigation</h3>
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                @click="weekOffset--"
+                data-testid="week-prev"
+                class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-surface-alt text-fg active:bg-line hover:bg-line"
+              >
+                ← Previous
+              </button>
+              <button
+                @click="weekOffset = 0"
+                data-testid="week-current"
+                :class="[
+                  'px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px]',
+                  weekOffset === 0
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-surface-alt text-fg active:bg-line hover:bg-line',
+                ]"
+              >
+                This Week
+              </button>
+              <button
+                @click="weekOffset++"
+                data-testid="week-next"
+                class="px-4 py-3 text-sm rounded-lg font-medium transition-colors min-h-[44px] bg-surface-alt text-fg active:bg-line hover:bg-line"
+              >
+                Next →
+              </button>
             </div>
           </div>
         </div>
@@ -730,6 +706,8 @@ import ClubCombobox from '@/components/ui/ClubCombobox.vue';
 import TeamCombobox from '@/components/ui/TeamCombobox.vue';
 import FollowButton from '@/components/notifications/FollowButton.vue';
 import MotwHero from '@/components/MotwHero.vue';
+import FilterPanel from '@/components/ui/FilterPanel.vue';
+import { filterSummary, listSummary } from '@/utils/filterSummary';
 import MatchMobileList from '@/components/matches/MatchMobileList.vue';
 import MatchTableRow from '@/components/matches/MatchTableRow.vue';
 import { subscribeToMatch } from '@/composables/useMatchRealtime';
@@ -755,6 +733,7 @@ export default {
     ClubCombobox,
     TeamCombobox,
     MotwHero,
+    FilterPanel,
     MatchMobileList,
     MatchTableRow,
   },
@@ -931,7 +910,6 @@ export default {
     const loading = ref(true);
     const showEditModal = ref(false);
     const editingMatch = ref(null);
-    const showFilters = ref(true); // Filters visible by default on mobile
     const selectedMatchId = ref(null); // For match detail view navigation
     let liveMatchRefreshInterval = null; // Auto-refresh interval for live matches
 
@@ -2614,6 +2592,29 @@ export default {
       realtimeMatchSubs.clear();
     });
 
+    // The closed filter panel's one line (SB-1714): only what narrows the
+    // list. "All" competitions and no conference picked narrow nothing.
+    const filterSummaryText = computed(() => {
+      const nameOf = (list, id) =>
+        (list || []).find(item => item.id === id)?.name ?? null;
+      const myClub = selectedViewTab.value === 'myclub';
+      const team = myClub
+        ? teams.value.find(t => t.id === parseInt(selectedTeam.value))
+        : null;
+      const chip = matchTypeChips.value.find(isChipSelected);
+      const conferences = visibleDivisions.value
+        .filter(d => isDivisionSelected(d.id))
+        .map(d => d.name);
+      return filterSummary([
+        myClub ? nameOf(clubs.value, selectedClubId.value) : null,
+        team?.name ?? null,
+        nameOf(seasons.value, selectedSeasonId.value),
+        nameOf(ageGroups.value, selectedAgeGroupId.value),
+        chip && chip.value !== null ? chip.label : null,
+        listSummary(conferences, 'conferences'),
+      ]);
+    });
+
     return {
       teams,
       matches,
@@ -2670,7 +2671,7 @@ export default {
       selectedSeasonName,
       error,
       loading,
-      showFilters,
+      filterSummaryText,
       onTeamChange,
       getScoreDisplay,
       getStatusLabel,
