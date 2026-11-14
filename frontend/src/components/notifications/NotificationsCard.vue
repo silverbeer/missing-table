@@ -166,8 +166,13 @@
       </p>
     </div>
 
-    <!-- Match alerts (read-only summary; same follows as the profile card) -->
-    <div v-if="isSupported" class="follows-section">
+    <!-- Match alerts (read-only summary; same follows as the profile card).
+         Hidden on the fan profile, whose Match alerts card sits just above. -->
+    <div
+      v-if="isSupported && showFollows"
+      class="follows-section"
+      data-testid="your-match-alerts"
+    >
       <h4>Your match alerts</h4>
       <p v-if="!follows.length" class="follows-empty">
         No match alerts yet. Tap "Follow" on a team's page in the Matches tab,
@@ -247,6 +252,11 @@ import { useTeamFollows } from '../../composables/useTeamFollows';
 import { useBracketFollows } from '../../composables/useBracketFollows';
 import { useNotificationPreferences } from '../../composables/useNotificationPreferences';
 import { openSetupGuide } from '../../composables/useNotificationSetup';
+
+defineProps({
+  // SB-1678: false where a Match alerts card already lists the follows.
+  showFollows: { type: Boolean, default: true },
+});
 
 const {
   isSupported,
