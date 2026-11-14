@@ -254,7 +254,7 @@
     </div>
 
     <!-- SB-1675: alerts, notification settings and chat channels sit together -->
-    <NotificationsCard />
+    <NotificationsCard :show-follows="false" />
     <TeamChannelsCard />
 
     <!-- Upcoming Matches -->

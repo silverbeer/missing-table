@@ -211,6 +211,25 @@ describe('NotificationsCard "Teams you follow" labels (SB-65)', () => {
     ).toEqual(['U15 only', 'U16 only']);
   });
 
+  it('hides the follows list where a Match alerts card already shows it (SB-1678)', async () => {
+    const team = { id: 19, name: 'IFA', club: { id: 1, name: 'IFA' } };
+    mockFollows.value = [
+      { team_id: 19, age_group_id: 3, age_group: { id: 3, name: 'U15' }, team },
+    ];
+
+    const shown = mount(NotificationsCard);
+    const hidden = mount(NotificationsCard, { props: { showFollows: false } });
+    await flushPromises();
+
+    expect(shown.find('[data-testid="your-match-alerts"]').exists()).toBe(true);
+    expect(hidden.find('[data-testid="your-match-alerts"]').exists()).toBe(
+      false
+    );
+    expect(hidden.find('[data-testid="notifications-card"]').exists()).toBe(
+      true
+    );
+  });
+
   it('shows the "Showing all age groups" subtitle on a whole-team follow', async () => {
     mockFollows.value = [
       {
