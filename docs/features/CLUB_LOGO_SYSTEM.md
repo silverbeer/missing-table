@@ -241,7 +241,7 @@ New method `_download_logo()` that saves the discovered logo image to a local fo
 | AdminClubs grid | Yes | 40px (md) | API |
 | MatchDetailView | Yes | 56-64px (lg) | `match.home_team_club` |
 | ClubManagerProfile | Yes | 140px (xl) | `authStore.state.profile.club` |
-| FanProfile | Yes | 140px (xl) | `authStore.state.profile.club` |
+| FanProfile | Yes | 120px; 56px on phones (SB-1675) | `authStore.state.profile.club` |
 | MatchesView (My Club) | **No** | needs 24px (xs) | needs `home_team_club`/`away_team_club` |
 | LeagueTable | **No** | needs 24px (xs) | needs `logo_url` in standings |
 | TeamManagerProfile | **No** | needs 32px (sm) | `authStore.state.profile.club` available |
@@ -278,7 +278,7 @@ New method `_download_logo()` that saves the discovered logo image to a local fo
 - `frontend/src/components/admin/AdminClubs.vue` — 40px circular logo
 - `frontend/src/components/MatchDetailView.vue` — 56-64px with glow effect
 - `frontend/src/components/profiles/ClubManagerProfile.vue` — 140px hero
-- `frontend/src/components/profiles/FanProfile.vue` — 140px hero
+- `frontend/src/components/profiles/FanProfile.vue` — 120px hero, 56px on phones
 
 ### Match-Scraper (separate repo)
 - `match-scraper/src/models/discovery.py` — club discovery models

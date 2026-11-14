@@ -772,4 +772,12 @@ onMounted(refresh);
   background: #152c75;
   color: rgba(255, 255, 255, 0.5);
 }
+
+/* Phones (SB-1675) */
+@media (max-width: 640px) {
+  .notifications-card {
+    padding: 16px;
+    margin-top: 12px;
+  }
+}
 </style>

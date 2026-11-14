@@ -519,4 +519,12 @@ export default {
 :global(.dark .team-channels-card .error-msg) {
   color: #fca5a5;
 }
+
+/* Phones (SB-1675) */
+@media (max-width: 640px) {
+  .team-channels-card {
+    padding: 16px;
+    margin-top: 12px;
+  }
+}
 </style>

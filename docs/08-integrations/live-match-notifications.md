@@ -379,6 +379,8 @@ A team row spans several age groups, so a follow names the squad:
 
 **Profile card: Match alerts.** The fan profile lists every follow as one chip. Own-club follows are under **Your club**; follows of other clubs' teams are under **Other teams**. A whole-team follow shows as one "… · every age group" chip. Each chip has × to stop those alerts. A line appears when alerts cannot reach this device yet, linking to the setup guide. The hero stat **Alerts** counts the chips. The notifications settings list the same follows as **Your match alerts**.
 
+**Fan profile layout (SB-1675).** Fans are assumed to be on a phone. The page runs: a compact hero; then **Match alerts**, **Notifications** and **Community channels** together (for fans, `FanProfile` renders `NotificationsCard` itself and `ProfileRouter` skips it); upcoming matches; and **<Club> Teams**, one line per league · division with age-group chips, where tapping a chip shows that squad's **Table** and **Matches**. The generic "Quick Access" and "Fan Features" cards are gone: they repeated the tabs. Checked at 375px and 320px with no sideways scroll.
+
 **Choosing squads.** On the fan profile, **Choose squads** opens a picker of every squad in the fan's own club, grouped by league. Saving sends `PUT /api/me/squad-follows` with `{squads: [{team_id, age_group_id}, …]}`, which replaces the fan's follows of their club's teams:
 
 - A whole-team follow of a club team is replaced by the squads ticked for it. The picker shows an existing whole-team follow with all of that team's squads ticked, so saving without changes keeps every alert.

@@ -50,8 +50,9 @@
       <!-- Support and blocked chat users (universal, SB-1324) -->
       <SupportSafetyCard />
 
-      <!-- Notifications card (universal — every role gets the same surface) -->
-      <NotificationsCard />
+      <!-- Notifications card (every role). Fans get it inside FanProfile,
+           next to Match alerts and Community channels (SB-1675). -->
+      <NotificationsCard v-if="!isFanView" />
     </div>
 
     <!-- Role Debug Info (only in development) -->
@@ -115,6 +116,14 @@ export default {
       return authStore.state.profile?.role || 'team-fan';
     });
 
+    // The FanProfile branch: every role without its own profile view.
+    const isFanView = computed(
+      () =>
+        !['admin', 'club_manager', 'team-manager', 'team-player'].includes(
+          userRole.value
+        )
+    );
+
     const isDevelopment = computed(() => {
       return process.env.NODE_ENV === 'development';
     });
@@ -146,6 +155,7 @@ export default {
     return {
       authStore,
       userRole,
+      isFanView,
       isDevelopment,
       showDebug,
       refreshProfile,
