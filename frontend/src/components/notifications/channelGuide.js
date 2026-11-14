@@ -1,8 +1,14 @@
 /**
- * Channel setup guide content (SB-1672).
+ * Channel setup guide content (SB-1672, SB-1673).
  *
- * One entry per channel type, each with Slack / Telegram / Discord steps.
- * Kept as data so the words can be reviewed and tested without the component.
+ * Words: Slack, Telegram and Discord are *platforms*; what they host are
+ * *channels*. Missing Table's people are fans, players, club managers and team
+ * managers, nobody else.
+ *
+ * A tab per audience (fans, players). Each has two channels: club
+ * announcements (read-only) and chat (fan chat / squad chat), with steps per
+ * platform. Kept as data so the words can be reviewed and tested without the
+ * component.
  *
  * Platform facts were checked against the vendors' own help pages on
  * 2026-11-13 (sources in docs/08-integrations/channel-setup-guide.md). Where a
@@ -18,36 +24,41 @@ export const PLATFORMS = [
 
 export const TABS = [
   { id: 'start', label: 'Start here' },
-  { id: 'announce', label: 'Club announcements' },
-  { id: 'fans', label: 'Fan chat' },
+  { id: 'fans', label: 'Fans' },
   { id: 'players', label: 'Players' },
 ];
 
 // "Start here": the decision first (SB-1673), then where to go next.
 export const START = {
-  lead: 'Missing Table posts live match updates into chat rooms your club runs. First decide where each group goes:',
+  lead: 'Missing Table posts live match updates into your club’s channels on Slack, Telegram or Discord. First pick a platform for each group:',
   decisions: [
     {
       who: 'Players, U14 and up',
       pick: 'Discord',
       tab: 'players',
       platform: 'discord',
-      why: 'Missing Table only supports Discord for players. Each squad gets a read-only channel: players react, only managers post.',
+      why: 'The only platform Missing Table supports for players. Two channels: club announcements, where players react and cheer the club’s other squads, and a squad channel for team chat.',
     },
     {
-      who: 'Fans and parents',
+      who: 'Fans',
       pick: 'Slack',
       tab: 'fans',
       platform: 'slack',
       why: 'Most adults already use Slack at work; few use Discord or Telegram.',
     },
   ],
-  both: 'Some families would rather use Telegram on their phone. You can add a Telegram fan room alongside Slack: both get the same updates, and each fan joins one.',
-  example: 'IFA: fans on Slack, players on Discord.',
+  both: 'Some fans would rather use Telegram on their phone. You can run Telegram for fans alongside Slack: both get the same updates, and each fan joins one.',
+  example:
+    'IFA: fans on Slack; players on Discord, with #ifa-announcements and a squad channel such as #ifa-hg-u15.',
   next: [
-    { tab: 'announce', text: 'one read-only room for every fan. Start here.' },
-    { tab: 'fans', text: 'a room where fans talk, club-wide or per squad.' },
-    { tab: 'players', text: 'one read-only room per squad.' },
+    {
+      tab: 'fans',
+      text: 'club announcements (read-only) and fan chat.',
+    },
+    {
+      tab: 'players',
+      text: 'club announcements (read-only, with reactions) and a chat channel per squad.',
+    },
   ],
   goodToKnow: [
     'An invite link lets people into your whole Slack workspace or Discord server. Private channels (Slack) and roles (Discord) keep squads apart.',
@@ -56,22 +67,18 @@ export const START = {
   ],
 };
 
-// Registering the room in Missing Table, per channel type.
+// Adding the channels in Missing Table, per audience.
 const REGISTER = {
-  announce: [
-    'Profile → Club chat channels → Add a channel (admins: Admin → Live Match Notifications → your club).',
-    'Who it’s for: Fans. What to post: Every match event.',
-    'Paste the webhook URL or chat ID and the invite link, then Add channel → Send test.',
-  ],
   fans: [
-    'Club-wide room: Profile → Club chat channels → Add a channel.',
-    'Squad room: team page → Manage chat channels → pick the squad → Add a channel.',
+    'Club announcements and club-wide fan chat: Profile → Club chat channels → Add a channel (admins: Admin → Live Match Notifications → your club).',
+    'Squad fan chat: team page → Manage chat channels → pick the squad → Add a channel.',
     'Who it’s for: Fans. Paste the webhook URL or chat ID and the invite link, then Add channel → Send test.',
   ],
   players: [
-    'Team page → Manage chat channels → pick the squad → Add a channel (or Profile → Club chat channels for a club-wide player room).',
-    'Who it’s for: Players. Players on that squad see a Join button; fans never see player rooms.',
-    'Paste the webhook URL or chat ID and the invite link, then Add channel → Send test.',
+    'Club announcements: Profile → Club chat channels → Add a channel → Who it’s for: Players.',
+    'Squad chat: team page → Manage chat channels → pick the squad → Add a channel → Who it’s for: Players.',
+    'Paste the webhook URL and the invite link, then Add channel → Send test.',
+    'Players on the club’s U14 and older squads see Join for club announcements, and players on the squad see it for squad chat. Fans never see player channels.',
   ],
 };
 
@@ -83,18 +90,18 @@ const SLACK_WEBHOOK = [
 ];
 
 const SLACK_INVITE = [
-  'Workspace name → Invite people → Copy invite link. Edit link settings to choose when it expires.',
+  'One workspace invite link covers every channel: workspace name → Invite people → Copy invite link. Edit link settings to choose when it expires.',
   'A link works for up to 400 people and lasts 30 days by default. When it runs out, make a new one and update it in Missing Table. Links cannot be made in the Android app.',
 ];
 
 const TELEGRAM_BOT = [
-  'Add @missingtable_bot to the room. In a channel it must be an admin with Post Messages; in a group, a member is enough.',
-  'Find the chat ID: open the room at web.telegram.org and copy the number in the address bar. Channels and supergroups start with -100. If Send test fails, try adding -100 in front.',
+  'Add @missingtable_bot to each channel and group. In a channel it must be an admin with Post Messages; in a group, a member is enough.',
+  'Find the chat ID: open it at web.telegram.org and copy the number in the address bar. Channels and supergroups start with -100. If Send test fails, try adding -100 in front.',
 ];
 
 const DISCORD_WEBHOOK = [
   'You need the Manage Webhooks permission.',
-  'Edit Channel (gear icon) → Integrations → Webhooks → New Webhook. Name it “Missing Table”, check the channel, then Copy Webhook URL. Treat it like a password.',
+  'In each channel: Edit Channel (gear icon) → Integrations → Webhooks → New Webhook. Name it “Missing Table”, check the channel, then Copy Webhook URL. Treat it like a password.',
 ];
 
 const DISCORD_INVITE = [
@@ -102,35 +109,64 @@ const DISCORD_INVITE = [
   'The link admits people to the whole server. Make it from a channel everyone can see, not a private one.',
 ];
 
+const DISCORD_READ_ONLY =
+  'deny Send Messages, Send Messages in Threads, Create Public Threads and Create Private Threads. Allow View Channel, Read Message History and Add Reactions.';
+
 export const GUIDE = {
-  announce: {
+  fans: {
     slack: {
       summary:
-        'A public channel only admins post in. Make it a default channel so new members land in it.',
-      steps: [
-        'Create a public channel, e.g. #ifa-announcements.',
-        'Click the channel name → Settings → Posting permissions → Edit. Choose who may post (you and your managers), then Save Changes. Everyone else can only read.',
-        'Make it a default channel: Admin (sidebar) → Workspace settings → Default Channels → Expand → add it. Owners and admins only; it applies to people who join from now on.',
-        'Check from a member account that they can react. Slack’s help does not say whether reactions stay on.',
+        'Both channels live in one workspace: a read-only club announcements channel, and fan chat.',
+      channels: [
+        {
+          title: 'Club announcements (read-only)',
+          steps: [
+            'Create a public channel, e.g. #ifa-announcements.',
+            'Click the channel name → Settings → Posting permissions → Edit. Choose who may post (you and your managers), then Save Changes. Everyone else can only read.',
+            'Make it a default channel: Admin (sidebar) → Workspace settings → Default Channels → Expand → add it. Owners and admins only; it applies to people who join from now on.',
+            'Check from a fan account that they can react. Slack’s help does not say whether reactions stay on.',
+          ],
+        },
+        {
+          title: 'Fan chat',
+          steps: [
+            'Club-wide: create a public channel, e.g. #ifa-fans, and add it to Default Channels.',
+            'Per squad: + → Channel → name it (e.g. #ifa-hg-u15-fans) → make it Private → Create.',
+            'When you approve a squad request in Missing Table, add that fan to the private channel in Slack. The invite link only gets them into the workspace.',
+          ],
+        },
       ],
       connect: SLACK_WEBHOOK,
       invite: SLACK_INVITE,
       notes: [
-        'Slack does not allow anyone under 16. Use it for parents and fans.',
+        'Slack does not allow anyone under 16.',
         'The free plan allows 10 apps and keeps 90 days of history.',
+        'Anyone in the workspace can see and join every public channel. Keep unrelated channels private.',
       ],
     },
     telegram: {
       summary:
-        'Use a Telegram channel: it is read-only by design. Turn on reactions so members can respond.',
-      steps: [
-        'New Channel (pencil button on Android, the icon at the top of Chats on iPhone). Name it, e.g. “IFA Announcements”, and make it private.',
-        'Channel info → Edit → Reactions: choose which reactions members may use.',
-        'Optional: link a discussion group if you also want fans to talk (see Fan chat).',
+        'A Telegram channel for club announcements (read-only by design), and a group for each fan chat.',
+      channels: [
+        {
+          title: 'Club announcements (read-only)',
+          steps: [
+            'New Channel (pencil button on Android, the icon at the top of Chats on iPhone). Name it, e.g. “IFA Announcements”, and make it private.',
+            'Channel info → Edit → Reactions: choose which reactions fans may use.',
+          ],
+        },
+        {
+          title: 'Fan chat',
+          steps: [
+            'New Group (desktop: top-left menu → New Group). Name it, e.g. “IFA Fans” or “IFA HG U15 Fans”.',
+            'Each group has its own invite link, so squads stay separate without extra work.',
+          ],
+        },
       ],
       connect: TELEGRAM_BOT,
       invite: [
-        'Channel info → Invite Links → create a link. You can name it and set an expiry or usage limit.',
+        'Each channel and group has its own link: Info → Invite Links (groups: Add Member → Invite to Group via Link) → create a link.',
+        'For a squad’s fan chat, turn on Request Admin Approval. Requests appear in a bar at the top of the chat; approve the fans you approved in Missing Table.',
       ],
       notes: [
         'Telegram requires members in the EU, UK and Australia to be 18 or older.',
@@ -138,68 +174,30 @@ export const GUIDE = {
     },
     discord: {
       summary:
-        'A text channel where @everyone can read and react but not post.',
-      steps: [
-        'Create a text channel, e.g. #ifa-announcements.',
-        'Edit Channel → Permissions → @everyone: deny Send Messages, Send Messages in Threads, Create Public Threads and Create Private Threads. Allow View Channel, Read Message History and Add Reactions.',
-        'Check no other role gives Send Messages back, then test from a member account.',
+        'A read-only club announcements channel and fan chat, in a server separate from your players.',
+      channels: [
+        {
+          title: 'Club announcements (read-only)',
+          steps: [
+            'Create a text channel, e.g. #ifa-announcements.',
+            `Edit Channel → Permissions → @everyone: ${DISCORD_READ_ONLY}`,
+            'Check no other role gives Send Messages back, then test from a fan account.',
+          ],
+        },
+        {
+          title: 'Fan chat',
+          steps: [
+            'Club-wide: a text channel everyone can see, e.g. #ifa-fans.',
+            'Per squad: create a role (e.g. “IFA HG U15 Fans”), then a channel → Edit Channel → Permissions → turn on Private Channel → add the role.',
+            'When you approve a squad request in Missing Table, give that fan the squad’s role in Discord. The invite link only gets them into the server.',
+          ],
+        },
       ],
       connect: DISCORD_WEBHOOK,
       invite: DISCORD_INVITE,
       notes: [
         'Discord requires members to be at least 13, and older in some countries.',
         'For one post per match, use a Forum channel instead and tick “One post per match” in Missing Table.',
-      ],
-    },
-  },
-
-  fans: {
-    slack: {
-      summary:
-        'A public #club-fans for everyone, plus a private channel per squad that you add approved fans to.',
-      steps: [
-        'Club room: create a public channel, e.g. #ifa-fans. Add it to Default Channels so new members join it.',
-        'Squad room: + → Channel → name it (e.g. #ifa-u15-fans) → make it Private → Create.',
-        'When you approve a squad request in Missing Table, add that person to the private channel in Slack. The invite link only gets them into the workspace.',
-      ],
-      connect: SLACK_WEBHOOK,
-      invite: [
-        'Use the same workspace invite link for every channel.',
-        ...SLACK_INVITE,
-      ],
-      notes: [
-        'Anyone in the workspace can see and join every public channel. Keep unrelated channels private.',
-      ],
-    },
-    telegram: {
-      summary:
-        'A group per room. Groups have their own links, so squads stay separate without extra work.',
-      steps: [
-        'New Group (desktop: top-left menu → New Group). Name it, e.g. “IFA U15 Fans”.',
-        'Add @missingtable_bot as a member.',
-        'For a squad room, make the invite link ask for approval (below), so only people you approved in Missing Table get in.',
-      ],
-      connect: TELEGRAM_BOT,
-      invite: [
-        'Group info → Add Member → Invite to Group via Link → create an additional link with Request Admin Approval on.',
-        'Requests appear in a bar at the top of the chat; approve the people you approved in Missing Table.',
-      ],
-      notes: [
-        'Telegram requires members in the EU, UK and Australia to be 18 or older.',
-      ],
-    },
-    discord: {
-      summary:
-        'A channel for the club, and a private channel per squad that only that squad’s role can see.',
-      steps: [
-        'Club room: a text channel everyone can see, e.g. #ifa-fans.',
-        'Squad room: create a role (e.g. “U15 Fans”), then a channel → Edit Channel → Permissions → turn on Private Channel → add the role.',
-        'When you approve a squad request in Missing Table, give that person the squad’s role in Discord. The invite link only gets them into the server.',
-      ],
-      connect: DISCORD_WEBHOOK,
-      invite: DISCORD_INVITE,
-      notes: [
-        'Discord requires members to be at least 13, and older in some countries.',
       ],
     },
   },
@@ -218,18 +216,33 @@ export const GUIDE = {
     },
     discord: {
       summary:
-        'The recommended home for players: a read-only channel per squad, visible only to that squad’s role.',
-      steps: [
-        'Create a role per squad (e.g. “U15 Players”).',
-        'Create the channel → Edit Channel → Permissions → turn on Private Channel → add the squad role.',
-        'For the role: deny Send Messages, Send Messages in Threads, Create Public Threads and Create Private Threads. Allow View Channel, Read Message History and Add Reactions.',
-        'When a player joins from Missing Table, give them the squad role. Test from a player account that they can react but not post.',
+        'Players get two channels, and both get match updates: club announcements, where they react and cheer the club’s other squads, and a squad channel for team chat.',
+      channels: [
+        {
+          title: 'Club announcements (read-only, with reactions)',
+          steps: [
+            'Create a role for every player, e.g. “IFA Players”.',
+            'Create #ifa-announcements → Edit Channel → Permissions → turn on Private Channel → add the IFA Players role.',
+            `For IFA Players: ${DISCORD_READ_ONLY}`,
+            'Every squad’s match updates land here, so players can cheer the rest of the club.',
+          ],
+        },
+        {
+          title: 'Squad chat',
+          steps: [
+            'Create a role per squad, e.g. “IFA HG U15”.',
+            'Create #ifa-hg-u15 → Edit Channel → Permissions → turn on Private Channel → add the squad role. Leave Send Messages on: this is the team’s chat.',
+            'Missing Table posts that squad’s match updates here too.',
+            'When a player joins from Missing Table, give them IFA Players and their squad role. Test from a player account: they can react but not post in announcements, and chat in their squad channel.',
+          ],
+        },
       ],
       connect: DISCORD_WEBHOOK,
       invite: DISCORD_INVITE,
       notes: [
-        'Missing Table offers Discord player rooms for U14 squads and older: Discord requires members to be at least 13.',
-        'Keep fans out of the players’ server, or at least out of every player channel.',
+        'Missing Table supports Discord player channels for U14 squads and older: Discord requires members to be at least 13.',
+        'Use a separate server for players, so fans never see player channels.',
+        'Squad chat is players talking to each other. You and your team managers moderate it.',
       ],
     },
   },

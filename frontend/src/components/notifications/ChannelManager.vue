@@ -10,9 +10,9 @@
         characters are shown.
       </p>
       <p class="text-sm text-fg-muted mt-1" data-testid="manager-owns-note">
-        These rooms are community-run: you own and moderate them, and Missing
-        Table does not. Invite links can be passed on, so treat a room as open
-        to anyone who has its link.
+        These channels are community-run: you own and moderate them, and Missing
+        Table does not. Invite links can be passed on, so treat a channel as
+        open to anyone who has its link.
       </p>
       <button
         v-if="scopeType !== 'global'"
@@ -238,17 +238,10 @@ const props = defineProps({
 });
 const emit = defineEmits(['changed']);
 
-// SB-1672: the setup guide, opened at the tab for what is being set up.
+// SB-1672: the setup guide, opened at the audience being set up (SB-1673).
 const guide = ref(null);
 const openGuide = ({ platform, audience } = {}) => {
-  const tab =
-    audience === 'players'
-      ? 'players'
-      : platform
-        ? props.scopeType === 'club'
-          ? 'announce'
-          : 'fans'
-        : 'start';
+  const tab = !platform ? 'start' : audience === 'players' ? 'players' : 'fans';
   guide.value = { tab, platform: platform || 'slack' };
 };
 

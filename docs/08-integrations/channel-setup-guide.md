@@ -1,25 +1,38 @@
-# Channel setup guide for club managers (SB-1672)
+# Channel setup guide for club managers (SB-1672, SB-1673)
 
-The in-app guide club managers use to set up chat rooms for Missing Table. It lives in the app, not here: managers never see this repo. This page records where it is, how it is built, and the sources behind every platform fact.
+The in-app guide club managers use to set up chat channels for Missing Table. It lives in the app, not here: managers never see this repo. This page records where it is, how it is built, and the sources behind every platform fact.
+
+## Words
+
+- **Platform**: Slack, Telegram or Discord. A platform hosts channels.
+- **Channel**: what Missing Table posts into (a Slack channel, a Telegram channel or group, a Discord channel). Never "room".
+- **People**: fans, players, club managers and team managers. Nobody else (no "parents", no "families").
 
 ## Where it is
 
 `components/notifications/ChannelSetupGuide.vue`, a dialog opened from:
 
 - **Setup guide: Slack, Telegram and Discord** in the header of every channel manager (Admin → Live Match Notifications, the club manager's Profile → Club chat channels, the team page → Manage chat channels). Not on the admin "Every match" feed.
-- **Full guide** at the bottom of the channel form's "How to set up …" section. It opens at the tab for what is being set up: Players for a player channel, Club announcements for a club channel, Fan chat for a squad channel, on the form's platform.
+- **Full guide** at the bottom of the channel form's "How to set up …" section. It opens at the audience being set up (Fans or Players), on the form's platform.
 
 ## Structure
 
-Tabs: **Start here** · **Club announcements** (read-only) · **Fan chat** · **Players**. Each channel tab has Slack / Telegram / Discord, and each platform has the same four steps: create the room, connect Missing Table, make an invite link, add it in Missing Table. Notes carry age floors and plan limits.
+Tabs: **Start here** · **Fans** · **Players**. Each audience tab has Slack / Telegram / Discord, and each platform has four steps: create the channels, connect Missing Table, make an invite link, add them in Missing Table. Notes carry age floors and plan limits.
 
-**Start here leads with the decision** (SB-1673), not an explanation: two cards, **Players U14 and up → Discord** and **Fans and parents → Slack** (most adults already use Slack at work; few use Discord or Telegram). Each card opens its tab on that platform. Below them: a Telegram fan room may run alongside Slack, the IFA example, links to the three tabs, and a collapsed "Good to know".
+Each audience gets two channels:
+
+| Audience | Club announcements | Chat |
+|---|---|---|
+| Fans | read-only, every match update | fan chat: club-wide and/or one per squad (fans request a squad's, managers approve) |
+| Players | read-only with reactions, every squad's match updates, so players cheer the club's other squads | squad chat (e.g. #ifa-hg-u15): the team's own chat, which also gets that squad's match updates |
+
+**Start here leads with the decision** (SB-1673), not an explanation: two cards, **Players U14 and up → Discord** and **Fans → Slack** (most adults already use Slack at work; few use Discord or Telegram). Each card opens its tab on that platform. Below them: Telegram for fans may run alongside Slack, the IFA example, links to the two tabs, and a collapsed "Good to know".
 
 On the Players tab, Slack and Telegram say why they are not offered and link to the Discord steps (`unavailable: true` in the data).
 
-The words are data in `components/notifications/channelGuide.js`, tested in `__tests__/components/ChannelSetupGuide.spec.js` (every tab covers every platform; players get Discord only, with the reason for the others; Start here leads with Discord for players and Slack for fans; nothing tells a manager to email a link).
+The words are data in `components/notifications/channelGuide.js`, tested in `__tests__/components/ChannelSetupGuide.spec.js` (every audience covers every platform with two channels; players get Discord only, with the reason for the others; players' announcements are read-only and squad chat is not; Start here leads with Discord for players and Slack for fans; no "parent", "famil" or "room"; nothing tells a manager to email a link).
 
-The model it teaches (IFA as the example): fans on Slack (a read-only announcements channel, a club fan channel, a private channel per squad), optionally a Telegram fan room too; players on Discord (a read-only channel per squad, visible only to that squad's role).
+The model it teaches (IFA as the example): fans on Slack (#ifa-announcements read-only, #ifa-fans, a private channel per squad), optionally Telegram for fans too; players on a separate Discord server (#ifa-announcements read-only for the IFA Players role, and #ifa-hg-u15 squad chat visible only to that squad's role).
 
 ## Which platform may host players
 

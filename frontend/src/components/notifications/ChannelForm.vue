@@ -52,7 +52,7 @@
         v-model="form.label"
         maxlength="80"
         :disabled="busy"
-        placeholder="e.g. #u15-live or IFA U15 parents"
+        placeholder="e.g. #ifa-announcements or #ifa-hg-u15"
         data-testid="form-label"
       />
       <small>Only managers see this. It tells your channels apart.</small>
@@ -94,7 +94,7 @@
       </small>
       <small v-else>
         Shown only to people you approve, or who qualify to join. Anyone who has
-        the link can pass it on, so treat the room as open to them.
+        the link can pass it on, so treat the channel as open to them.
       </small>
     </label>
 
@@ -199,8 +199,8 @@
         {{ platform.age_note }}
       </p>
       <p class="setup-note">
-        You own and moderate this room. Missing Table only posts match updates
-        to it.
+        You own and moderate this channel. Missing Table only posts match
+        updates to it.
       </p>
       <button
         type="button"
@@ -213,7 +213,7 @@
           })
         "
       >
-        Full guide: permissions, invite links and private rooms
+        Full guide: permissions, invite links and private channels
       </button>
     </details>
 

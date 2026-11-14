@@ -32,11 +32,13 @@ class DiscordAdapter(ChannelAdapter):
         "webhook at a Forum channel instead and tick One post per match below.",
     )
     player_setup_steps: ClassVar[tuple[str, ...]] = (
-        "Player channels are read-only with reactions: players react, only managers post.",
-        "Channel settings → Permissions → @everyone: deny Send Messages, Send Messages in Threads, "
-        "Create Public Threads and Create Private Threads.",
+        "Players get two channels: club announcements (read-only, players react) and a squad "
+        "channel for team chat. Make each visible only to its role, so fans never see them.",
+        "Club announcements: Channel settings → Permissions → the players' role: deny Send Messages, "
+        "Send Messages in Threads, Create Public Threads and Create Private Threads.",
         "Keep View Channel, Read Message History and Add Reactions allowed. Reacting needs Read Message History.",
-        "Check that no other role gives Send Messages back, then post a test as a player account.",
+        "Squad chat: leave Send Messages on for the squad's role. It is the team's chat.",
+        "Test from a player account: react but not post in announcements, chat in the squad channel.",
     )
     age_note: ClassVar[str | None] = "Discord requires members to be at least 13, and older in some countries."
     destination_pattern: ClassVar[str] = r"^https://discord(app)?\.com/api/webhooks/\d+/[\w-]+$"

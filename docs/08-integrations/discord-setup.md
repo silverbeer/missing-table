@@ -1,6 +1,6 @@
 # Discord setup for a club or squad (SB-1612)
 
-This guide is for the manager who runs the Discord server. Missing Table is independent community software: it posts match updates into your channels, and **you own and moderate the server**. MT never calls a room private or verified: anyone who has an invite link can pass it on.
+This guide is for the manager who runs the Discord server. Missing Table is independent community software: it posts match updates into your channels, and **you own and moderate the server**. MT never calls a channel private or verified: anyone who has an invite link can pass it on.
 
 **Age:** Discord requires members to be at least 13, and older in some countries ([Discord support](https://support.discord.com/hc/articles/360040724612), [Terms](https://discord.com/terms)). That is why MT offers Discord player channels from U14 up.
 
@@ -8,11 +8,12 @@ This guide is for the manager who runs the Discord server. Missing Table is inde
 
 | Channel | Type | Who | What posts there |
 |---|---|---|---|
-| `#match-updates` | Text | everyone in the room | Missing Table, through a webhook |
-| `#match-threads` | Forum | everyone in the room | Missing Table: one post per match, updates as replies |
-| `#players` (U14+) | Text, read-only | players | Missing Table + managers; players react |
+| `#match-updates` | Text | fans | Missing Table, through a webhook |
+| `#match-threads` | Forum | fans | Missing Table: one post per match, updates as replies |
+| `#ifa-announcements` (players, U14+) | Text, read-only | every player in the club | Missing Table (every squad's match updates) + managers; players react and cheer the other squads |
+| `#ifa-hg-u15` (squad chat) | Text | that squad's players | the squad's own chat, plus Missing Table's updates for that squad |
 
-Fans and players are kept in separate rooms. MT's access rules never show a player channel to a fan, or a fan channel to a player.
+Fans and players are kept on separate servers (or at least separate channels). MT's access rules never show a player channel to a fan, or a fan channel to a player.
 
 ## 1. Webhook for match updates
 
@@ -34,17 +35,21 @@ With a forum channel, each match gets its own post ("IFA vs NEFC · U15 · Sat N
 
 A webhook into a forum channel needs **One post per match** ticked. Without it Discord rejects every post, and the channel's Last post shows the error. A text channel must leave it unticked: Discord only accepts `thread_name` in forum and media channels.
 
-A club players room always posts flat, because read-only permissions are not confirmed to work with forum posts.
+A club players channel always posts flat, because read-only permissions are not confirmed to work with forum posts.
 
-## 3. Read-only player channel with reactions
+## 3. Player channels (SB-1673)
 
-Players react; only managers and MT post.
+Players get two channels. Give every player an **IFA Players** role and their squad's role (e.g. **IFA HG U15**) when they join from MT.
 
-1. Open `#players` → gear icon → **Permissions** → add **@everyone**, or the players' role.
+**Squad chat** (`#ifa-hg-u15`): Private Channel, visible to the squad's role, with **Send Messages left on**. It is the team's chat; MT posts that squad's match updates into it too.
+
+**Club announcements** for players, read-only with reactions. Players react; only managers and MT post.
+
+1. Open `#ifa-announcements` → gear icon → **Permissions** → add **@everyone**, or the players' role.
 2. **Deny:** Send Messages, Send Messages in Threads, Create Public Threads, Create Private Threads.
 3. **Allow:** View Channel, Read Message History, Add Reactions. Reacting needs Read Message History.
 4. Check no other role gives **Send Messages** back. A role-level allow on another role can undo the channel deny.
-5. Log in as a test player account and check that you can react and can't type.
+5. Log in as a test player account and check that you can react and can't type here, and can chat in the squad channel.
 
 > **Not yet verified on a live server.** The permission names come from [Discord's permission reference](https://docs.discord.com/developers/topics/permissions.md). One community report says Read Message History is needed to add reactions. Step 5 is the check: run it once on a real channel before relying on this guide.
 

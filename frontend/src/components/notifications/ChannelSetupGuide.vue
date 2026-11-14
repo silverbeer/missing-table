@@ -89,10 +89,18 @@
           </button>
 
           <template v-else>
-            <h3>1. Create the room</h3>
-            <ol>
-              <li v-for="(s, i) in entry.steps" :key="i">{{ s }}</li>
-            </ol>
+            <h3>1. Create the channels</h3>
+            <div
+              v-for="(c, ci) in entry.channels"
+              :key="ci"
+              class="channel"
+              :data-testid="`guide-channel-${ci}`"
+            >
+              <h4>{{ c.title }}</h4>
+              <ol>
+                <li v-for="(s, i) in c.steps" :key="i">{{ s }}</li>
+              </ol>
+            </div>
 
             <h3>2. Connect Missing Table</h3>
             <ol>
@@ -104,7 +112,7 @@
               <li v-for="(s, i) in entry.invite" :key="i">{{ s }}</li>
             </ol>
 
-            <h3>4. Add it in Missing Table</h3>
+            <h3>4. Add them in Missing Table</h3>
             <ol data-testid="guide-register">
               <li v-for="(s, i) in registerSteps(tab)" :key="i">{{ s }}</li>
             </ol>
@@ -125,9 +133,10 @@
 
 <script setup>
 /**
- * How a club manager sets up chat rooms (SB-1672): a tab per channel type
- * (club announcements, fan chat, players), each with Slack, Telegram and
- * Discord steps. Words live in channelGuide.js.
+ * How a club manager sets up chat channels (SB-1672, SB-1673): Start here
+ * picks a platform per audience; a tab per audience (fans, players) then
+ * walks through its two channels on each platform. Words live in
+ * channelGuide.js.
  */
 import { computed, ref } from 'vue';
 import ModalOverlay from '@/components/ui/ModalOverlay.vue';
@@ -301,6 +310,13 @@ function go(nextTab, nextPlatform) {
 
 .good ul {
   margin-top: 6px;
+}
+
+.channel h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+  color: rgb(var(--color-fg-muted));
 }
 
 .use-instead {

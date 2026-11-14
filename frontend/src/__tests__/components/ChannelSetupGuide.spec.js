@@ -21,13 +21,8 @@ const mount = (c, opts = {}) =>
 const CHANNEL_TABS = TABS.filter(t => t.id !== 'start').map(t => t.id);
 
 describe('content', () => {
-  it('has a tab per channel type after Start here', () => {
-    expect(TABS.map(t => t.id)).toEqual([
-      'start',
-      'announce',
-      'fans',
-      'players',
-    ]);
+  it('has a tab per audience after Start here', () => {
+    expect(TABS.map(t => t.id)).toEqual(['start', 'fans', 'players']);
   });
 
   it.each(CHANNEL_TABS)('covers every platform for %s', tab => {
@@ -35,11 +30,30 @@ describe('content', () => {
       const entry = GUIDE[tab][id];
       expect(entry.summary, `${tab}/${id}`).toBeTruthy();
       if (entry.unavailable) continue;
-      for (const part of ['steps', 'connect', 'invite']) {
+      expect(entry.channels.length, `${tab}/${id}`).toBe(2);
+      for (const c of entry.channels) {
+        expect(c.steps.length, `${tab}/${id}/${c.title}`).toBeGreaterThan(0);
+      }
+      for (const part of ['connect', 'invite']) {
         expect(entry[part].length, `${tab}/${id}/${part}`).toBeGreaterThan(0);
       }
     }
     expect(registerSteps(tab).length).toBeGreaterThan(0);
+  });
+
+  it('gives players read-only club announcements and a squad chat', () => {
+    const [announce, squad] = GUIDE.players.discord.channels;
+    expect(announce.title).toContain('read-only');
+    expect(announce.steps.join(' ')).toContain('deny Send Messages');
+    expect(squad.title).toBe('Squad chat');
+    expect(squad.steps.join(' ')).toContain('Leave Send Messages on');
+  });
+
+  it('names only Missing Table’s identities, and calls the hosts platforms', () => {
+    const all = JSON.stringify({ GUIDE, START }).toLowerCase();
+    for (const word of ['parent', 'famil', ' room']) {
+      expect(all, word).not.toContain(word);
+    }
   });
 
   it('offers players Discord only, and says why not the others', () => {
