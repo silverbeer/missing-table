@@ -106,9 +106,10 @@ class TestAudienceRules:
     def test_discord_hosts_a_club_player_channel(self):
         assert player_channel_problem(DiscordAdapter(), None) is None
 
-    def test_slack_only_for_oldest_squads(self):
-        assert player_channel_problem(SlackAdapter(), "U16")
-        assert player_channel_problem(SlackAdapter(), "U17") is None
+    def test_slack_is_fans_only(self):
+        """SB-1673: Slack is 16+ and U17 squads include 15-year-olds."""
+        for age in ("U14", "U17", "U19"):
+            assert player_channel_problem(SlackAdapter(), age)
 
     def test_slack_cannot_host_a_club_wide_player_channel(self):
         assert player_channel_problem(SlackAdapter(), None)

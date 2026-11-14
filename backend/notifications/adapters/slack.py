@@ -43,15 +43,9 @@ class SlackAdapter(ChannelAdapter):
     # Exact host and shape: the backend POSTs here, so this is the SSRF guard.
     destination_pattern: ClassVar[str] = r"^https://hooks\.slack\.com/services/[A-Za-z0-9]+/[A-Za-z0-9]+/[A-Za-z0-9]+$"
     destination_error: ClassVar[str] = "Slack destination must be an incoming webhook URL"
-    # Slack's terms require users to be over 16.
-    min_player_age: ClassVar[int | None] = 17
-    player_setup_steps: ClassVar[tuple[str, ...]] = (
-        "Player channels are read-only with reactions: players react, only managers post.",
-        "Channel details → Settings → Posting permissions: let only admins or chosen people post "
-        "(needs a paid Slack plan). Leave Add Reactions on for everyone else.",
-        "Check from a player account that it can react but not post; Slack's "
-        "options vary by plan, so confirm before inviting players.",
-    )
+    # Fans only (SB-1673): Slack's terms require users to be over 16, and U17
+    # squads include 15-year-olds. Players go on Discord.
+    min_player_age: ClassVar[int | None] = None
     # No Capability.THREADS: a webhook does not return the `ts` a thread needs.
 
     def _deliver(self, destination: str, content: str) -> DeliveryResult:

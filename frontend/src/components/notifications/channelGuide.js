@@ -23,43 +23,36 @@ export const TABS = [
   { id: 'players', label: 'Players' },
 ];
 
-// "Start here": the model every club follows, IFA as the worked example.
+// "Start here": the decision first (SB-1673), then where to go next.
 export const START = {
-  intro:
-    'Missing Table posts live match updates (kickoff, goals, half time, full time) into chat rooms your club runs. You own and moderate the rooms; Missing Table only posts into them and decides who sees each invite link.',
-  types: [
+  lead: 'Missing Table posts live match updates into chat rooms your club runs. First decide where each group goes:',
+  decisions: [
     {
-      tab: 'announce',
-      title: 'Club announcements (read-only)',
-      text: 'One room for the whole club. Missing Table posts, members only read and react. The easiest place to start.',
-    },
-    {
-      tab: 'fans',
-      title: 'Fan chat',
-      text: 'A room where parents and fans talk, club-wide or one per squad (e.g. U15). Squad rooms are private: fans request access in Missing Table and you approve.',
-    },
-    {
+      who: 'Players, U14 and up',
+      pick: 'Discord',
       tab: 'players',
-      title: 'Players',
-      text: "Read-only rooms for a squad's players, with reactions. Players are kept apart from fans. Check the platform's minimum age first.",
+      platform: 'discord',
+      why: 'Missing Table only supports Discord for players. Each squad gets a read-only channel: players react, only managers post.',
+    },
+    {
+      who: 'Fans and parents',
+      pick: 'Slack',
+      tab: 'fans',
+      platform: 'slack',
+      why: 'Most adults already use Slack at work; few use Discord or Telegram.',
     },
   ],
-  example: [
-    'Fans on Slack: #ifa-announcements (read-only), #ifa-fans, and a private #ifa-u15-fans per squad.',
-    'Players on Discord: a read-only #ifa-u15-players per squad, visible only to that squad’s role.',
+  both: 'Some families would rather use Telegram on their phone. You can add a Telegram fan room alongside Slack: both get the same updates, and each fan joins one.',
+  example: 'IFA: fans on Slack, players on Discord.',
+  next: [
+    { tab: 'announce', text: 'one read-only room for every fan. Start here.' },
+    { tab: 'fans', text: 'a room where fans talk, club-wide or per squad.' },
+    { tab: 'players', text: 'one read-only room per squad.' },
   ],
-  advice: [
-    'Pick one platform per audience. A second app splits the conversation, and a fan in both gets every update twice.',
-    'An invite link admits people to the whole Slack workspace or Discord server, not one channel. Private channels (Slack), roles (Discord) or separate groups (Telegram) are what keep squads apart.',
-    'Private (Slack), role-only (Discord) and approval-only links (Telegram) keep a room off other people’s lists. They do not stop a member forwarding what they see, so post nothing you would not share.',
-    'Never send an invite link by email. Members find it in Missing Table under Profile → Community channels, and only once they qualify.',
-  ],
-  order: [
-    'Create the room on the platform and set its permissions (the tabs below).',
-    'Connect Missing Table: a webhook URL (Slack, Discord) or our bot plus the chat ID (Telegram).',
-    'Make an invite link.',
-    'In Missing Table: club rooms under your Profile → Club chat channels; squad rooms on the team page → Manage chat channels. Add a channel, then Send test.',
-    'Members join from Profile → Community channels. Approve squad requests in Manage chat channels.',
+  goodToKnow: [
+    'An invite link lets people into your whole Slack workspace or Discord server. Private channels (Slack) and roles (Discord) keep squads apart.',
+    'Members can still forward what they see. Post nothing you would not share.',
+    'Never send an invite link by email. Members find it in Missing Table under Profile → Community channels.',
   ],
 };
 
@@ -212,34 +205,16 @@ export const GUIDE = {
   },
 
   players: {
+    // Fans only (SB-1673): these platforms' age limits rule out most squads.
     slack: {
+      unavailable: true,
       summary:
-        'Not recommended for players: Slack does not allow anyone under 16.',
-      steps: [
-        'Missing Table offers Slack player rooms only for U17 squads and older.',
-        'If you use it: a private channel per squad, Posting permissions limited to managers, and test reactions from a player account.',
-      ],
-      connect: SLACK_WEBHOOK,
-      invite: SLACK_INVITE,
-      notes: [
-        'Slack does not allow anyone under 16.',
-        'Players and fans must never share a workspace channel.',
-      ],
+        'Missing Table does not support Slack for players: Slack does not allow anyone under 16, and U17 squads include 15-year-olds. Use Discord.',
     },
     telegram: {
-      summary: 'A private read-only channel per squad, with reactions on.',
-      steps: [
-        'New Channel → private → name it, e.g. “IFA U15 Players”.',
-        'Channel info → Edit → Reactions: allow reactions.',
-        'Make its invite link ask for approval and approve only players on the squad.',
-      ],
-      connect: TELEGRAM_BOT,
-      invite: [
-        'Channel info → Invite Links → create a link with Request Admin Approval on.',
-      ],
-      notes: [
-        'Telegram requires members in the EU, UK and Australia to be 18 or older, which rules out most players there.',
-      ],
+      unavailable: true,
+      summary:
+        'Missing Table does not support Telegram for players: Telegram requires members in the EU, UK and Australia to be 18 or older. Use Discord.',
     },
     discord: {
       summary:
