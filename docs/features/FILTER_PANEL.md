@@ -43,7 +43,9 @@ state are kept in two places:
   a burst of chip clicks is one request; flushed on `pagehide` (`keepalive`).
   A failure is ignored — the browser copy already has it.
 - **Storage:** the `set_filter_memory(user_id, view, patch)` RPC merges one
-  view's patch in a single `UPDATE`, so Table and Matches cannot drop each
+  view's patch in a single `UPDATE` — and, since SB-1722, merges `filters` key by
+  key, so each platform sends only its own fields. The cross-platform field list
+  is [filter-memory-format.md](../03-architecture/filter-memory-format.md), so Table and Matches cannot drop each
   other's entry. It is its own column, not a key in `preferences`, so a filter
   save and a Profile save never overwrite each other. Service role only.
 - **Cache:** a filter save clears only that viewer's cached profile. It does
