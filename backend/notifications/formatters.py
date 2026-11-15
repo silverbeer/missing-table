@@ -49,9 +49,46 @@ def _minute_str(event: dict) -> str:
     return f"{minute}'"
 
 
+def _competition(match: dict) -> str | None:
+    """Which competition the match belongs to, e.g. 'Homegrown Flex' (SB-1731).
+
+    Division names alone are ambiguous: Academy and Homegrown both have a
+    "Northeast" and a "New England", and a Homegrown team plays League and
+    Flex fixtures side by side. Flex is stored as its own league ("Flex") with
+    its own match type, but to a fan it is part of Homegrown, so it is named
+    that way. A tournament match is named by its tournament.
+    """
+    if match.get("tournament_name"):
+        return str(match["tournament_name"])
+
+    match_type = match.get("match_type_name")
+    if match_type == "Friendly":
+        return "Friendly"
+
+    league = ((match.get("division") or {}).get("leagues") or {}).get("name")
+    if not league or league == "Unknown":
+        league = match.get("home_team_league_name")
+
+    if league == "Flex" or match_type == "Flex":
+        name = "Homegrown Flex"
+    elif league == "Homegrown":
+        name = "Homegrown League"
+    elif league:
+        name = str(league)
+    else:
+        return None
+
+    if match_type == "Playoff":
+        name = f"{name} Playoff"
+    return name
+
+
 def _tag(match: dict) -> str:
-    """Compact league/age-group tag line, e.g. 'MLS Next U14 · Northeast'."""
+    """Compact competition/age-group tag line, e.g. 'Homegrown League · U14 · Northeast'."""
     parts: list[str] = []
+    competition = _competition(match)
+    if competition:
+        parts.append(competition)
     age_group = match.get("age_group_name")
     division = match.get("division_name")
     if age_group:
