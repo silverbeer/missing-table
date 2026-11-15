@@ -266,6 +266,23 @@ All carry `match_id` and `event_type` as keys. `notifications.send_failed` also 
 
 ---
 
+## Message Tag Line
+
+Kickoff, HT, FT and lineup posts carry a tag line under the headline: **competition · age group · division**, e.g. `Homegrown League · U14 · Northeast` (SB-1731). Division names alone are ambiguous — Academy and Homegrown both have a "Northeast" and a "New England", and a Homegrown team plays League and Flex fixtures side by side — so the competition comes first:
+
+| Match | Competition |
+|-------|-------------|
+| Division in league `Homegrown` | `Homegrown League` |
+| League `Flex`, or match type `Flex` | `Homegrown Flex` |
+| Division in league `Academy` | `Academy` |
+| Tournament match | the tournament name |
+| Match type `Friendly` | `Friendly` |
+| Match type `Playoff` | the above + ` Playoff` |
+
+With no division, the home team's league is used. With no league at all, the competition is left out rather than guessed.
+
+---
+
 ## Related Files
 
 - Dispatcher: `backend/notifications/dispatcher.py`

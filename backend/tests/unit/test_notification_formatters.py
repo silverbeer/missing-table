@@ -173,3 +173,44 @@ class TestFormatLineup:
     )
     def test_nothing_to_post(self, event):
         assert format_lineup(event, MATCH, ET) is None
+
+
+def _in_league(league: str | None, match_type: str = "League", **overrides) -> dict:
+    division = {"id": 1, "name": "Northeast", "leagues": {"id": 1, "name": league}} if league else None
+    return {**MATCH, "division_name": "Northeast", "division": division, "match_type_name": match_type, **overrides}
+
+
+class TestCompetitionTag:
+    """SB-1731: the tag names the competition — division names alone are ambiguous."""
+
+    @pytest.mark.parametrize(
+        ("league", "match_type", "expected"),
+        [
+            ("Homegrown", "League", "Homegrown League · U14 · Northeast"),
+            ("Flex", "Flex", "Homegrown Flex · U14 · Northeast"),
+            ("Academy", "League", "Academy · U14 · Northeast"),
+            ("Homegrown", "Playoff", "Homegrown League Playoff · U14 · Northeast"),
+            ("Homegrown", "Friendly", "Friendly · U14 · Northeast"),
+        ],
+    )
+    def test_fulltime_names_the_competition(self, league, match_type, expected):
+        assert format_fulltime(_in_league(league, match_type), ET).splitlines()[1] == expected
+
+    def test_flex_match_type_wins_over_a_homegrown_division(self):
+        assert format_fulltime(_in_league("Homegrown", "Flex"), ET).splitlines()[1].startswith("Homegrown Flex")
+
+    def test_falls_back_to_home_team_league_without_a_division(self):
+        match = _in_league(None, home_team_league_name="Academy", division_name="Unknown")
+        assert format_fulltime(match, ET).splitlines()[1] == "Academy · U14"
+
+    def test_tournament_is_named_by_tournament(self):
+        match = _in_league("Homegrown", "Tournament", tournament_name="NAC 2026")
+        assert format_fulltime(match, ET).splitlines()[1].startswith("NAC 2026 · ")
+
+    def test_no_league_known_keeps_the_old_tag(self):
+        assert format_fulltime(MATCH, ET).splitlines()[1] == "U14 · MLS Next Northeast"
+
+    def test_every_tagged_post_carries_it(self):
+        match = _in_league("Flex", "Flex")
+        for text in (format_kickoff(match, ET), format_halftime(match, ET)):
+            assert "Homegrown Flex · U14 · Northeast" in text
