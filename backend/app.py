@@ -7886,6 +7886,106 @@ async def resolve_ingest_failure(
         raise HTTPException(status_code=500, detail="Could not resolve ingest failure") from e
 
 
+# Reviewed bulk creation of a tournament's teams and aliases (SB-1763). Ingest
+# calls neither endpoint: a team is only created from a plan a person has read.
+from dao.ingest_plan import PlanInputError
+from dao.ingest_plan_dao import IngestPlanDAO, PlanDatabaseError
+
+ingest_plan_dao = IngestPlanDAO(
+    db_conn_holder_obj, team_dao=team_dao, club_dao=club_dao, ingest_failures_dao=ingest_failures_dao
+)
+
+
+class IngestPlanRequest(BaseModel):
+    """The names a tournament uses, and optionally where each team plays its league."""
+
+    teams: list[dict[str, Any]] = Field(
+        ...,
+        min_length=1,
+        max_length=20000,
+        description="Scraper messages (home_team, away_team, age_group, league, competition) "
+        "or {name, age_group, league} entries.",
+    )
+    brackets: list[dict[str, Any]] | None = Field(
+        None,
+        max_length=5000,
+        description="League standings brackets: {league, conference, age_group, teams: [names]}.",
+    )
+
+
+@app.post("/api/admin/ingest-plan")
+async def plan_ingest(
+    request: IngestPlanRequest,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """What a tournament's team names resolve to, and what would fix the rest (SB-1763).
+
+    Read-only — a POST only because the input is large. Each name is put
+    through the resolver ingest uses, so "resolved" here is what ingest will
+    do. Returns `{plan_id, database, report, actions}`; every action is
+    `proposed` or `needs_review`, and none is applied until a reviewer marks
+    it `approved` and sends the plan to POST /api/admin/ingest-plan/apply.
+    `database` is a fingerprint of the database planned against, which apply
+    requires back.
+    """
+    try:
+        return ingest_plan_dao.plan(request.teams, request.brackets)
+    except PlanInputError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error building ingest plan: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not build the ingest plan") from e
+
+
+class IngestPlanApplyRequest(BaseModel):
+    """A reviewed plan: only actions whose status is `approved` are applied."""
+
+    plan_id: str = Field(..., min_length=1, max_length=100)
+    database: str | None = Field(
+        None,
+        max_length=64,
+        description="The plan's database fingerprint, as the planning endpoint returned it. "
+        "Optional only so that leaving it out is refused with a reason.",
+    )
+    actions: list[dict[str, Any]] = Field(..., max_length=5000)
+    dry_run: bool = Field(False, description="Make every check and report what would be written; write nothing.")
+
+
+@app.post("/api/admin/ingest-plan/apply")
+async def apply_ingest_plan(
+    request: IngestPlanApplyRequest,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Ensure the approved actions of a reviewed ingest plan (SB-1763).
+
+    Admin only, not service accounts: this creates teams, and the approval is
+    a person's. Idempotent — each action is re-checked against the database as
+    it is now and reported on its own as `applied`, `already_applied`,
+    `refused` (its precondition no longer holds, or it would duplicate a team
+    name), `skipped` (not approved) or `failed`; one refusal does not stop the
+    rest. An action that wrote anything reports the ids it created. Afterwards
+    the teams cache is cleared and the open `team` ingest failures for the
+    names applied are closed, if they now resolve, with the plan named.
+
+    A plan made against another database — or carrying no fingerprint — is
+    409 for the whole request, a dry run included, before any action is read:
+    its team and club ids name different rows here.
+    """
+    try:
+        return ingest_plan_dao.apply(
+            request.plan_id,
+            request.actions,
+            database=request.database,
+            dry_run=request.dry_run,
+            user_id=current_user.get("user_id"),
+        )
+    except PlanDatabaseError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error applying ingest plan: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not apply the ingest plan") from e
+
+
 # "What MT couldn't answer" (SB-1308) lives with the admin tool logic in mt_tools.
 from mt_tools.ai_gaps import DEFAULT_DAYS as DEFAULT_AI_GAP_DAYS
 from mt_tools.ai_gaps import MAX_DAYS as MAX_AI_GAP_DAYS
