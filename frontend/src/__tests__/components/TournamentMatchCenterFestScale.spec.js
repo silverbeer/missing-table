@@ -657,7 +657,7 @@ describe('Fest scale — the filters request degrades on its own', () => {
 describe('Fest scale — Match of the Day', () => {
   it('shows a pick whose match is not on the loaded page, from the pick itself', async () => {
     const today = localDateKey();
-    const picked = mkMatch('showcase', 'HD · Showcase', U15, {
+    const picked = mkMatch('showcase', 'HD · Showcase', U13, {
       id: 9001,
       match_date: today,
       home_team: { id: 1, name: 'IFA' },
@@ -669,7 +669,7 @@ describe('Fest scale — Match of the Day', () => {
         age_groups: AGE_FACETS,
         groups: [],
       }),
-      // The page on screen is U13; the pick is a U15 match.
+      // The page on screen is U13; the pick is a U13 match that is not on it.
       pages: { '5|': many(3, 'group_stage', 'HD · A') },
       motd: {
         picks: [
@@ -685,7 +685,7 @@ describe('Fest scale — Match of the Day', () => {
     });
 
     expect(w.vm.viewedAgeGroupId).toBe(5);
-    expect(w.vm.todayMotdLiveMatch).toBe(null);
+    expect(w.vm.todayMotds[0].liveMatch).toBe(null);
     const banner = w.find('[data-testid="motd-banner"]');
     expect(banner.exists()).toBe(true);
     expect(banner.text()).toContain('IFA');

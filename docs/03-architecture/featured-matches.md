@@ -130,15 +130,27 @@ over the MT AI `ToolDeps` protocols and public data only.
 tournament, and again on each refresh. Picks are decoration: a failed fetch is
 logged and the page renders as if there were none.
 
-The page does not use the age group yet: it shows a day's first pick whatever age
-group is being viewed. Making the banner and chips follow the viewed age group is the
-remaining part of SB-1750.
+The banner follows the age group being viewed (SB-1750). Changing the age group only
+changes which of the loaded picks is shown; it does not fetch them again.
 
 - **Banner** (`TournamentMotdBanner.vue`): today's pick only, where "today" is the
   viewer's local date (`localDateKey`), shown above every view (list, bracket,
-  standings). No pick for today renders nothing — no placeholder. The score comes
-  from the tournament's own copy of the match, which realtime keeps current; an
-  unplayed match shows "vs", never 0–0.
+  standings). Which picks are shown is `picksForView` (`utils/tournamentMotd.js`):
+  - **An age group is selected**: that age group's pick for today, or no banner. An
+    age group with no pick never shows another age group's.
+  - **All Ages** (a small multi-age tournament's list): one banner per pick for
+    today, stacked, ordered by age group as the API returns them. A single-age
+    tournament has one pick a day, so it shows one banner as before.
+  - The age group being viewed is `viewedAgeGroupId`: the list's age chip, the
+    bracket's or the standings' own age selection in those views, and the selected
+    age group of a large (paged) tournament, where one is always selected.
+  - A pick's age group is its `age_group_id`, or its match's for a pick loaded
+    without one.
+
+  No pick renders nothing — no placeholder. The score comes from the tournament's own
+  copy of the match, which realtime keeps current; when the match is not on the loaded
+  page (usual in a large tournament) the banner uses the match embedded in the pick.
+  An unplayed match shows "vs", never 0–0.
 - **List**: every picked match (any day) carries an amber `◆ Match of the Day` chip.
 - **Bracket**: every picked match gets an amber ring.
 
