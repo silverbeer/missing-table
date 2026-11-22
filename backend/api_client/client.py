@@ -154,8 +154,13 @@ class MissingTableClient:
         path: str,
         json_data: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> httpx.Response:
-        """Make an HTTP request with error handling."""
+        """Make an HTTP request with error handling.
+
+        `timeout` overrides the client's for this one request; left out, the
+        client's own applies, as it always has.
+        """
         url = urljoin(self.base_url, path)
         headers = self._get_headers()
 
@@ -163,12 +168,14 @@ class MissingTableClient:
         if json_data:
             logger.debug(f"Request body: {json_data}")
 
+        extra: dict[str, Any] = {} if timeout is None else {"timeout": timeout}
         response = self._client.request(
             method=method,
             url=url,
             headers=headers,
             json=json_data,
             params=params,
+            **extra,
         )
 
         if response.status_code == 401 and self._can_refresh(path):
@@ -180,6 +187,7 @@ class MissingTableClient:
                 headers=self._get_headers(),
                 json=json_data,
                 params=params,
+                **extra,
             )
 
         if not response.is_success:
@@ -1648,6 +1656,40 @@ class MissingTableClient:
             "PATCH",
             f"/api/admin/ingest-failures/{failure_id}",
             json_data={"note": note},
+        )
+        return response.json()
+
+    # A plan reads every team once and an apply re-checks and writes each
+    # action; both outlast the default timeout on a large event.
+    INGEST_PLAN_TIMEOUT = 180.0
+
+    def plan_ingest(self, teams: list[dict[str, Any]], brackets: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        """What a tournament's team names resolve to, and proposed fixes. Read-only (admin only)."""
+        response = self._request(
+            "POST",
+            "/api/admin/ingest-plan",
+            json_data={"teams": teams, "brackets": brackets},
+            timeout=self.INGEST_PLAN_TIMEOUT,
+        )
+        return response.json()
+
+    def apply_ingest_plan(
+        self,
+        plan_id: str,
+        actions: list[dict[str, Any]],
+        database: str | None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        """Ensure the approved actions of a reviewed ingest plan (admin only).
+
+        `database` is the fingerprint from the plan; the server refuses a plan
+        made against another database, or one that does not say.
+        """
+        response = self._request(
+            "POST",
+            "/api/admin/ingest-plan/apply",
+            json_data={"plan_id": plan_id, "database": database, "actions": actions, "dry_run": dry_run},
+            timeout=self.INGEST_PLAN_TIMEOUT,
         )
         return response.json()
 

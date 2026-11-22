@@ -457,17 +457,26 @@ class TeamDAO(BaseDAO):
         # The hint is compared as its top-level league, as a team's sides are.
         resolution = classify(candidates, top_level_league(hint_league_id, leagues) or hint)
         if resolution.status != RESOLVED:
-            logger.warning(
-                "Tournament team name not resolved",
-                team_name=normalized,
-                league=hint,
-                age_group_id=age_group_id,
-                status=resolution.status,
-                reason=resolution.reason,
-            )
+            self._log_unresolved(normalized, hint, age_group_id, resolution)
             return None, resolution
         team = next(row for row in rows if row["id"] == resolution.team_id)
         return self._without_mappings(team), resolution
+
+    def _log_unresolved(self, normalized: str, hint: str | None, age_group_id: int | None, resolution) -> None:
+        """Warn that a tournament name was not placed.
+
+        Its own method so that a caller classifying a whole event's names at
+        once (dao.ingest_plan_dao, SB-1763) can report them itself instead of
+        logging fifteen hundred lines. Ingest logs every one, as it did.
+        """
+        logger.warning(
+            "Tournament team name not resolved",
+            team_name=normalized,
+            league=hint,
+            age_group_id=age_group_id,
+            status=resolution.status,
+            reason=resolution.reason,
+        )
 
     def _side_rows(self, *, name: str | None = None, ids: list[int] | None = None) -> list[dict]:
         """Teams by exact name or by id, each with its mappings' leagues."""

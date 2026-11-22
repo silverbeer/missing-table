@@ -109,6 +109,7 @@ Welcome to the Missing Table documentation! This guide will help you get started
 > External integrations and API usage
 
 - **[Match Scraper](08-integrations/match-scraper.md)** - MLS Next data scraper integration
+- **[Tournament Team Plan](08-integrations/tournament-team-plan.md)** - `mt ingest plan` / `apply`: reviewed bulk creation of a tournament's teams and aliases
 - **[Live-Match Notifications](08-integrations/live-match-notifications.md)** - Telegram and Discord notifications for live-match events
 - **[API Usage](08-integrations/api-usage.md)** - Using the Missing Table API
 - **[Bruno Testing](08-integrations/bruno-testing.md)** - API testing with Bruno

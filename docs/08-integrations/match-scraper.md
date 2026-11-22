@@ -623,6 +623,12 @@ appended to its `sample` in square brackets:
   the message's age group. Remove the mapping that is wrong
   (`mt team mapping list` shows them) and the name resolves.
 
+Ingest never creates the missing team. Before a large event, `mt ingest plan`
+puts the event's whole team list through this same resolver, reports what
+would fail, and proposes the aliases and teams that fix it for a person to
+review and `mt ingest apply` (SB-1763):
+[Planning a tournament's teams](tournament-team-plan.md).
+
 #### An unknown league
 
 A tournament message whose `league` is not the name of a league MT has —

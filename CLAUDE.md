@@ -268,6 +268,8 @@ mt team mapping add "NEFC" -a U16 -d Northeast
 mt team guest add "CF Montreal" -a U15 -d "New England" -r "why"  # no table row, results still count (SB-1598), admin
 mt ingest failures                     # what the scraper could not resolve
 mt ingest resolve 1 --note "fixed at the sender"
+mt ingest plan --teams fest.json -o plan.json  # read-only: which tournament names resolve, proposed aliases/teams (SB-1763), admin
+mt ingest apply plan.json --dry-run    # applies only actions a reviewer marked "approved"; idempotent, admin
 mt ai gaps --days 30                   # what MT AI could not answer (not_found/ambiguous), admin
 mt mcp headers                         # auth headers for Claude Code's mt-mcp connection (never run visibly)
 mt tournament motd set -T 12 -m 501 -r "why"  # tournament Match of the Day (SB-1559), admin

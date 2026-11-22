@@ -22,11 +22,13 @@ import json
 import os
 import subprocess
 import sys
+from collections import Counter
 from datetime import UTC, datetime
 from getpass import getpass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
 
+import httpx
 import typer
 from pydantic import BaseModel
 from rich.console import Console
@@ -55,7 +57,7 @@ player_app = typer.Typer(help="Player stats (read-only)")
 club_app = typer.Typer(help="Club admin: create and rename")
 alias_app = typer.Typer(help="Team name aliases (admin)")
 mapping_app = typer.Typer(help="Team age-group / division registrations (admin)")
-ingest_app = typer.Typer(help="Ingest failures: what the scraper could not resolve (admin)")
+ingest_app = typer.Typer(help="Ingest: unresolved names, and planned fixes for a tournament's teams (admin)")
 app.add_typer(match_app, name="match")
 app.add_typer(tournament_app, name="tournament")
 app.add_typer(team_app, name="team")
@@ -1926,6 +1928,316 @@ def ingest_resolve(
     if row.get("resolution_note"):
         console.print(f"[dim]{row['resolution_note']}[/dim]")
     console.print("[dim]The row is kept — it is the record of which names were wrong and when.[/dim]")
+
+
+# What `mt ingest plan` sends of each item in the --teams file. A scraper
+# message carries a dozen more fields; the plan reads none of them.
+_PLAN_MATCH_FIELDS = ("home_team", "away_team", "age_group", "league", "competition")
+_PLAN_ENTRY_FIELDS = ("name", "age_group", "league")
+
+# Actions sent per request by `mt ingest apply`. Each approved action costs
+# the server several database round trips; a whole plan in one request can
+# outlast the HTTP timeout, and a small batch bounds what an interrupted one
+# leaves in doubt.
+_APPLY_BATCH = 10
+
+
+def _read_json_file(path: Path, what: str) -> Any:
+    try:
+        return json.loads(path.read_text())
+    except OSError as exc:
+        console.print(f"[red]Cannot read {what} {path}: {exc.strerror}[/red]")
+        raise typer.Exit(1) from None
+    except json.JSONDecodeError as exc:
+        console.print(f"[red]{what} {path} is not JSON: {exc}[/red]")
+        raise typer.Exit(1) from None
+
+
+def _plan_teams_payload(items: Any, path: Path) -> list[dict]:
+    """The --teams file cut down to the fields a plan reads."""
+    if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        console.print(f"[red]{path} must be a JSON list of objects[/red]")
+        raise typer.Exit(1)
+    payload = []
+    for item in items:
+        fields = _PLAN_MATCH_FIELDS if "home_team" in item or "away_team" in item else _PLAN_ENTRY_FIELDS
+        payload.append({key: item[key] for key in fields if item.get(key) is not None})
+    return payload
+
+
+def _print_plan_report(report: dict) -> None:
+    table = Table(title="Team names by side")
+    for column, style in (("Side", "white"), ("Entries", "dim"), ("Resolved", "green"), ("Ambiguous", "yellow")):
+        table.add_column(column, style=style, justify="left" if column == "Side" else "right")
+    for column in ("Missing", "alias-fixable", "needs-create", "unknown"):
+        table.add_column(column, justify="right", style="red" if column == "Missing" else "dim")
+    for name, side in (report.get("sides") or {}).items():
+        missing = side.get("missing") or {}
+        table.add_row(
+            name,
+            str(side.get("entries", 0)),
+            str(side.get("resolved", 0)),
+            str(side.get("ambiguous", 0)),
+            str(missing.get("total", 0)),
+            str(missing.get("alias_fixable", 0)),
+            str(missing.get("needs_create", 0)),
+            str(missing.get("unknown", 0)),
+        )
+    console.print(table)
+
+    for name, side in (report.get("sides") or {}).items():
+        dropped = ("unknown_league", "unknown_age_group")
+        other = [f"{side[key]} {key.replace('_', ' ')}" for key in dropped if side.get(key)]
+        if other:
+            console.print(f"[yellow]{name}[/yellow][dim]: {', '.join(other)} — ingest drops these matches[/dim]")
+
+    matches = report.get("matches")
+    if matches:
+        console.print(
+            f"Matches that would land: [green]{matches['would_land']}[/green] of {matches['total']} now, "
+            f"[cyan]{matches['would_land_after_plan']}[/cyan] if every action were applied"
+        )
+    else:
+        console.print("[dim]The input carries no matches, so there is no count of matches that would land.[/dim]")
+
+    conferences = report.get("conferences") or {}
+    for row in conferences.get("placed") or []:
+        console.print(
+            f"[dim]Conference[/dim] {row['league']} / {row['conference']}: "
+            f"{row['teams']} team(s), {row['registrations']} age group registration(s)"
+        )
+    if conferences.get("unplaced"):
+        console.print(
+            f"[yellow]{conferences['unplaced']} team(s) to create have no conference[/yellow] "
+            "[dim]— they get a league and no registration, so they appear in no picker[/dim]"
+        )
+    for row in conferences.get("unknown") or []:
+        console.print(f"[yellow]Bracket not used:[/yellow] {row['league']} / {row['conference']} — {row['reason']}")
+
+    for row in report.get("ambiguous") or []:
+        console.print(
+            f"[yellow]Ambiguous:[/yellow] {row['name']} ({row['age_group']}, {row.get('league') or 'no hint'}) "
+            f"[dim]{row.get('reason') or ''}[/dim]"
+        )
+
+
+@ingest_app.command("plan")
+def ingest_plan(
+    teams: Path = typer.Option(..., "--teams", help="JSON: scraper dry-run messages, or {name, age_group, league}"),
+    brackets: Path = typer.Option(None, "--brackets", help="JSON: [{league, conference, age_group, teams}]"),
+    output: Path = typer.Option(..., "--output", "-o", help="Where to write the plan file"),
+):
+    """Report what a tournament's team names resolve to, and propose fixes. Read-only.
+
+    Writes the proposed aliases and teams to a plan file. Nothing in it is
+    applied until someone edits an action's status to "approved" and runs
+    `mt ingest apply` (SB-1763).
+    """
+    payload = _plan_teams_payload(_read_json_file(teams, "teams file"), teams)
+    bracket_rows = _read_json_file(brackets, "brackets file") if brackets else None
+
+    client, state = get_client()
+    result = _api(client.plan_ingest, payload, bracket_rows)
+
+    plan = {
+        "plan_id": result["plan_id"],
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "generated_by": getattr(state, "username", None),
+        "environment": get_current_env(),
+        "database": result.get("database"),
+        "inputs": {"teams": teams.name, "brackets": brackets.name if brackets else None},
+        "review": (
+            'Nothing here is applied as generated. Set "status" to "approved" on each action to apply, '
+            'and fill in whatever a "needs_review" action asks for first.'
+        ),
+        "report": result["report"],
+        "actions": result["actions"],
+    }
+    output.write_text(json.dumps(plan, indent=2, ensure_ascii=False) + "\n")
+
+    _print_plan_report(result["report"])
+    counts = result["report"].get("actions") or {}
+    for kind, by_status in counts.items():
+        console.print(
+            f"{kind}: [green]{by_status.get('proposed', 0)} proposed[/green], "
+            f"[yellow]{by_status.get('needs_review', 0)} needs review[/yellow]"
+        )
+    console.print(f"[green]Plan {plan['plan_id']} written to {output}[/green] — {len(plan['actions'])} action(s)")
+    console.print(
+        '[dim]Nothing has been changed. Review the file, set "status": "approved" on the actions to apply, '
+        "then:[/dim] [cyan]mt ingest apply " + str(output) + " --dry-run[/cyan]"
+    )
+
+
+_APPLY_STYLES = {
+    "applied": "green",
+    "would_apply": "cyan",
+    "already_applied": "dim",
+    "refused": "red",
+    "failed": "red",
+}
+
+
+def _print_apply_rows(rows: list[dict]) -> None:
+    for row in rows:
+        outcome = row.get("outcome")
+        if outcome == "skipped":
+            continue
+        style = _APPLY_STYLES.get(outcome, "white")
+        detail = row.get("detail") or "; ".join(row.get("steps") or [])
+        console.print(
+            f"[{style}]{str(outcome).replace('_', ' ')}[/{style}] "
+            f"{row.get('id') or '?'} {row.get('type') or '?'} {row.get('external_name') or ''}"
+            + (f" [dim]— {detail}[/dim]" if detail else "")
+        )
+
+
+def _applied_log_path(plan_file: Path) -> Path:
+    """`plan.json` → `plan.applied.json`, beside it."""
+    return plan_file.with_name(f"{plan_file.stem}.applied.json")
+
+
+def _read_applied_log(path: Path, plan: dict, env: str) -> dict:
+    """The applied log for this plan: what is there, or a new one.
+
+    Stops if the file belongs to another plan — appending to it would mix two
+    plans' ids in the one record there is of what each created.
+    """
+    if not path.exists():
+        return {"plan_id": plan["plan_id"], "environment": env, "database": plan["database"], "batches": []}
+    log = _read_json_file(path, "applied log")
+    if not isinstance(log, dict) or log.get("plan_id") != plan["plan_id"] or not isinstance(log.get("batches"), list):
+        console.print(
+            f"[red]{path} is not the applied log of plan {plan['plan_id']}.[/red] "
+            "[yellow]Move it aside and run again.[/yellow]"
+        )
+        raise typer.Exit(1)
+    return log
+
+
+def _record_applied(path: Path, log: dict, batch: int, response: dict) -> None:
+    """Append what one batch wrote to the applied log, and save it at once.
+
+    `teams` and `team_mappings` carry no creator column, so this file — the
+    ids each action created or touched — is the record an undo works from.
+    """
+    wrote = [
+        {key: row.get(key) for key in ("id", "type", "external_name", "outcome", "ids", "steps")}
+        for row in response.get("results") or []
+        if row.get("ids")
+    ]
+    closed = response.get("failures_closed") or []
+    if not wrote and not closed:
+        return
+    log["batches"].append(
+        {
+            "batch": batch,
+            "applied_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "actions": wrote,
+            "failures_closed": closed,
+        }
+    )
+    path.write_text(json.dumps(log, indent=2, ensure_ascii=False) + "\n")
+
+
+@ingest_app.command("apply")
+def ingest_apply(
+    plan_file: Path = typer.Argument(..., help="A reviewed plan file from mt ingest plan"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Check everything on the server; write nothing"),
+):
+    """Apply the approved actions of a reviewed plan. Idempotent (admin).
+
+    Only actions whose status is "approved" are applied; the server re-checks
+    each one and refuses any whose precondition no longer holds or that would
+    duplicate a team name. What each action created is appended to
+    <plan>.applied.json beside the plan file (SB-1763).
+    """
+    plan = _read_json_file(plan_file, "plan file")
+    if not isinstance(plan, dict) or not plan.get("plan_id") or not isinstance(plan.get("actions"), list):
+        console.print(f"[red]{plan_file} is not a plan file: it needs a plan_id and an actions list[/red]")
+        raise typer.Exit(1)
+
+    # Team and club ids are per database: an id from one names a different row
+    # in another. The server checks the fingerprint; this is the readable half,
+    # and a plan that does not say where it was made is not taken on trust.
+    env = get_current_env()
+    if not plan.get("environment") or not plan.get("database"):
+        missing = "environment" if not plan.get("environment") else "database"
+        console.print(
+            f'[red]{plan_file} has no "{missing}" in its header, so there is no telling which database '
+            "it was made against.[/red]\n[yellow]Plan again:[/yellow] mt ingest plan --teams … -o …"
+        )
+        raise typer.Exit(1)
+    if plan["environment"] != env:
+        console.print(
+            f"[red]This plan was generated against {plan['environment']}, and this command targets {env}.[/red]\n"
+            f"[yellow]Plan again against {env}, or run:[/yellow] "
+            f"mt --env {plan['environment']} ingest apply {plan_file}"
+        )
+        raise typer.Exit(1)
+
+    actions = plan["actions"]
+    log_path = _applied_log_path(plan_file)
+    log = None if dry_run else _read_applied_log(log_path, plan, env)
+    client, _ = get_client()
+
+    # A dry run goes as one request: the server then judges two actions that
+    # share a new club or team as the real run would. A real run goes in
+    # batches, each reported as it returns.
+    size = max(len(actions), 1) if dry_run else _APPLY_BATCH
+    batches = [actions[start : start + size] for start in range(0, len(actions), size)]
+    counts: Counter = Counter()
+    closed = 0
+    for number, batch in enumerate(batches, start=1):
+        first = (number - 1) * size + 1
+        label = f"Batch {number} of {len(batches)} (actions {first}-{first + len(batch) - 1})"
+        try:
+            response = client.apply_ingest_plan(plan["plan_id"], batch, plan["database"], dry_run)
+        except (httpx.TransportError, APIError) as exc:
+            reason = str(exc) or type(exc).__name__
+            console.print(f"[red]{label} did not complete: {reason}[/red]")
+            console.print(
+                f"{number - 1} of {len(batches)} batch(es) completed before it."
+                + ("" if dry_run else f" What they wrote is in {log_path}.")
+            )
+            if not dry_run:
+                console.print(
+                    "[yellow]This batch may have been partly applied[/yellow] — the server carries on after the "
+                    "client stops waiting. Run the same command again: apply is idempotent, so what is already "
+                    "there is reported as already applied and the rest is finished."
+                )
+            raise typer.Exit(1) from None
+
+        rows = response.get("results") or []
+        if len(batches) > 1:
+            console.print(f"[dim]{label}[/dim]")
+        _print_apply_rows(rows)
+        counts.update(row.get("outcome") for row in rows)
+        closed += len(response.get("failures_closed") or [])
+        if log is not None:
+            _record_applied(log_path, log, number, response)
+
+    done = "would apply" if dry_run else "applied"
+    console.print(
+        f"{counts.get('would_apply' if dry_run else 'applied', 0)} {done} · "
+        f"{counts.get('already_applied', 0)} already applied · "
+        f"{counts.get('refused', 0)} refused · {counts.get('failed', 0)} failed"
+    )
+    skipped = counts.get("skipped", 0)
+    if skipped:
+        console.print(
+            f"[yellow]{skipped} of {len(actions)} action(s) skipped: not approved.[/yellow] "
+            '[dim]Set "status": "approved" in the plan file to apply one.[/dim]'
+        )
+    if dry_run:
+        console.print("[dim]Dry run: nothing was written.[/dim]")
+    else:
+        if closed:
+            console.print(f"[green]{closed} ingest failure(s) closed[/green] [dim](note: plan {plan['plan_id']})[/dim]")
+        if log and log["batches"]:
+            console.print(f"[dim]What was written is recorded in {log_path} — commit it with the plan.[/dim]")
+    if counts.get("refused") or counts.get("failed"):
+        raise typer.Exit(1)
 
 
 @ai_app.command("gaps")

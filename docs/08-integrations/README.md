@@ -13,6 +13,7 @@ Documentation for integrating with external services and using the Missing Table
 | Document | Description |
 |----------|-------------|
 | **[Match Scraper](match-scraper.md)** | MLS Next data scraper integration |
+| **[Tournament Team Plan](tournament-team-plan.md)** | `mt ingest plan` / `apply`: reviewed bulk creation of a tournament's teams and aliases |
 | **[API Usage](api-usage.md)** | Using the Missing Table API |
 | **[Bruno Testing](bruno-testing.md)** | API testing with Bruno |
 
