@@ -432,6 +432,79 @@ class TestUnknownTournament:
         assert admin.table("matches").select("id").in_("match_id", external_ids).execute().data == []
 
 
+class TestWrongSide:
+    """A name that exists only on the other side fails; it is not taken (SB-1748)."""
+
+    def _map_into(self, fest, league_name: str) -> None:
+        admin = fest["admin"]
+        league = admin.table("leagues").select("id").ilike("name", league_name).execute().data
+        if not league:
+            pytest.skip(f"No '{league_name}' league; seed the local DB first")
+        division = admin.table("divisions").select("id").eq("league_id", league[0]["id"]).limit(1).execute().data
+        if not division:
+            pytest.skip(f"No division in the '{league_name}' league; seed the local DB first")
+        for team in (fest["home"], fest["away"]):
+            admin.table("team_mappings").insert(
+                {"team_id": team["id"], "age_group_id": fest["age_group"]["id"], "division_id": division[0]["id"]}
+            ).execute()
+
+    def test_an_academy_message_does_not_land_on_the_homegrown_team(self, fest):
+        admin = fest["admin"]
+        self._map_into(fest, "Homegrown")
+        messages = [_message(fest, league="Academy", source=fest["failure_source"]) for _ in range(2)]
+
+        for message in messages:
+            with pytest.raises(UnresolvedNameError):
+                _ingest(message)
+
+        failures = admin.table("ingest_failures").select("*").eq("source", fest["failure_source"]).execute().data
+        assert len(failures) == 1
+        assert failures[0]["kind"] == "team"
+        assert failures[0]["raw_name"] == fest["home"]["name"]
+        assert failures[0]["league"] == "Academy"
+        assert failures[0]["match_count"] == 2
+        assert failures[0]["sample"].endswith("[wrong side: exists as Homegrown]")
+        assert _rows(fest) == []
+        # Nothing was invented to make the name resolve.
+        for team in (fest["home"], fest["away"]):
+            assert len(admin.table("teams").select("id").eq("name", team["name"]).execute().data) == 1
+            assert admin.table("team_aliases").select("id").eq("team_id", team["id"]).execute().data == []
+
+    def test_the_same_names_on_their_own_side_are_filed(self, fest):
+        self._map_into(fest, "Homegrown")
+
+        result = _ingest(_message(fest, league="Homegrown"))
+
+        assert result["status"] == "created"
+        row = _rows(fest)[0]
+        assert (row["home_team_id"], row["away_team_id"]) == (fest["home"]["id"], fest["away"]["id"])
+
+
+class TestUnknownLeague:
+    """A `league` MT does not have is one failure for the string, not one per team (SB-1748)."""
+
+    def test_it_writes_one_league_failure_and_no_match(self, fest):
+        admin = fest["admin"]
+        hint = _unique("ZZ No Such League")
+        first = _message(fest, league=hint, source=fest["failure_source"])
+        second = _message(fest, league=hint, source=fest["failure_source"], away_team=fest["third"]["name"])
+
+        for message in (first, second):
+            with pytest.raises(UnresolvedNameError, match="League not found"):
+                _ingest(message)
+
+        failures = admin.table("ingest_failures").select("*").eq("source", fest["failure_source"]).execute().data
+        assert len(failures) == 1
+        assert failures[0]["kind"] == "league"
+        assert failures[0]["raw_name"] == hint
+        assert failures[0]["league"] is None
+        assert failures[0]["match_count"] == 2
+        # No team failed as "wrong side", and nothing was filed.
+        assert _rows(fest) == []
+        external_ids = [first["external_match_id"], second["external_match_id"]]
+        assert admin.table("matches").select("id").in_("match_id", external_ids).execute().data == []
+
+
 class TestManualMatch:
     def test_a_manual_league_match_is_not_adopted_by_a_tournament_message(self, fest):
         admin = fest["admin"]

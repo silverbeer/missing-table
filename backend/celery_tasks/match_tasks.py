@@ -32,6 +32,7 @@ from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.match_type_dao import MatchTypeDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
+from dao.team_sides import UNKNOWN_LEAGUE, league_named
 from dao.tournament_dao import VALID_ROUNDS
 from logging_config import get_logger
 from notifications.ingest_alerts import alert_unresolved_name
@@ -52,6 +53,18 @@ FEED_SOURCES = frozenset({"match-scraper", "match-scraper-agent"})
 # foreign-key error retried until restart; long enough that a load of thousands
 # of matches over one id asks a handful of times.
 KNOWN_TOURNAMENT_SECONDS = 600
+
+# How long a worker keeps the leagues table it read for the tournament side
+# guard (SB-1748). Six rows that change a few times a year, wanted twice per
+# tournament message: read per call it is thousands of round trips a scrape.
+KNOWN_LEAGUES_SECONDS = 600
+
+# How long a worker leaves resolve_ingest_failures_by_league alone after the
+# database said it does not have it (SB-1748). Code deploys on merge and the
+# migration is applied by hand afterwards; asking on every tournament message
+# in between is thousands of calls that can only fail. Short enough that
+# closing starts by itself once the migration lands.
+RESOLVE_BY_LEAGUE_RETRY_SECONDS = 600
 
 
 class DatabaseTask(Task):
@@ -75,7 +88,11 @@ class DatabaseTask(Task):
     # to fail?" check costs one round trip per distinct name per worker rather
     # than one per match. A season load sees tens of names across thousands of
     # matches, so the difference is thousands of calls.
-    _resolved_names: set[tuple[str, str]] = set()
+    #
+    # A tournament message's team names are keyed with their league as well
+    # (SB-1748): the same name resolves separately on each side, and a
+    # Homegrown success must not be remembered as the Academy answer.
+    _resolved_names: set[tuple[str, ...]] = set()
 
     # (team_id, age_group_id, division_id) triples this worker has already
     # registered. Same reasoning as _resolved_names: a season load is thousands
@@ -90,7 +107,16 @@ class DatabaseTask(Task):
     # KNOWN_TOURNAMENT_SECONDS: one deleted since has to be noticed.
     _known_tournaments: dict[int, float] = {}
 
-    # The clock _known_tournaments expires against. An attribute so a test can
+    # The leagues table as this worker last read it, with the monotonic time
+    # until which it is trusted (SB-1748). None until a tournament message
+    # that names a league needs it.
+    _known_leagues: tuple[list[dict[str, Any]], float] | None = None
+
+    # The monotonic time before which resolve_ingest_failures_by_league is not
+    # called, because the database did not have it when last asked (SB-1748).
+    _resolve_by_league_retry_at: float = 0.0
+
+    # The clock the entries above expire against. An attribute so a test can
     # move time without sleeping.
     _clock = staticmethod(time.monotonic)
 
@@ -169,6 +195,44 @@ class DatabaseTask(Task):
         self._resolved_names.add(key)
         self.ingest_failures_dao.resolve(kind, raw_name, source=source)
 
+    def _note_tournament_team_resolved(self, raw_name: str, league_name: str | None, source: str) -> None:
+        """Close the open row for a team name that now resolves on one side (SB-1748).
+
+        _note_name_resolved closes every open row for the name whatever its
+        league. On a tournament message that would close the Academy row on a
+        Homegrown success, and the next Academy failure would reopen it and
+        alert again. So the row closed, and the name remembered, is this
+        league's only.
+        """
+        key = ("team", raw_name.lower(), (league_name or "").lower())
+        if key in self._resolved_names:
+            return
+        # The database did not have the function a moment ago. Nothing is
+        # closed and nothing remembered until it is asked again.
+        if self._clock() < self._resolve_by_league_retry_at:
+            return
+        closed = self.ingest_failures_dao.resolve_in_league("team", raw_name, league=league_name, source=source)
+        # None is a database without the function yet: nothing was closed, so
+        # the name is not remembered, and the function is left alone for a
+        # while rather than called twice per message until the migration lands.
+        if closed is None:
+            self._resolve_by_league_retry_at = self._clock() + RESOLVE_BY_LEAGUE_RETRY_SECONDS
+            return
+        self._resolved_names.add(key)
+
+    def _tournament_leagues(self) -> list[dict[str, Any]]:
+        """The leagues table, read at most once per KNOWN_LEAGUES_SECONDS (SB-1748).
+
+        An empty answer is not kept: with no leagues every hint is unknown,
+        and that should be asked again rather than believed for ten minutes.
+        """
+        now = self._clock()
+        if self._known_leagues is not None and self._known_leagues[1] > now:
+            return self._known_leagues[0]
+        rows = list(self.team_dao.league_rows() or [])
+        self._known_leagues = (rows, now + KNOWN_LEAGUES_SECONDS) if rows else None
+        return rows
+
     def _resolve_team(
         self,
         name: str,
@@ -176,6 +240,9 @@ class DatabaseTask(Task):
         league_id: int | None,
         league_name: str | None,
         sample: str,
+        filing: TournamentFiling | None = None,
+        age_group_id: int | None = None,
+        leagues: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """The team a feed name refers to, or UnresolvedNameError.
 
@@ -184,10 +251,25 @@ class DatabaseTask(Task):
         seeded for the Kitman feed never applied to the feed. Nothing is
         created here: an unknown name fails the task rather than inventing a
         lightweight team row that later collides on the unique constraint.
+
+        A tournament message (`filing`) resolves through
+        resolve_tournament_team instead (SB-1748): Homegrown and Academy share
+        an event and team names, so the name has to be on the message's side
+        at its age group. One that exists only on the other side, or matches
+        more than one team, fails with the reason in the failure's sample.
         """
-        team = self.team_dao.resolve_team_by_name(name, league_id=league_id)
+        if filing is None:
+            team = self.team_dao.resolve_team_by_name(name, league_id=league_id)
+            if not team:
+                raise UnresolvedNameError("team", name, league=league_name, sample=sample)
+            return team
+
+        team, resolution = self.team_dao.resolve_tournament_team(name, age_group_id, league_name, leagues=leagues)
+        if resolution.status == UNKNOWN_LEAGUE:
+            raise UnresolvedNameError("league", (league_name or "").strip(), sample=sample)
         if not team:
-            raise UnresolvedNameError("team", name, league=league_name, sample=sample)
+            detail = f"{sample} [{resolution.reason}]" if resolution.reason else sample
+            raise UnresolvedNameError("team", name, league=league_name, sample=detail)
         return team
 
     def _require_tournament(self, filing: TournamentFiling, *, league_name: str | None, sample: str) -> None:
@@ -897,15 +979,69 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
 
         logger.debug(f"Looking up teams: {home_team_name}, {away_team_name} (league_id={league_id})")
 
+        # On a tournament message the league says which side's team a name
+        # means (SB-1748), so one MT does not have is a failure of its own:
+        # one row for the string, before any team is looked up. Left to the
+        # side guard, every team in the event would fail as "wrong side". A
+        # league message keeps the unscoped lookups it was warned about above.
+        tournament_leagues = None
+        if filing is not None and (league_name or "").strip():
+            tournament_leagues = self._tournament_leagues()
+            known = {row["id"]: row for row in tournament_leagues}
+            if league_named(league_name, known) is None:
+                raise UnresolvedNameError("league", league_name.strip(), sample=sample)
+
+        # A tournament message's teams are resolved at its age group (SB-1748),
+        # so the age group is looked up here rather than after the division,
+        # where a league message still looks it up.
+        #
+        # A league match with an unknown age group falls back to id 1 on
+        # create. At a six-age-group tournament that default would file a
+        # whole age group's fixtures under another's, so here it is a
+        # failure (SB-1747).
+        age_group_id = None
+        if filing is not None:
+            if match_data.get("age_group"):
+                age_group_record = self.season_dao.get_age_group_by_name(match_data["age_group"])
+                if age_group_record:
+                    age_group_id = age_group_record["id"]
+            if age_group_id is None:
+                raise UnresolvedNameError(
+                    "invalid",
+                    f"unknown age group '{match_data.get('age_group') or ''}' on a tournament match",
+                    league=league_name,
+                    sample=sample,
+                )
+
         # Resolve teams. An unknown name fails the task; nothing is created.
-        home_team = self._resolve_team(home_team_name, league_id=league_id, league_name=league_name, sample=sample)
-        away_team = self._resolve_team(away_team_name, league_id=league_id, league_name=league_name, sample=sample)
+        home_team = self._resolve_team(
+            home_team_name,
+            league_id=league_id,
+            league_name=league_name,
+            sample=sample,
+            filing=filing,
+            age_group_id=age_group_id,
+            leagues=tournament_leagues,
+        )
+        away_team = self._resolve_team(
+            away_team_name,
+            league_id=league_id,
+            league_name=league_name,
+            sample=sample,
+            filing=filing,
+            age_group_id=age_group_id,
+            leagues=tournament_leagues,
+        )
 
         # Both names are good. If either was failing before — an alias added
         # part way through a load, say — close its row now.
         source = match_data.get("source") or "match-scraper"
-        self._note_name_resolved("team", home_team_name, source)
-        self._note_name_resolved("team", away_team_name, source)
+        if filing is None:
+            self._note_name_resolved("team", home_team_name, source)
+            self._note_name_resolved("team", away_team_name, source)
+        else:
+            self._note_tournament_team_resolved(home_team_name, league_name, source)
+            self._note_tournament_team_resolved(away_team_name, league_name, source)
 
         # Step 2b: Resolve how the feed files this match — competition and
         # division — before the create/update fork.
@@ -950,8 +1086,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                     sample=sample,
                 )
 
-        age_group_id = None
-        if match_data.get("age_group"):
+        # A tournament message resolved its age group above, before its teams.
+        if filing is None and match_data.get("age_group"):
             age_group_record = self.season_dao.get_age_group_by_name(match_data["age_group"])
             if age_group_record:
                 age_group_id = age_group_record["id"]
@@ -962,17 +1098,6 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         # (the filing read above rejects one that sends both).
         if filing:
             self._require_tournament(filing, league_name=league_name, sample=sample)
-            # A league match with an unknown age group falls back to id 1 on
-            # create. At a six-age-group tournament that default would file a
-            # whole age group's fixtures under another's, so here it is a
-            # failure (SB-1747).
-            if age_group_id is None:
-                raise UnresolvedNameError(
-                    "invalid",
-                    f"unknown age group '{match_data.get('age_group') or ''}' on a tournament match",
-                    league=league_name,
-                    sample=sample,
-                )
 
         # Record that both teams play this age group in this division. Nothing
         # did, so a team the scraper had filed matches for all season did not

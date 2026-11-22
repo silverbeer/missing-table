@@ -10,10 +10,50 @@ Handles all database operations related to teams including:
 """
 
 import structlog
+from postgrest.exceptions import APIError
 
 from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, dao_cache, invalidates_cache
+from dao.team_sides import (
+    AMBIGUOUS,
+    MISSING,
+    RESOLVED,
+    UNKNOWN_LEAGUE,
+    Candidate,
+    Resolution,
+    classify,
+    league_named,
+    sides_at_age,
+    team_sides,
+    top_level_league,
+)
 
 logger = structlog.get_logger()
+
+
+def like_literal(text: str) -> str:
+    """`text` as a LIKE pattern that matches only itself (SB-1748).
+
+    A feed name is data, not a pattern: unescaped, 'I%' is every name that
+    starts with I, and one ending in a backslash is a database error.
+    """
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _same_name(left: str | None, right: str) -> bool:
+    """Equal apart from letter case and runs of whitespace."""
+    return " ".join((left or "").split()).casefold() == " ".join(right.split()).casefold()
+
+
+def _is_unqueryable_name(exc: APIError) -> bool:
+    """Whether the database refused the name itself, rather than failing.
+
+    Postgres class 22 is a data exception (a pattern or byte it cannot read);
+    PGRST100 is PostgREST failing to parse the filter. Neither will be any
+    different on a retry.
+    """
+    code = exc.code or ""
+    return code.startswith("22") or code == "PGRST100"
+
 
 # Cache pattern for invalidation
 TEAMS_CACHE_PATTERN = "mt:dao:teams:*"
@@ -306,6 +346,155 @@ class TeamDAO(BaseDAO):
         if not rows:
             return None
         return self._resolve_alias_rows(normalized, rows, league_id)
+
+    # What resolve_tournament_team reads for each candidate: the row the ingest
+    # task uses, plus where the team is registered to play.
+    _SIDE_COLUMNS = "id, name, city, club_id, league_id, team_mappings(age_group_id, divisions(league_id))"
+
+    def league_rows(self) -> list[dict]:
+        """Every league with its parent: what a team's side is folded with (SB-1748).
+
+        Six rows that change a few times a year, so the ingest worker reads
+        them once and hands them to resolve_tournament_team. Raises on a
+        database error.
+        """
+        return self.client.table("leagues").select("id, name, parent_league_id").execute().data or []
+
+    def resolve_tournament_team(
+        self, name: str, age_group_id: int | None, league: str | None, leagues: list[dict] | None = None
+    ) -> tuple[dict | None, Resolution]:
+        """The team a tournament message's name refers to, on the right side (SB-1748).
+
+        A tournament puts Homegrown and Academy in one event, and a club's two
+        teams share a name. resolve_team_by_name takes an exact teams.name hit
+        without asking which side it is on, which files an Academy fixture on
+        the Homegrown team's history. Here `league` — the side as the message
+        names it — decides, and a name that cannot be placed fails:
+
+        0. A `league` that names no league MT has is UNKNOWN_LEAGUE, and no
+           team is looked up: every name would otherwise fail as "wrong side",
+           one misleading row per team for one wrong string.
+        1. An alias scoped to the message's league (SB-1652). A deliberate
+           statement about that league, so it is trusted as it stands.
+        2. Every team whose name matches exactly — all of them, not the first.
+        3. Aliases with no league.
+        4. The side guard (dao.team_sides), on the first of 2 and 3 that found
+           anything: the candidate on the hinted side at this age group, or a
+           failure. With no hint, a single candidate.
+
+        `leagues` is the rows of league_rows(), for a caller that keeps them;
+        left out, they are read here when there is a hint to compare.
+
+        Returns `(team, resolution)`; `team` is None unless the resolution is
+        RESOLVED. No fuzzy matching, and nothing is created or guessed. The
+        name is matched as text, never as a pattern, and one the database
+        cannot be asked about at all is MISSING. Any other database error is
+        raised, so a blip is retried rather than recorded as an unknown name.
+        """
+        normalized = " ".join((name or "").strip().split())
+        if not normalized:
+            return None, Resolution(MISSING)
+
+        hint = (league or "").strip() or None
+        by_id: dict[int, dict] = {}
+        hint_league_id = None
+        if hint:
+            by_id = {row["id"]: row for row in (self.league_rows() if leagues is None else leagues)}
+            hint_league_id = league_named(hint, by_id)
+            if hint_league_id is None:
+                return None, Resolution(UNKNOWN_LEAGUE, reason=f"unknown league '{hint}'")
+
+        try:
+            return self._place_tournament_team(normalized, age_group_id, hint, hint_league_id, by_id)
+        except APIError as exc:
+            if not _is_unqueryable_name(exc):
+                raise
+            logger.warning("Tournament team name could not be queried", team_name=normalized, code=exc.code)
+            return None, Resolution(MISSING)
+
+    def _place_tournament_team(
+        self,
+        normalized: str,
+        age_group_id: int | None,
+        hint: str | None,
+        hint_league_id: int | None,
+        leagues: dict[int, dict],
+    ) -> tuple[dict | None, Resolution]:
+        """Steps 1 to 4 of resolve_tournament_team."""
+        alias_rows: list[dict] | None = None
+        if hint_league_id is not None:
+            alias_rows = self._exact_alias_rows(normalized)
+            in_league = sorted({r["team_id"] for r in alias_rows if r.get("league_id") == hint_league_id})
+            if len(in_league) > 1:
+                ids = ", ".join(str(team_id) for team_id in in_league)
+                return None, Resolution(AMBIGUOUS, reason=f"ambiguous: team ids {ids}")
+            if in_league:
+                rows = self._side_rows(ids=in_league)
+                if rows:
+                    return self._without_mappings(rows[0]), Resolution(RESOLVED, team_id=rows[0]["id"])
+
+        rows = self._side_rows(name=normalized)
+        if not rows:
+            if alias_rows is None:
+                alias_rows = self._exact_alias_rows(normalized)
+            agnostic = sorted({r["team_id"] for r in alias_rows if r.get("league_id") is None})
+            if agnostic:
+                rows = self._side_rows(ids=agnostic)
+
+        candidates = []
+        for row in rows:
+            mappings = [
+                (mapping.get("age_group_id"), (mapping.get("divisions") or {}).get("league_id"))
+                for mapping in row.get("team_mappings") or []
+            ]
+            candidates.append(
+                Candidate(
+                    team_id=row["id"],
+                    sides=team_sides(mappings, row.get("league_id"), age_group_id, leagues),
+                    sides_at_age=sides_at_age(mappings, age_group_id, leagues),
+                )
+            )
+        # The hint is compared as its top-level league, as a team's sides are.
+        resolution = classify(candidates, top_level_league(hint_league_id, leagues) or hint)
+        if resolution.status != RESOLVED:
+            logger.warning(
+                "Tournament team name not resolved",
+                team_name=normalized,
+                league=hint,
+                age_group_id=age_group_id,
+                status=resolution.status,
+                reason=resolution.reason,
+            )
+            return None, resolution
+        team = next(row for row in rows if row["id"] == resolution.team_id)
+        return self._without_mappings(team), resolution
+
+    def _side_rows(self, *, name: str | None = None, ids: list[int] | None = None) -> list[dict]:
+        """Teams by exact name or by id, each with its mappings' leagues."""
+        query = self.client.table("teams").select(self._SIDE_COLUMNS)
+        if ids is not None:
+            return query.in_("id", ids).execute().data or []
+        rows = query.ilike("name", like_literal(name)).execute().data or []
+        # PostgREST still reads * as a wildcard; keep exact hits only.
+        return [row for row in rows if _same_name(row.get("name"), name)]
+
+    def _exact_alias_rows(self, normalized: str) -> list[dict]:
+        """team_aliases rows whose external_name is this name, any league.
+
+        _alias_rows, which league messages keep, hands the name to ilike as a
+        pattern. A tournament name is matched as text: escaped, then checked.
+        """
+        rows = (
+            self.client.table("team_aliases")
+            .select("team_id, league_id, source, external_name")
+            .ilike("external_name", like_literal(normalized))
+            .execute()
+        ).data or []
+        return [row for row in rows if _same_name(row.get("external_name"), normalized)]
+
+    @staticmethod
+    def _without_mappings(row: dict) -> dict:
+        return {key: value for key, value in row.items() if key != "team_mappings"}
 
     def alias_conflict(self, name: str, team_id: int, league_id: int | None = None) -> dict | None:
         """The team an alias for `team_id` would collide with, or None.

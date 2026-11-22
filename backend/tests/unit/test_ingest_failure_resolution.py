@@ -165,3 +165,58 @@ class TestStaleWindowConfig:
 
         monkeypatch.setenv("MT_INGEST_STALE_AFTER_DAYS", "soon")
         assert ingest_failure_stale_after_days() == DEFAULT_INGEST_FAILURE_STALE_AFTER_DAYS
+
+
+class TestResolveInOneLeague:
+    """A tournament success closes its own side's row only (SB-1748)."""
+
+    def _rpc_dao(self, data=None, error=None):
+        dao = object.__new__(IngestFailuresDAO)
+        dao.client = MagicMock()
+        execute = dao.client.rpc.return_value.execute
+        if error:
+            execute.side_effect = error
+        else:
+            execute.return_value = MagicMock(data=data)
+        return dao
+
+    def test_the_league_reaches_the_function(self):
+        dao = self._rpc_dao(data=1)
+
+        assert dao.resolve_in_league("team", "AC River", league="Homegrown", source="match-scraper-agent") == 1
+
+        dao.client.rpc.assert_called_once_with(
+            "resolve_ingest_failures_by_league",
+            {"p_kind": "team", "p_raw_name": "AC River", "p_league": "Homegrown", "p_source": "match-scraper-agent"},
+        )
+
+    def test_no_league_is_sent_as_null_not_dropped(self):
+        dao = self._rpc_dao(data=0)
+        dao.resolve_in_league("team", "AC River", league=None)
+        assert dao.client.rpc.call_args.args[1]["p_league"] is None
+        assert dao.client.rpc.call_args.args[1]["p_source"] == "match-scraper"
+
+    def test_a_database_without_the_function_closes_nothing(self):
+        from postgrest.exceptions import APIError
+
+        dao = self._rpc_dao(error=APIError({"code": "PGRST202", "message": "Could not find the function"}))
+
+        assert dao.resolve_in_league("team", "AC River", league="Homegrown") is None
+        # Never the league-blind function: that closes the other side's row.
+        assert [c.args[0] for c in dao.client.rpc.call_args_list] == ["resolve_ingest_failures_by_league"]
+
+    def test_any_other_failure_is_swallowed_as_resolve_does(self):
+        from postgrest.exceptions import APIError
+
+        for error in (APIError({"code": "42501", "message": "permission denied"}), RuntimeError("connection reset")):
+            assert self._rpc_dao(error=error).resolve_in_league("team", "AC River", league="Homegrown") == 0
+
+    def test_the_league_blind_resolve_is_unchanged(self):
+        dao = self._rpc_dao(data=2)
+
+        assert dao.resolve("team", "AC River", source="manual") == 2
+
+        dao.client.rpc.assert_called_once_with(
+            "resolve_ingest_failures",
+            {"p_kind": "team", "p_raw_name": "AC River", "p_source": "manual"},
+        )

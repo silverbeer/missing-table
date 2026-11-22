@@ -10,7 +10,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from celery_tasks.exceptions import UnresolvedNameError
-from celery_tasks.match_tasks import KNOWN_TOURNAMENT_SECONDS, DatabaseTask, process_match_data
+from celery_tasks.match_tasks import (
+    KNOWN_LEAGUES_SECONDS,
+    KNOWN_TOURNAMENT_SECONDS,
+    RESOLVE_BY_LEAGUE_RETRY_SECONDS,
+    DatabaseTask,
+    process_match_data,
+)
+from dao.team_sides import AMBIGUOUS, MISSING, RESOLVED, UNKNOWN_LEAGUE, WRONG_SIDE, Resolution
 
 MATCH_TYPES = [
     {"id": 1, "name": "League", "counts_for_qualification": True},
@@ -613,6 +620,12 @@ IFA = {"id": 19, "name": "IFA"}
 OPPONENT = {"id": 20, "name": "The Island FC West"}
 HOMEGROWN = {"id": 1, "name": "Homegrown"}
 NORTHEAST = {"id": 1, "name": "Northeast", "league_id": 1}
+# The leagues table as the tournament side guard reads it (SB-1748).
+LEAGUE_ROWS = [
+    {"id": 1, "name": "Homegrown", "parent_league_id": None},
+    {"id": 2, "name": "Academy", "parent_league_id": None},
+    {"id": 290, "name": "Flex", "parent_league_id": 1},
+]
 
 MATCH = {
     "home_team": "Intercontinental Football Academy of New England",
@@ -646,11 +659,20 @@ def ingest():
     task._resolved_names = set()
     task._ensured_mappings = set()
     task._known_tournaments = {}
+    task._known_leagues = None
+    task._resolve_by_league_retry_at = 0.0
 
     task._team_dao.resolve_team_by_name.side_effect = lambda name, league_id=None: {
         MATCH["home_team"]: IFA,
         MATCH["away_team"]: OPPONENT,
     }.get(name)
+    # A tournament message resolves through the side guard instead (SB-1748).
+    # The same two teams, whatever the side, unless a test says otherwise.
+    task._team_dao.resolve_tournament_team.side_effect = lambda name, age_group_id, league, leagues=None: _sided(
+        {MATCH["home_team"]: IFA, MATCH["away_team"]: OPPONENT}.get(name)
+    )
+    task._team_dao.league_rows.return_value = LEAGUE_ROWS
+    task._ingest_failures_dao.resolve_in_league.return_value = 0
     task._league_dao.get_league_by_name.return_value = HOMEGROWN
     task._league_dao.get_division_by_name.return_value = NORTHEAST
     task._season_dao.get_current_season.return_value = {"id": 5}
@@ -670,8 +692,17 @@ def ingest():
     task._resolved_names = set()
     task._ensured_mappings = set()
     task._known_tournaments = {}
+    task._known_leagues = None
+    task._resolve_by_league_retry_at = 0.0
     # Drop a clock a test set on the instance; the class one shows through.
     task.__dict__.pop("_clock", None)
+
+
+def _sided(team):
+    """What resolve_tournament_team returns for a team, or for no such name."""
+    if team is None:
+        return None, Resolution(MISSING)
+    return team, Resolution(RESOLVED, team_id=team["id"])
 
 
 def _run(task, **overrides):
@@ -1286,6 +1317,400 @@ class TestIngestFilesATournamentMatch:
         )
         created = ingest._dao.create_match.call_args.kwargs
         assert (created["home_penalty_score"], created["away_penalty_score"]) == (4, 3)
+
+
+class TestALeagueMessageIsResolvedAsBefore:
+    """The side guard is for tournament messages only (SB-1748).
+
+    A league message must make the calls it made before the guard existed, in
+    the order it made them — pinned here call by call.
+    """
+
+    DAOS = ("_dao", "_team_dao", "_season_dao", "_league_dao", "_ingest_failures_dao")
+
+    def _calls(self, ingest):
+        parent = MagicMock()
+        for name in self.DAOS:
+            parent.attach_mock(getattr(ingest, name), name)
+        ingest._match_type_dao.get_match_type_by_name = MagicMock(
+            side_effect=ingest._match_type_dao.get_match_type_by_name.side_effect
+        )
+        parent.attach_mock(ingest._match_type_dao.get_match_type_by_name, "match_type_by_name")
+        _run(ingest)
+        # Calls on the DAOs themselves, not on what they returned.
+        return [(name, args, kwargs) for name, args, kwargs in parent.mock_calls if "()" not in name]
+
+    def test_the_call_sequence_is_unchanged(self, ingest):
+        home, away = MATCH["home_team"], MATCH["away_team"]
+        assert self._calls(ingest) == [
+            ("_league_dao.get_league_by_name", ("Homegrown",), {}),
+            ("_team_dao.resolve_team_by_name", (home,), {"league_id": 1}),
+            ("_team_dao.resolve_team_by_name", (away,), {"league_id": 1}),
+            ("_ingest_failures_dao.resolve", ("team", home), {"source": "match-scraper"}),
+            ("_ingest_failures_dao.resolve", ("team", away), {"source": "match-scraper"}),
+            ("match_type_by_name", ("League",), {}),
+            ("_ingest_failures_dao.resolve", ("match_type", "League"), {"source": "match-scraper"}),
+            ("_league_dao.get_division_by_name", ("Northeast",), {"league_id": 1}),
+            ("_season_dao.get_age_group_by_name", ("U15",), {}),
+            ("_team_dao.ensure_team_mapping", (IFA["id"], 3, NORTHEAST["id"]), {}),
+            ("_team_dao.ensure_team_mapping", (OPPONENT["id"], 3, NORTHEAST["id"]), {}),
+            ("_dao.get_match_by_external_id", ("kitman-1",), {}),
+            (
+                "_dao.get_match_by_teams_and_date",
+                (),
+                {
+                    "home_team_id": IFA["id"],
+                    "away_team_id": OPPONENT["id"],
+                    "match_date": MATCH["match_date"],
+                    "age_group_id": 3,
+                },
+            ),
+            ("_season_dao.get_season_by_name", ("2026-2027",), {}),
+            ("_dao.create_match", (), ingest._dao.create_match.call_args.kwargs),
+        ]
+
+    def test_it_never_reaches_the_side_guard(self, ingest):
+        _run(ingest)
+        ingest._team_dao.resolve_tournament_team.assert_not_called()
+        ingest._team_dao.league_rows.assert_not_called()
+        ingest._ingest_failures_dao.resolve_in_league.assert_not_called()
+
+    def test_a_league_it_does_not_have_is_still_only_a_warning(self, ingest):
+        # Unknown-league-is-a-failure is for tournament messages. A league
+        # message with one keeps its unscoped lookups and is filed.
+        ingest._league_dao.get_league_by_name.return_value = None
+
+        result = _run(ingest, league="HD")
+
+        assert result["status"] == "created"
+        assert [c.kwargs for c in ingest._team_dao.resolve_team_by_name.call_args_list] == [{"league_id": None}] * 2
+        ingest._team_dao.league_rows.assert_not_called()
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_the_missing_function_backoff_does_not_touch_it(self, ingest):
+        ingest._resolve_by_league_retry_at = float("inf")
+        _run(ingest)
+        closed = [c.args for c in ingest._ingest_failures_dao.resolve.call_args_list if c.args[0] == "team"]
+        assert closed == [("team", MATCH["home_team"]), ("team", MATCH["away_team"])]
+
+    def test_its_resolved_names_are_keyed_as_before(self, ingest):
+        _run(ingest)
+        assert ("team", MATCH["home_team"].lower()) in ingest._resolved_names
+        assert all(len(key) == 2 for key in ingest._resolved_names)
+
+
+class TestIngestResolvesATournamentTeamOnItsSide:
+    """Homegrown and Academy share an event and team names (SB-1748)."""
+
+    def test_the_name_is_resolved_on_the_messages_side_at_its_age_group(self, ingest):
+        ingest._league_dao.get_league_by_name.return_value = {"id": 2, "name": "Academy"}
+
+        result = _run_tournament(ingest, league="Academy")
+
+        assert result["status"] == "created"
+        assert [c.args for c in ingest._team_dao.resolve_tournament_team.call_args_list] == [
+            (MATCH["home_team"], 3, "Academy"),
+            (MATCH["away_team"], 3, "Academy"),
+        ]
+        ingest._team_dao.resolve_team_by_name.assert_not_called()
+        created = ingest._dao.create_match.call_args.kwargs
+        assert (created["home_team_id"], created["away_team_id"]) == (IFA["id"], OPPONENT["id"])
+
+    def test_the_age_group_is_looked_up_once_before_the_teams(self, ingest):
+        parent = MagicMock()
+        parent.attach_mock(ingest._season_dao.get_age_group_by_name, "age_group")
+        parent.attach_mock(ingest._team_dao.resolve_tournament_team, "team")
+
+        _run_tournament(ingest)
+
+        assert [name for name, _, _ in parent.mock_calls] == ["age_group", "team", "team"]
+
+    def test_a_message_with_no_league_and_one_candidate_resolves(self, ingest):
+        result = _run_tournament(ingest, league=None)
+
+        assert result["status"] == "created"
+        assert ingest._team_dao.resolve_tournament_team.call_args_list[0].args == (MATCH["home_team"], 3, None)
+
+    @pytest.mark.parametrize(
+        ("resolution", "reason"),
+        [
+            (Resolution(WRONG_SIDE, reason="wrong side: exists as Homegrown"), "wrong side: exists as Homegrown"),
+            (Resolution(AMBIGUOUS, reason="ambiguous: team ids 7, 9"), "ambiguous: team ids 7, 9"),
+        ],
+    )
+    def test_a_name_that_cannot_be_placed_is_one_recorded_failure(self, ingest, resolution, reason):
+        ingest._team_dao.resolve_tournament_team.side_effect = lambda name, age_group_id, league, leagues=None: (
+            (None, resolution) if name == MATCH["away_team"] else _sided(IFA)
+        )
+
+        with pytest.raises(UnresolvedNameError, match="Team not found: The Island FC West"):
+            _run_tournament(ingest, league="Academy")
+
+        ingest._dao.create_match.assert_not_called()
+        ingest._team_dao.add_team.assert_not_called()
+        ingest._team_dao.add_team_alias.assert_not_called()
+        ingest._ingest_failures_dao.record.assert_called_once()
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args == ("team", MATCH["away_team"])
+        assert recorded.kwargs["league"] == "Academy"
+        assert recorded.kwargs["sample"].endswith(f"[{reason}]")
+        # Neither name is closed: the message failed before either was noted.
+        ingest._ingest_failures_dao.resolve_in_league.assert_not_called()
+
+    def test_that_failure_is_not_retried(self):
+        assert UnresolvedNameError in process_match_data.dont_autoretry_for
+
+    def test_a_name_nobody_has_carries_no_reason(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, home_team="Brand New Club")
+        assert "[" not in ingest._ingest_failures_dao.record.call_args.kwargs["sample"]
+
+    def test_an_unknown_age_group_fails_before_any_team_is_resolved(self, ingest):
+        ingest._season_dao.get_age_group_by_name.return_value = None
+
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, age_group="U99")
+
+        ingest._team_dao.resolve_tournament_team.assert_not_called()
+        assert ingest._ingest_failures_dao.record.call_args.args == (
+            "invalid",
+            "unknown age group 'U99' on a tournament match",
+        )
+
+
+class TestATournamentSuccessClosesItsOwnSideOnly:
+    def test_a_homegrown_success_does_not_close_the_academy_row(self, ingest):
+        _run_tournament(ingest, league="Homegrown")
+
+        closed = ingest._ingest_failures_dao.resolve_in_league.call_args_list
+        assert [(c.args, c.kwargs) for c in closed] == [
+            (("team", MATCH["home_team"]), {"league": "Homegrown", "source": "match-scraper"}),
+            (("team", MATCH["away_team"]), {"league": "Homegrown", "source": "match-scraper"}),
+        ]
+        # The league-blind close is what would take the Academy row with it.
+        team_closes = [c for c in ingest._ingest_failures_dao.resolve.call_args_list if c.args[0] == "team"]
+        assert team_closes == []
+
+    def test_resolved_names_are_keyed_by_league(self, ingest):
+        _run_tournament(ingest, league="Homegrown")
+        assert ("team", MATCH["home_team"].lower(), "homegrown") in ingest._resolved_names
+        assert ("team", MATCH["home_team"].lower()) not in ingest._resolved_names
+
+        ingest._league_dao.get_league_by_name.return_value = {"id": 2, "name": "Academy"}
+        _run_tournament(ingest, league="Academy", external_match_id="fest-102")
+
+        leagues = [c.kwargs["league"] for c in ingest._ingest_failures_dao.resolve_in_league.call_args_list]
+        assert leagues == ["Homegrown", "Homegrown", "Academy", "Academy"]
+
+    def test_a_side_is_only_checked_once_per_worker(self, ingest):
+        for n in range(5):
+            _run_tournament(ingest, league="Homegrown", external_match_id=f"fest-{n}")
+        assert ingest._ingest_failures_dao.resolve_in_league.call_count == 2
+
+    def test_a_message_with_no_league_closes_only_rows_with_none(self, ingest):
+        _run_tournament(ingest)
+        assert {c.kwargs["league"] for c in ingest._ingest_failures_dao.resolve_in_league.call_args_list} == {None}
+
+    def test_a_league_success_is_not_remembered_as_the_tournament_answer(self, ingest):
+        _run(ingest)
+        _run_tournament(ingest, league="Homegrown")
+        assert ingest._ingest_failures_dao.resolve_in_league.call_count == 2
+
+
+class TestTheResolveByLeagueFunctionIsNotInstalledYet:
+    """Code deploys on merge; the migration is applied by hand afterwards (SB-1748).
+
+    resolve_in_league returns None for a database without the function. Until
+    it has one nothing is closed and nothing remembered — and the worker stops
+    asking for a while instead of failing twice per tournament message.
+    """
+
+    def _clock(self, ingest):
+        now = [5000.0]
+        ingest._clock = lambda: now[0]
+        return now
+
+    def test_it_is_asked_once_and_then_left_alone(self, ingest):
+        self._clock(ingest)
+        ingest._ingest_failures_dao.resolve_in_league.return_value = None
+
+        for n in range(5):
+            assert _run_tournament(ingest, league="Homegrown", external_match_id=f"fest-{n}")["status"] == "created"
+
+        # Not ten: the home name asked, and the away name and four more
+        # messages did not.
+        assert ingest._ingest_failures_dao.resolve_in_league.call_count == 1
+        assert not any(len(key) == 3 for key in ingest._resolved_names)
+        # Never the league-blind close in its place.
+        assert [c for c in ingest._ingest_failures_dao.resolve.call_args_list if c.args[0] == "team"] == []
+
+    def test_it_is_asked_again_once_the_window_has_passed(self, ingest):
+        now = self._clock(ingest)
+        ingest._ingest_failures_dao.resolve_in_league.return_value = None
+        _run_tournament(ingest, league="Homegrown")
+
+        now[0] += RESOLVE_BY_LEAGUE_RETRY_SECONDS - 1
+        _run_tournament(ingest, league="Homegrown", external_match_id="fest-102")
+        assert ingest._ingest_failures_dao.resolve_in_league.call_count == 1
+
+        now[0] += 1
+        _run_tournament(ingest, league="Homegrown", external_match_id="fest-103")
+        assert ingest._ingest_failures_dao.resolve_in_league.call_count == 2
+
+    def test_closing_starts_by_itself_once_the_migration_lands(self, ingest):
+        now = self._clock(ingest)
+        ingest._ingest_failures_dao.resolve_in_league.return_value = None
+        _run_tournament(ingest, league="Homegrown")
+
+        ingest._ingest_failures_dao.resolve_in_league.return_value = 1
+        now[0] += RESOLVE_BY_LEAGUE_RETRY_SECONDS
+        _run_tournament(ingest, league="Homegrown", external_match_id="fest-102")
+
+        closed = ingest._ingest_failures_dao.resolve_in_league.call_args_list[1:]
+        assert [c.args for c in closed] == [("team", MATCH["home_team"]), ("team", MATCH["away_team"])]
+        assert ("team", MATCH["home_team"].lower(), "homegrown") in ingest._resolved_names
+        assert ("team", MATCH["away_team"].lower(), "homegrown") in ingest._resolved_names
+
+    def test_the_window_is_ten_minutes(self):
+        assert RESOLVE_BY_LEAGUE_RETRY_SECONDS == 600
+
+
+class TestIngestReadsTheLeaguesOncePerWorker:
+    """The side guard needs the leagues table; six rows, twice a message (SB-1748)."""
+
+    def test_they_are_read_once_and_handed_to_the_resolver(self, ingest):
+        for n in range(4):
+            _run_tournament(ingest, league="Homegrown", external_match_id=f"fest-{n}")
+
+        ingest._team_dao.league_rows.assert_called_once_with()
+        calls = ingest._team_dao.resolve_tournament_team.call_args_list
+        assert len(calls) == 8
+        assert all(c.kwargs == {"leagues": LEAGUE_ROWS} for c in calls)
+
+    def test_they_are_read_again_once_the_entry_expires(self, ingest):
+        now = [1000.0]
+        ingest._clock = lambda: now[0]
+
+        _run_tournament(ingest, league="Homegrown")
+        now[0] += KNOWN_LEAGUES_SECONDS - 1
+        _run_tournament(ingest, league="Homegrown", external_match_id="fest-102")
+        assert ingest._team_dao.league_rows.call_count == 1
+
+        now[0] += 1
+        _run_tournament(ingest, league="Homegrown", external_match_id="fest-103")
+        assert ingest._team_dao.league_rows.call_count == 2
+
+    def test_a_league_created_since_is_found_after_the_entry_expires(self, ingest):
+        now = [1000.0]
+        ingest._clock = lambda: now[0]
+        _run_tournament(ingest, league="Homegrown")
+
+        ingest._team_dao.league_rows.return_value = [*LEAGUE_ROWS, {"id": 7, "name": "Pro", "parent_league_id": None}]
+        with pytest.raises(UnresolvedNameError, match="League not found: Pro"):
+            _run_tournament(ingest, league="Pro", external_match_id="fest-102")
+
+        now[0] += KNOWN_LEAGUES_SECONDS
+        assert _run_tournament(ingest, league="Pro", external_match_id="fest-103")["status"] == "created"
+
+    def test_an_empty_answer_is_not_kept(self, ingest):
+        ingest._team_dao.league_rows.return_value = []
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, league="Homegrown")
+
+        ingest._team_dao.league_rows.return_value = LEAGUE_ROWS
+        assert _run_tournament(ingest, league="Homegrown", external_match_id="fest-102")["status"] == "created"
+
+    def test_a_message_with_no_league_does_not_read_them(self, ingest):
+        _run_tournament(ingest, league=None)
+        ingest._team_dao.league_rows.assert_not_called()
+        assert ingest._team_dao.resolve_tournament_team.call_args_list[0].kwargs == {"leagues": None}
+
+    def test_a_failed_read_is_raised_to_be_retried_not_recorded(self, ingest):
+        ingest._team_dao.league_rows.side_effect = RuntimeError("connection reset")
+        with pytest.raises(RuntimeError):
+            _run_tournament(ingest, league="Homegrown")
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_the_lifetime_is_ten_minutes(self):
+        assert KNOWN_LEAGUES_SECONDS == 600
+
+
+class TestATournamentMessageNamesALeagueMtDoesNotHave:
+    """`league` picks the side on a tournament message, so a wrong one is its own failure (SB-1748).
+
+    Left to the side guard, every team in the event failed as "wrong side:
+    exists as Homegrown" — some 1,350 rows for one mistyped string.
+    """
+
+    @pytest.mark.parametrize("hint", ["HD", "Homegrown Division", "Homegrwon", "Home%"])
+    def test_it_is_one_failure_for_the_hint_and_no_team_is_looked_up(self, ingest, hint):
+        # get_league_by_name matches with ilike, so 'Home%' finds Homegrown
+        # there; the side guard's own whole-name comparison is what decides.
+        ingest._league_dao.get_league_by_name.return_value = HOMEGROWN if hint == "Home%" else None
+
+        with pytest.raises(UnresolvedNameError, match=f"League not found: {hint}"):
+            _run_tournament(ingest, league=hint)
+
+        ingest._team_dao.resolve_tournament_team.assert_not_called()
+        ingest._team_dao.resolve_team_by_name.assert_not_called()
+        ingest._dao.create_match.assert_not_called()
+        ingest._ingest_failures_dao.record.assert_called_once()
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args == ("league", hint)
+        assert recorded.kwargs["league"] is None
+        assert recorded.kwargs["source"] == "match-scraper"
+        assert MATCH["home_team"] in recorded.kwargs["sample"]
+
+    def test_every_message_with_it_records_the_same_identity(self, ingest):
+        # One row: the database counts repeats of (kind, raw_name, league, source).
+        for n, away in enumerate(["The Island FC West", "Some Other Club", "A Third Club"]):
+            with pytest.raises(UnresolvedNameError):
+                _run_tournament(ingest, league="HD", away_team=away, external_match_id=f"fest-{n}")
+
+        identities = {
+            (c.args, c.kwargs["league"], c.kwargs["source"]) for c in ingest._ingest_failures_dao.record.call_args_list
+        }
+        assert identities == {(("league", "HD"), None, "match-scraper")}
+        ingest._team_dao.resolve_tournament_team.assert_not_called()
+
+    def test_it_is_not_retried(self):
+        assert UnresolvedNameError in process_match_data.dont_autoretry_for
+
+    def test_it_is_alerted_as_an_unknown_league(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, league="HD")
+        assert _run.alert.call_args.kwargs["kind"] == "league"
+        assert _run.alert.call_args.kwargs["raw_name"] == "HD"
+
+    def test_nothing_is_closed_or_remembered(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, league="HD")
+        ingest._ingest_failures_dao.resolve_in_league.assert_not_called()
+        ingest._ingest_failures_dao.resolve.assert_not_called()
+        assert ingest._resolved_names == set()
+
+    def test_a_known_league_is_matched_without_case_or_padding(self, ingest):
+        assert _run_tournament(ingest, league=" academy ")["status"] == "created"
+
+    def test_a_child_league_is_a_known_league(self, ingest):
+        assert _run_tournament(ingest, league="Flex")["status"] == "created"
+
+    def test_a_blank_league_is_no_league(self, ingest):
+        assert _run_tournament(ingest, league="   ")["status"] == "created"
+        ingest._team_dao.league_rows.assert_not_called()
+
+    def test_the_resolver_saying_so_itself_is_the_same_failure(self, ingest):
+        # Belt and braces: the DAO refuses an unknown league too.
+        ingest._team_dao.resolve_tournament_team.side_effect = lambda name, age_group_id, league, leagues=None: (
+            None,
+            Resolution(UNKNOWN_LEAGUE, reason="unknown league 'Academy'"),
+        )
+
+        with pytest.raises(UnresolvedNameError, match="League not found: Academy"):
+            _run_tournament(ingest, league="Academy")
+
+        assert ingest._ingest_failures_dao.record.call_args.args == ("league", "Academy")
+        assert ingest._team_dao.resolve_tournament_team.call_count == 1
 
 
 class TestIngestRejectsATournamentMatchItCannotFile:
