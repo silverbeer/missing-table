@@ -7,7 +7,9 @@
     <!--
       Tournament Match of the Day (SB-1560).
 
-      One pick per tournament per day, shown only on the day it is for. Unlike
+      One pick per tournament, day and age group (SB-1750), shown only on the
+      day it is for; the page passes the pick for the age group being viewed,
+      or one banner per age group under All Ages. Unlike
       the Match of the Week strip, this one opens by default: a tournament page
       is the thing the visitor came for, and the pick is the day's headline.
 

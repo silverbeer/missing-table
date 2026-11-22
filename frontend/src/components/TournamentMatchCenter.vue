@@ -154,11 +154,13 @@
             </template>
           </TournamentHeroCard>
           <!-- Tournament Match of the Day (SB-1560): today's pick only, in
-               every view. No pick renders nothing. -->
+               every view, for the age group being viewed (SB-1750). All Ages
+               stacks one banner per age group. No pick renders nothing. -->
           <TournamentMotdBanner
-            v-if="todayMotd"
-            :pick="todayMotd"
-            :live-match="todayMotdLiveMatch"
+            v-for="entry in todayMotds"
+            :key="entry.key"
+            :pick="entry.pick"
+            :live-match="entry.liveMatch"
             day-label="Today"
             @select-match="viewMatch"
           />
@@ -591,6 +593,7 @@ import {
   relativeDayLabel,
 } from '../utils/tournamentStatus';
 import { canEditMatch } from '../utils/matchPermissions';
+import { pickAgeGroupId, picksForView } from '../utils/tournamentMotd';
 import {
   BRACKET_ROUNDS,
   KNOCKOUT_ROUNDS,
@@ -761,19 +764,27 @@ export default {
         console.error('Error fetching match of the day:', err);
       }
     };
-    const todayMotd = computed(
-      () =>
-        motdPicks.value.find(
-          p => String(p.match_date).slice(0, 10) === localDateKey()
-        ) || null
+    // Today's picks for the age group on screen (SB-1750): one, or none —
+    // never another age group's. All Ages shows every pick for the day.
+    // `liveMatch`: the tournament payload's copy is kept current by realtime;
+    // the pick's embedded match is a snapshot from when it loaded, and all
+    // there is when the match is not on the loaded page.
+    const todayMotds = computed(() =>
+      picksForView(motdPicks.value, {
+        today: localDateKey(),
+        ageGroupId: viewedAgeGroupId.value,
+      }).map((pick, i) => {
+        const id = pick.match?.id;
+        return {
+          key: `${pickAgeGroupId(pick) ?? 'none'}-${id ?? i}`,
+          pick,
+          liveMatch:
+            id == null
+              ? null
+              : (selected.value?.matches ?? []).find(m => m.id === id) || null,
+        };
+      })
     );
-    // The tournament payload's copy is kept current by realtime; the pick's
-    // embedded match is a snapshot from when it loaded.
-    const todayMotdLiveMatch = computed(() => {
-      const id = todayMotd.value?.match?.id;
-      if (id == null) return null;
-      return (selected.value?.matches ?? []).find(m => m.id === id) || null;
-    });
     const motdMatchIds = computed(() =>
       motdPicks.value.map(p => p.match?.id).filter(id => id != null)
     );
@@ -831,12 +842,17 @@ export default {
     });
 
     // The age group on screen, in either mode: the server-side selection of a
-    // large tournament, the chip of a small one (null = All Ages).
-    const viewedAgeGroupId = computed(() =>
-      isLargeTournament.value
-        ? tournamentMatches.selectedAgeGroupId.value
-        : ageGroupFilter.value
-    );
+    // large tournament, the chip of a small one (null = All Ages). The
+    // bracket and standings views of a small tournament each keep their own
+    // age selection (SB-1750).
+    const viewedAgeGroupId = computed(() => {
+      if (isLargeTournament.value) {
+        return tournamentMatches.selectedAgeGroupId.value;
+      }
+      if (viewMode.value === 'bracket') return bracketAgeGroupId.value;
+      if (viewMode.value === 'standings') return standingsAgeGroupId.value;
+      return ageGroupFilter.value;
+    });
 
     // What an empty page of a large tournament says. An age group with no
     // matches is a real state, so it is named, not left spinning.
@@ -1389,8 +1405,7 @@ export default {
       setGroup: tournamentMatches.setGroup,
       loadMore: tournamentMatches.loadMore,
       reloadPage: tournamentMatches.reloadPage,
-      todayMotd,
-      todayMotdLiveMatch,
+      todayMotds,
       motdMatchIds,
       viewMode,
       hasBracketRounds,
