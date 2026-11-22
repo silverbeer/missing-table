@@ -507,27 +507,15 @@ import {
   relativeDayLabel,
 } from '../utils/tournamentStatus';
 import { canEditMatch } from '../utils/matchPermissions';
+import {
+  BRACKET_ROUNDS,
+  KNOCKOUT_ROUNDS,
+  KNOCKOUT_ROUND_ORDER,
+} from '../utils/tournamentRounds';
 
 // Past this many matches the list is long enough that a team filter earns its
 // row. Below it the input is larger than the thing it filters.
 const TEAM_FILTER_THRESHOLD = 8;
-
-const KNOCKOUT_ROUNDS = new Set([
-  'round_of_32',
-  'round_of_16',
-  'quarterfinal',
-  'semifinal',
-  'third_place',
-  'final',
-]);
-
-const BRACKET_ROUNDS = new Set([
-  'round_of_32',
-  'round_of_16',
-  'quarterfinal',
-  'semifinal',
-  'final',
-]);
 
 export default {
   name: 'TournamentMatchCenter',
@@ -789,14 +777,7 @@ export default {
     // chronological within the round. This keeps the visual flow of the
     // tournament progression intact while still ordering within each round.
     const knockoutMatches = computed(() => {
-      const order = [
-        'round_of_32',
-        'round_of_16',
-        'quarterfinal',
-        'semifinal',
-        'third_place',
-        'final',
-      ];
+      const order = KNOCKOUT_ROUND_ORDER;
       return filteredMatches.value
         .filter(m => KNOCKOUT_ROUNDS.has(m.tournament_round))
         .slice()

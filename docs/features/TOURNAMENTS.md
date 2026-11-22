@@ -132,6 +132,73 @@ Kickoff time is the row's anchor, in `tabular-nums`, because it is what someone
 at a tournament actually scans for. A match with no `scheduled_kickoff` shows
 `—`, never a guessed midnight.
 
+## Round keys
+
+A match's `tournament_round` is one of a fixed set of keys, validated in
+`backend/dao/tournament_dao.py` (`VALID_ROUNDS`) and mirrored in
+`backend/mt_cli.py` and the `load-tournament-matches` skill. Labels live in
+`utils/tournamentRounds.js`, which also exports the round sets every component
+shares — do not redeclare them in a component.
+
+| Set | Rounds | Used for |
+|-----|--------|----------|
+| `KNOCKOUT_ROUNDS` / `KNOCKOUT_ROUND_ORDER` | `round_of_32`, `round_of_16`, `quarterfinal`, `semifinal`, `third_place`, `final` | The Knockout section of the list, and its order |
+| `BRACKET_ROUNDS` / `BRACKET_ROUND_ORDER` | the knockout rounds without `third_place` | Whether the Bracket view is offered, and its columns |
+| `SHOOTOUT_ROUNDS` | the knockout rounds plus `consolation`, `placement_final` | Whether the inline score editor offers shootout inputs |
+
+MLS NEXT Fest added three keys (SB-1752):
+
+| Key | Short / long label | Knockout | Bracket | Shootout |
+|-----|--------------------|----------|---------|----------|
+| `showcase` | Showcase / Showcase | no | no | no |
+| `consolation` | Consolation / Consolation | no | no | yes |
+| `placement_final` | Placement / Placement Final | no | no | yes |
+
+None of the three is a knockout or bracket round. A tournament whose only
+"finals" are `placement_final` therefore does **not** switch on the Bracket
+view — there is no elimination tree to draw. Until they get sections of their
+own, these matches list with the other non-group, non-knockout rounds.
+
+## Group format
+
+`tournament_group` is one free-text field. Events that run several competitions
+side by side reuse the same labels in each (both Fest divisions have a
+"Group A"), so the stored value is namespaced by division:
+
+| Stored value | Division | Label |
+|--------------|----------|-------|
+| `HD · A` | `HD` | `A` |
+| `HD · Showcase` | `HD` | `Showcase` |
+| `Bracket A` (legacy) | none | `Bracket A` — displayed unchanged |
+
+The separator is exactly space, `·` (U+00B7 middle dot), space. Compose and
+split with the helpers, never by hand: `compose_group` / `split_group` in
+`backend/dao/tournament_groups.py`, mirrored by `composeGroup` / `splitGroup`
+in `utils/tournamentGroups.js`. Both split on the first separator only, and a
+value with no separator is a legacy group with a null division.
+
+Two more rules are part of the format, because the Python and JavaScript
+helpers must agree byte for byte on every input:
+
+- **Trimming.** Each part is trimmed of an explicit character list
+  (`GROUP_WHITESPACE`, the same literal in both files), not the language's own
+  `strip()` / `trim()` — those disagree: JavaScript trims U+FEFF, Python trims
+  U+001C–U+001F and U+0085. The list is the union: tab, LF, VT, FF, CR, space,
+  U+001C–U+001F, U+0085, U+00A0, U+1680, U+2000–U+200A, U+2028, U+2029,
+  U+202F, U+205F, U+3000, U+FEFF. Nothing else is trimmed (a zero-width space
+  stays).
+- **Compose rejects what would not split back.** `compose_group` raises
+  `ValueError` (`composeGroup` throws `Error`, same message) for a division
+  that contains the separator — or ends with ` ·`, which forms one with the
+  separator that follows — and for a label that contains the separator when
+  there is no division. A label containing the separator *with* a division is
+  legal, since the split is on the first separator only. `split_group` /
+  `splitGroup` never raise: a stored value always splits.
+
+**The format is frozen.** Bracket follows store this string, so changing the
+separator, the trimmed characters or the compose rule orphans every follow
+already saved.
+
 ## Things that are deliberately not there
 
 - **"Preview" as a row action.** The whole row is clickable. The old "Preview"
@@ -246,6 +313,8 @@ showing them.
 | File | Covers |
 |------|--------|
 | `__tests__/utils/tournamentStatus.spec.js` | Every status/date/grouping rule, clock pinned explicitly |
+| `__tests__/utils/tournamentRounds.spec.js` | Round labels and the shared knockout / bracket / shootout sets |
+| `__tests__/utils/tournamentGroups.spec.js` | Group format: namespaced, legacy, absent |
 | `__tests__/components/ScorePill.spec.js` | The absent-is-not-zero guard, including the 42 real draws |
 | `__tests__/components/TournamentMatchRow.spec.js` | Row states, club highlight, chips |
 | `__tests__/components/TournamentHeroCard.spec.js` | Ribbon, schedule link, next-match strip, stats |

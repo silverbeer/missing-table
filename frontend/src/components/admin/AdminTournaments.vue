@@ -542,13 +542,13 @@
                   class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="">— none —</option>
-                  <option value="group_stage">Group Stage</option>
-                  <option value="round_of_32">Round of 32</option>
-                  <option value="round_of_16">Round of 16</option>
-                  <option value="quarterfinal">Quarterfinal</option>
-                  <option value="semifinal">Semifinal</option>
-                  <option value="third_place">Third Place</option>
-                  <option value="final">Final</option>
+                  <option
+                    v-for="(label, key) in ROUND_LABELS"
+                    :key="key"
+                    :value="key"
+                  >
+                    {{ label }}
+                  </option>
                 </select>
               </div>
               <div>
@@ -1250,6 +1250,7 @@ export default {
       // helpers
       formatDate,
       formatRound,
+      ROUND_LABELS,
       statusClass,
       matchCountFor,
       // tournament actions

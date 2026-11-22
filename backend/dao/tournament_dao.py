@@ -40,6 +40,9 @@ VALID_ROUNDS = {
     "bronze_semifinal",
     "silver_final",
     "bronze_final",
+    "showcase",
+    "consolation",
+    "placement_final",
 }
 
 
@@ -84,22 +87,22 @@ class TournamentDAO(BaseDAO):
         """
         if not tournaments:
             return tournaments
-        ids = [t["id"] for t in tournaments]
-        try:
-            count_query = self.client.table(MATCHES_READ_RELATION).select("tournament_id").in_("tournament_id", ids)
-            if not include_test:
-                count_query = count_query.eq("is_test", False)
-            rows = count_query.execute().data or []
-        except Exception:
-            logger.exception("Error fetching tournament match counts")
-            rows = []
-        counts: dict[int, int] = {t["id"]: 0 for t in tournaments}
-        for row in rows:
-            tid = row.get("tournament_id")
-            if tid in counts:
-                counts[tid] += 1
         for t in tournaments:
-            t["match_count"] = counts[t["id"]]
+            # An exact count per tournament, asked of the database. Counting the
+            # rows of one .in_() select is capped at PostgREST's 1,000-row
+            # response limit, so a big tournament under-reported (SB-1752).
+            try:
+                count_query = (
+                    self.client.table(MATCHES_READ_RELATION)
+                    .select("id", count="exact", head=True)
+                    .eq("tournament_id", t["id"])
+                )
+                if not include_test:
+                    count_query = count_query.eq("is_test", False)
+                t["match_count"] = count_query.execute().count or 0
+            except Exception:
+                logger.exception("Error fetching tournament match count", tournament_id=t["id"])
+                t["match_count"] = 0
         return tournaments
 
     def _sync_age_groups(self, tournament_id: int, age_group_ids: list[int]) -> None:
