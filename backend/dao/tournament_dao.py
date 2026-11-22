@@ -80,9 +80,16 @@ _RANGE_NOT_SATISFIABLE = "PGRST103"
 # degrades to "unavailable"; anything else is a real error.
 _FUNCTION_NOT_FOUND = "PGRST202"
 
-# How long a page of tournament matches stays cached. Short, so the keys of a
-# big event expire on their own instead of piling up for a day.
-TOURNAMENT_PAGE_CACHE_TTL = 60
+# How long a tournament read that carries scores or match counts stays cached.
+# The ingest worker cannot clear this cache: it runs without CACHE_ENABLED or
+# REDIS_URL, in a different cluster from the API's Redis, so @invalidates_cache
+# is a no-op there. These reads are bounded by this TTL instead, and a scraped
+# score or a newly created match shows within about a minute (SB-1756).
+TOURNAMENT_SCORE_CACHE_TTL = 60
+
+# The match pages and their facets are score-bearing too. Short also keeps the
+# keys of a big event expiring on their own instead of piling up for a day.
+TOURNAMENT_PAGE_CACHE_TTL = TOURNAMENT_SCORE_CACHE_TTL
 
 
 class TournamentDAO(BaseDAO):
@@ -151,7 +158,7 @@ class TournamentDAO(BaseDAO):
             rows = [{"tournament_id": tournament_id, "age_group_id": ag_id} for ag_id in age_group_ids]
             self.client.table("tournament_age_groups").insert(rows).execute()
 
-    @dao_cache("tournaments:active:{include_test}:{season_id}")
+    @dao_cache("tournaments:active:{include_test}:{season_id}", ttl=TOURNAMENT_SCORE_CACHE_TTL)
     def get_active_tournaments(self, include_test: bool = False, season_id: int | None = None) -> list[dict]:
         """Return all active tournaments ordered by start date descending.
 
@@ -176,7 +183,7 @@ class TournamentDAO(BaseDAO):
             logger.exception("Error fetching active tournaments")
             return []
 
-    @dao_cache("tournaments:all")
+    @dao_cache("tournaments:all", ttl=TOURNAMENT_SCORE_CACHE_TTL)
     def get_all_tournaments(self) -> list[dict]:
         """Return all tournaments (admin use).
 
@@ -196,7 +203,7 @@ class TournamentDAO(BaseDAO):
             logger.exception("Error fetching all tournaments")
             return []
 
-    @dao_cache("tournaments:by_id:{tournament_id}:test{include_test}")
+    @dao_cache("tournaments:by_id:{tournament_id}:test{include_test}", ttl=TOURNAMENT_SCORE_CACHE_TTL)
     def get_tournament_by_id(self, tournament_id: int, include_test: bool = False) -> dict | None:
         """Return tournament with all matches for tracked teams.
 
@@ -255,6 +262,7 @@ class TournamentDAO(BaseDAO):
     # Paged matches and filter facets (SB-1749)
     # -------------------------------------------------------------------------
 
+    # Default TTL: a tournament's age groups do not depend on its matches.
     @dao_cache("tournaments:age_groups:{tournament_id}")
     def get_tournament_age_groups(self, tournament_id: int) -> list[dict] | None:
         """The tournament's own age groups, or None when there is no such tournament.

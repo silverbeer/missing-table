@@ -33,6 +33,8 @@ from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.match_type_dao import MatchTypeDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
+from dao.tournament_dao import TOURNAMENT_SCORE_CACHE_TTL, TournamentDAO
+from tests.utils.fake_redis import FakeRedis
 
 pytestmark = [pytest.mark.integration, pytest.mark.backend, pytest.mark.database]
 
@@ -328,6 +330,69 @@ class TestRescrape:
         assert row["tournament_round"] == "group_stage"
         assert row["tournament_round_order"] == 1
         assert (row["home_score"], row["away_score"]) == (3, 1)
+
+
+class TestCachedReadsCatchUp:
+    """A cached tournament read shows an ingest write once its TTL passes (SB-1756).
+
+    The API caches; the worker cannot clear that cache. Both run in this one
+    process, so the cache lookup is swapped per role: an in-memory Redis with a
+    hand-moved clock for the API's reads, none at all while the task runs.
+    Real rows, no Redis.
+    """
+
+    @staticmethod
+    def _api_cache():
+        return patch("dao.base_dao.get_redis_client")
+
+    @staticmethod
+    def _ingest_as_worker(message: dict) -> dict:
+        with patch("dao.base_dao.get_redis_client", return_value=None):
+            return _ingest(message)
+
+    def test_a_scraped_score_reaches_the_cached_detail(self, fest):
+        message = _message(fest)
+        self._ingest_as_worker(message)
+        redis = FakeRedis()
+        api = TournamentDAO(process_match_data._connection)
+
+        def score():
+            match = api.get_tournament_by_id(fest["tournament_id"], include_test=True)["matches"][0]
+            return match["home_score"], match["away_score"]
+
+        with self._api_cache() as lookup:
+            lookup.return_value = redis
+            assert score() == (None, None)  # unplayed is absent, not 0-0
+
+            result = self._ingest_as_worker({**message, "home_score": 2, "away_score": 1, "match_status": "completed"})
+            assert result["status"] == "updated"
+            assert _rows(fest)[0]["home_score"] == 2  # written, behind the cache
+
+            redis.advance(TOURNAMENT_SCORE_CACHE_TTL - 1)
+            assert score() == (None, None)
+
+            redis.advance(1)
+            assert score() == (2, 1)
+
+    def test_a_scraped_match_reaches_the_cached_match_count(self, fest):
+        redis = FakeRedis()
+        api = TournamentDAO(process_match_data._connection)
+
+        def match_count():
+            listed = api.get_active_tournaments(include_test=True, season_id=fest["season"]["id"])
+            return next(t["match_count"] for t in listed if t["id"] == fest["tournament_id"])
+
+        with self._api_cache() as lookup:
+            lookup.return_value = redis
+            assert match_count() == 0
+
+            assert self._ingest_as_worker(_message(fest))["status"] == "created"
+
+            redis.advance(TOURNAMENT_SCORE_CACHE_TTL - 1)
+            assert match_count() == 0
+
+            redis.advance(1)
+            assert match_count() == 1
 
 
 class TestUnknownTournament:
