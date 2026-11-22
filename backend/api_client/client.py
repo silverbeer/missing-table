@@ -1488,6 +1488,52 @@ class MissingTableClient:
         response = self._request("GET", f"/api/tournaments/{tournament_id}")
         return response.json()
 
+    def get_tournament_matches(
+        self,
+        tournament_id: int,
+        *,
+        age_group_id: int | None = None,
+        group: str | None = None,
+        round: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> dict[str, Any]:
+        """One page of a tournament's matches, filtered server-side (public, SB-1749).
+
+        Returns ``{"matches", "total", "limit", "offset"}``. ``total`` is the
+        exact number of matches the filters select, not the page length.
+        """
+        params = {
+            "age_group_id": age_group_id,
+            "group": group,
+            "round": round,
+            "limit": limit,
+            "offset": offset,
+        }
+        response = self._request(
+            "GET",
+            f"/api/tournaments/{tournament_id}/matches",
+            params={k: v for k, v in params.items() if v is not None},
+        )
+        return response.json()
+
+    def get_tournament_filters(
+        self, tournament_id: int, *, age_group_id: int | None = None, on_date: str | None = None
+    ) -> dict[str, Any]:
+        """The age groups and groups a tournament can be filtered by (public, SB-1749).
+
+        ``groups`` is ``[]`` when the age group has none and ``None`` when the
+        counts could not be computed; a ``None`` ``matches`` is likewise
+        unknown, not zero.
+        """
+        params = {"age_group_id": age_group_id, "on_date": on_date}
+        response = self._request(
+            "GET",
+            f"/api/tournaments/{tournament_id}/filters",
+            params={k: v for k, v in params.items() if v is not None},
+        )
+        return response.json()
+
     def create_tournament_match(self, tournament_id: int, match: TournamentMatchCreate) -> dict[str, Any]:
         """Add a match to a tournament (admin only)."""
         response = self._request(

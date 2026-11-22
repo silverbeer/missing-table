@@ -107,6 +107,17 @@
           </div>
 
           <template v-else>
+            <!-- The detail response is one unpaged query, so a big tournament
+                 arrives cut short. Say so rather than let the table pass for
+                 the whole tournament (SB-1749). -->
+            <p
+              v-if="selectedMatchTotal > selectedMatches.length"
+              class="mb-3 text-sm text-amber-700 dark:text-amber-400"
+              data-testid="admin-matches-truncated"
+            >
+              Showing the first {{ selectedMatches.length }} of
+              {{ selectedMatchTotal }} matches.
+            </p>
             <!-- Matches table -->
             <div v-if="selectedMatches.length > 0" class="overflow-x-auto mb-4">
               <table class="min-w-full text-sm">
@@ -743,6 +754,9 @@ export default {
     // ── expanded tournament + its matches ──
     const selectedTournamentId = ref(null);
     const selectedMatches = ref([]);
+    // Exact number of matches in the expanded tournament. Larger than
+    // selectedMatches.length when the list was cut short.
+    const selectedMatchTotal = ref(0);
     const matchesLoading = ref(false);
     // cache counts so the collapsed rows stay accurate
     const matchCountCache = ref({});
@@ -880,15 +894,32 @@ export default {
     const fetchTournamentMatches = async tournamentId => {
       matchesLoading.value = true;
       try {
-        const data = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/tournaments/${tournamentId}`,
-          { method: 'GET' }
-        );
+        // The detail call returns at most one response's worth of rows, so
+        // its length under-reports a big tournament. The exact total is asked
+        // for separately; if that fails the loaded rows are all we know.
+        const [data, counted] = await Promise.all([
+          authStore.apiRequest(
+            `${getApiBaseUrl()}/api/tournaments/${tournamentId}`,
+            { method: 'GET' }
+          ),
+          authStore
+            .apiRequest(
+              `${getApiBaseUrl()}/api/tournaments/${tournamentId}/matches?limit=1`,
+              { method: 'GET' }
+            )
+            .catch(() => null),
+        ]);
         selectedMatches.value = data?.matches || [];
-        matchCountCache.value[tournamentId] = selectedMatches.value.length;
+        const loaded = selectedMatches.value.length;
+        const total =
+          typeof counted?.total === 'number'
+            ? Math.max(counted.total, loaded)
+            : loaded;
+        selectedMatchTotal.value = total;
+        matchCountCache.value[tournamentId] = total;
         // Keep tournament.match_count in sync for the accordion header
         const t = tournaments.value.find(x => x.id === tournamentId);
-        if (t) t.match_count = selectedMatches.value.length;
+        if (t) t.match_count = total;
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -904,6 +935,7 @@ export default {
       if (selectedTournamentId.value === tournament.id) {
         selectedTournamentId.value = null;
         selectedMatches.value = [];
+        selectedMatchTotal.value = 0;
       } else {
         selectedTournamentId.value = tournament.id;
         await fetchTournamentMatches(tournament.id);
@@ -1056,6 +1088,7 @@ export default {
         if (selectedTournamentId.value === tournament.id) {
           selectedTournamentId.value = null;
           selectedMatches.value = [];
+          selectedMatchTotal.value = 0;
         }
         await fetchTournaments();
       } catch (err) {
@@ -1233,6 +1266,7 @@ export default {
       teamOptions,
       selectedTournamentId,
       selectedMatches,
+      selectedMatchTotal,
       matchesLoading,
       // tournament modal
       showTournamentModal,

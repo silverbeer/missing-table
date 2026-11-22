@@ -14,6 +14,9 @@ describe('isResultsApi', () => {
     '/api/tournaments',
     '/api/tournaments/8',
     '/api/tournaments?season_id=184',
+    // Paged matches and filters carry scores too (SB-1749).
+    '/api/tournaments/8/matches?age_group_id=5&limit=200&offset=0',
+    '/api/tournaments/8/filters?age_group_id=5',
     '/api/standings',
     '/api/standings?age_group_id=3',
   ])('claims %s', path => {
