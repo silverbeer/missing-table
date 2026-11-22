@@ -311,7 +311,8 @@ Only **canonical** pages are cached: `limit` equal to the default (200 —
 `DEFAULT_LIMIT` in `backend/dao/tournament_filters.py`, which
 `TOURNAMENT_PAGE_SIZE` in the page must equal) and `offset` a multiple of it,
 which is every request the page makes. They live for 60 seconds
-(`TOURNAMENT_PAGE_CACHE_TTL`). Any other `limit` or `offset` is answered
+(`TOURNAMENT_PAGE_CACHE_TTL`, the same value as `TOURNAMENT_SCORE_CACHE_TTL`).
+Any other `limit` or `offset` is answered
 straight from the database, so sweeping them creates no cache keys. Every
 filter and the test partition are part of the key.
 
@@ -428,12 +429,21 @@ Most scraped tournament teams have no manager, so no roster and no events:
 that is the default the tab renders, and a match without a score is `null`,
 not `0–0` (see [Absent is not zero](#absent-is-not-zero)).
 
-**A scraped score can be stale on the Tournaments page.** Tournament reads
-are cached for up to 24 hours. The ingest write clears that cache only when
-the worker shares the API's cache (`CACHE_ENABLED=true` and the same
-`REDIS_URL`), which the production worker currently does not — so a score the
-worker files can take up to the cache lifetime to appear, unless an admin
-write or a deploy clears the cache first.
+**A scraped score reaches the Tournaments page within about a minute.** The
+ingest write clears the API's cache only when the worker shares it
+(`CACHE_ENABLED=true` and the same `REDIS_URL`), which the production worker
+does not — it runs in a different cluster from the API's Redis. So the
+tournament reads that carry scores or match counts are bounded by a 60-second
+TTL instead (`TOURNAMENT_SCORE_CACHE_TTL` in `backend/dao/tournament_dao.py`,
+SB-1756): the tournament list with its `match_count`, the admin list, the
+detail call, and the match pages and facets. The list matters most —
+`match_count` decides whether the page uses the paged endpoints or the single
+detail call, which is capped at 1,000 rows. A tournament's age groups do not
+depend on matches and keep the 24-hour default.
+
+This covers tournament pages only. League standings and single-match detail
+are still cached for 24 hours, and still stale after a worker write until an
+API-side write or a deploy clears them.
 
 The message fields, the stored-group rule and what drops a match are in
 [match-scraper.md](../08-integrations/match-scraper.md#tournament-matches).

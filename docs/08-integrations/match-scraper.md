@@ -631,11 +631,19 @@ the cache switched on. Clearing is a no-op unless `CACHE_ENABLED=true` and
 (`helm/missing-table/templates/backend.yaml`). The worker
 (`k3s/worker/deployment-prod.yaml`) sets neither, and runs in a different
 cluster from that Redis. So a match the worker creates, or a score it writes,
-does not clear the API's cache: tournament reads are cached for up to 24
-hours, and the Tournaments page can show the old state for that long (or until
-an admin write or a deploy's cache flush clears it). Nothing in this code
-path guarantees otherwise; it does the right thing only once the worker shares
-the API's cache.
+does not clear the API's cache.
+
+**Tournament pages are bounded by a TTL instead** (SB-1756). The tournament
+reads that carry scores or match counts — the list with its `match_count`,
+the admin list, the detail call, the match pages and their facets — are
+cached for 60 seconds (`TOURNAMENT_SCORE_CACHE_TTL` in
+`dao/tournament_dao.py`), so the Tournaments page shows a scraped score or a
+newly created match within about a minute, with no signal from the worker.
+
+That is all it covers. League standings (`MatchDAO.get_standings`) and
+single-match detail (`MatchDAO.get_match_by_id`) are still cached for 24
+hours, and still stale after a worker write until an API-side write or a
+deploy's cache flush clears them.
 
 #### What drops a tournament match
 

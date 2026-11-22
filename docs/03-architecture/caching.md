@@ -22,6 +22,16 @@ Rules:
 - A write invalidates every pattern its result can appear under, not just its
   own resource. `create_tournament_match` clears both `tournaments:*` and
   `matches:*`.
+- **A read that a scraped write must show promptly uses a short TTL.** The
+  ingest worker cannot invalidate: it runs without `CACHE_ENABLED` or
+  `REDIS_URL`, in a different cluster from the API's Redis, so
+  `@invalidates_cache` is a no-op there. The score-bearing tournament reads —
+  list, admin list, detail, match pages, facets — are cached for 60 seconds
+  (`TOURNAMENT_SCORE_CACHE_TTL` in `dao/tournament_dao.py`, SB-1756) rather
+  than the 24-hour default. League standings (`MatchDAO.get_standings`) and
+  single-match detail (`get_match_by_id`) are not covered: they keep the
+  24-hour default and stay stale after a worker write until an API-side write
+  or a deploy clears them.
 - **Direct SQL through Supabase Studio bypasses this entirely** — no decorator
   runs. Pair a Studio fix with an API write or `redis-cli DEL`.
 - **A new namespace goes in `CACHE_TYPES`** (`dao/base_dao.py`). The admin

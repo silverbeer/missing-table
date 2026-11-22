@@ -755,8 +755,10 @@ class DatabaseTask(Task):
 
             # A match on a tournament is written through the DAO method that
             # clears the tournament cache where this process shares the API's
-            # cache (SB-1747). The worker does not today, so the clear is a
-            # no-op here. League matches are written directly, as before.
+            # cache (SB-1747). The worker cannot clear the API's cache, so the
+            # clear is a no-op here and the tournament page catches up within
+            # about a minute, when the short TTL on the tournament reads
+            # expires (SB-1756). League matches are written directly, as before.
             if existing_match.get("tournament_id") is not None or "tournament_id" in update_data:
                 written = self.dao.update_ingested_tournament_match(match_id, update_data)
             else:

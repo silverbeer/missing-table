@@ -528,19 +528,18 @@ class MatchDAO(BaseDAO):
         """Write an ingest update to a match that is on a tournament.
 
         The ingest task writes league updates straight to the table. A
-        tournament match cannot go that way: tournament reads are cached for
-        24 hours (TournamentDAO.get_tournament_by_id), so a score written
-        behind the cache would not appear on the tournament page until the
-        next day (SB-1747).
+        tournament match goes through here so that, in a process sharing the
+        API's cache, the tournament reads are cleared with the write (SB-1747).
 
         Returns whether a row was written. Raises on a database error; the
         cache is only cleared when the write did not raise.
 
         The clear only happens in a process that shares the API's cache
         (CACHE_ENABLED=true and a reachable REDIS_URL). The ingest worker
-        currently has neither, so there this is a plain write and the
-        tournament page can stay stale until the cache expires or the API
-        clears it.
+        has neither and cannot clear the API's cache, so there this is a
+        plain write. The tournament page is then stale for about a minute at
+        most: the tournament reads expire on a short TTL
+        (TOURNAMENT_SCORE_CACHE_TTL in tournament_dao, SB-1756).
         """
         response = self.client.table("matches").update(updates).eq("id", match_id).execute()
         return bool(response.data)
