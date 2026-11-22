@@ -8,6 +8,7 @@ These tasks run asynchronously in Celery workers, allowing for:
 - Horizontal scaling of processing capacity
 """
 
+import time
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -17,6 +18,12 @@ from celery import Task
 from celery_app import app
 from celery_tasks.exceptions import UnresolvedNameError
 from celery_tasks.final_score_alert import alert_if_new_final_score
+from celery_tasks.tournament_filing import (
+    TournamentFiling,
+    TournamentFilingError,
+    read_tournament_filing,
+    tournament_changes,
+)
 from celery_tasks.validation_tasks import validate_match_data
 from dao.club_dao import ClubDAO
 from dao.ingest_failures_dao import IngestFailuresDAO
@@ -25,6 +32,7 @@ from dao.match_dao import MatchDAO, SupabaseConnection
 from dao.match_type_dao import MatchTypeDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
+from dao.tournament_dao import VALID_ROUNDS
 from logging_config import get_logger
 from notifications.ingest_alerts import alert_unresolved_name
 
@@ -32,6 +40,18 @@ logger = get_logger(__name__)
 
 # The zone a zone-less match_time is read in when nothing better is known.
 DEFAULT_KICKOFF_TZ = "America/New_York"
+
+# The matches.source values the scraper writes. The live sender is
+# match-scraper-agent; match-scraper is the older one and the default for a
+# message that names none. Rows with either belong to the feed when a
+# tournament message re-files them (SB-1747).
+FEED_SOURCES = frozenset({"match-scraper", "match-scraper-agent"})
+
+# How long a worker trusts that a tournament it has seen still exists. Short
+# enough that a deleted tournament becomes a recorded failure rather than a
+# foreign-key error retried until restart; long enough that a load of thousands
+# of matches over one id asks a handful of times.
+KNOWN_TOURNAMENT_SECONDS = 600
 
 
 class DatabaseTask(Task):
@@ -62,6 +82,17 @@ class DatabaseTask(Task):
     # of matches over a couple of dozen triples, and checking per match would be
     # thousands of round trips to learn the same thing.
     _ensured_mappings: set[tuple[int, int, int]] = set()
+
+    # Tournament ids this worker has confirmed exist, each with the monotonic
+    # time until which that is trusted. A tournament load is thousands of
+    # matches over one id (SB-1747). Only hits are remembered: a tournament
+    # created after its first match arrived has to be found. And only for
+    # KNOWN_TOURNAMENT_SECONDS: one deleted since has to be noticed.
+    _known_tournaments: dict[int, float] = {}
+
+    # The clock _known_tournaments expires against. An attribute so a test can
+    # move time without sleeping.
+    _clock = staticmethod(time.monotonic)
 
     @property
     def dao(self):
@@ -137,6 +168,93 @@ class DatabaseTask(Task):
             return
         self._resolved_names.add(key)
         self.ingest_failures_dao.resolve(kind, raw_name, source=source)
+
+    def _resolve_team(
+        self,
+        name: str,
+        *,
+        league_id: int | None,
+        league_name: str | None,
+        sample: str,
+    ) -> dict[str, Any]:
+        """The team a feed name refers to, or UnresolvedNameError.
+
+        resolve_team_by_name consults team_aliases as well as teams.name
+        (SB-822) — the plain name lookup this used to call meant the aliases
+        seeded for the Kitman feed never applied to the feed. Nothing is
+        created here: an unknown name fails the task rather than inventing a
+        lightweight team row that later collides on the unique constraint.
+        """
+        team = self.team_dao.resolve_team_by_name(name, league_id=league_id)
+        if not team:
+            raise UnresolvedNameError("team", name, league=league_name, sample=sample)
+        return team
+
+    def _require_tournament(self, filing: TournamentFiling, *, league_name: str | None, sample: str) -> None:
+        """Fail the message if its tournament does not exist (SB-1747).
+
+        Recorded as an 'invalid' ingest failure — one row for the id, however
+        many matches it costs — and not retried: a tournament nobody created
+        will not exist in ten minutes either.
+        """
+        now = self._clock()
+        if self._known_tournaments.get(filing.tournament_id, 0.0) > now:
+            return
+        self._known_tournaments.pop(filing.tournament_id, None)
+        if not self.dao.tournament_exists(filing.tournament_id):
+            raise UnresolvedNameError(
+                "invalid",
+                f"unknown tournament_id {filing.tournament_id}",
+                league=league_name,
+                sample=sample,
+            )
+        self._known_tournaments[filing.tournament_id] = now + KNOWN_TOURNAMENT_SECONDS
+
+    @staticmethod
+    def _is_other_fixture(candidate: dict[str, Any], external_match_id: Any) -> bool:
+        """Whether a teams-and-date hit is a different fixture from the message.
+
+        The fallback lookup exists to adopt a hand-entered match, which has no
+        source id. A hit that already carries one, different from the
+        message's, is another fixture between the same teams on the same day —
+        routine at a tournament — and updating it would overwrite one match
+        with another's score (SB-1747).
+        """
+        stored = candidate.get("match_id")
+        if not stored or not external_match_id:
+            return False
+        return str(stored) != str(external_match_id)
+
+    @staticmethod
+    def _require_row_on_tournament(
+        existing_match: dict[str, Any], filing: TournamentFiling, *, league_name: str | None, sample: str
+    ) -> None:
+        """Fail a tournament message whose row belongs somewhere else (SB-1747).
+
+        A row found by its source id that sits in a league division, or on a
+        different tournament, is not moved: re-filing it would take a match
+        out of a league table, or out of one event and into another, on the
+        strength of one message. Recorded as an 'invalid' ingest failure and
+        not retried; the row is left exactly as it was.
+
+        A row that is on no tournament and in no division has nowhere to be
+        moved from, and is filed.
+        """
+        stored_tournament = existing_match.get("tournament_id")
+        if stored_tournament == filing.tournament_id:
+            return
+        if stored_tournament is not None:
+            where = f"tournament {stored_tournament}"
+        elif existing_match.get("division_id") is not None:
+            where = "a league division"
+        else:
+            return
+        raise UnresolvedNameError(
+            "invalid",
+            f"tournament_id {filing.tournament_id} sent for a match already filed on {where}",
+            league=league_name,
+            sample=sample,
+        )
 
     def _register_team_age_group(self, team: dict[str, Any], age_group_id: int | None, division: dict | None) -> None:
         """Record that this team plays this age group, in this division.
@@ -345,8 +463,23 @@ class DatabaseTask(Task):
 
         A row with no source at all predates the column's use on this path and
         is treated as the feed's, which is what it is.
+
+        Exactly 'match-scraper': a row the live sender created carries
+        'match-scraper-agent' and is not re-filed here. Tournament columns use
+        _feed_owns_tournament_filing, which accepts both — the two disagree on
+        purpose for now, and this one is the one that is behind.
         """
         return (existing_match.get("source") or "match-scraper") == "match-scraper"
+
+    @staticmethod
+    def _feed_owns_tournament_filing(existing_match: dict[str, Any]) -> bool:
+        """Whether the feed gets to re-file this match's tournament columns.
+
+        The same rule as _feed_owns_filing, for any source in FEED_SOURCES: a
+        corrected group, round or order on a rescrape has to reach the rows
+        match-scraper-agent created, which is most of them (SB-1747).
+        """
+        return (existing_match.get("source") or "match-scraper") in FEED_SOURCES
 
     # Statuses a person sets. The scraper derives status from date and score,
     # and says postponed only for a fixture parked on the feed's placeholder
@@ -412,6 +545,8 @@ class DatabaseTask(Task):
         away_team_id: int,
         match_type_id: int | None = None,
         division_id: int | None = None,
+        filing: TournamentFiling | None = None,
+        adopted: bool = False,
     ) -> bool:
         """
         Check if the existing match needs to be updated based on new data.
@@ -422,6 +557,7 @@ class DatabaseTask(Task):
         - Scores changed (were null, now have values)
         - Scores were updated (different values)
         - Competition or division changed (SB-847)
+        - Tournament filing changed (SB-1747)
 
         Status transition examples:
         - scheduled → tbd: Match played, awaiting score
@@ -441,6 +577,14 @@ class DatabaseTask(Task):
                 return True
             if division_id is not None and existing_match.get("division_id") != division_id:
                 logger.debug(f"division changed: {existing_match.get('division_id')} → {division_id}")
+                return True
+
+        # Check tournament re-filing (SB-1747). An adopted row only has its
+        # nulls filled.
+        if self._feed_owns_tournament_filing(existing_match):
+            tournament_updates = tournament_changes(existing_match, filing, fill_only=adopted)
+            if tournament_updates:
+                logger.debug(f"tournament filing changed: {tournament_updates}")
                 return True
 
         # Check home/away team swap
@@ -509,6 +653,8 @@ class DatabaseTask(Task):
         away_team_id: int | None = None,
         match_type_id: int | None = None,
         division_id: int | None = None,
+        filing: TournamentFiling | None = None,
+        adopted: bool = False,
     ) -> dict[str, Any] | bool:
         """
         Update an existing match's scores, status, team assignments and filing.
@@ -519,7 +665,10 @@ class DatabaseTask(Task):
 
         Updates scores, status, match_date, scheduled_kickoff,
         home_team_id/away_team_id when a home/away swap is detected, and
-        match_type_id/division_id when the feed re-files the match (SB-847).
+        match_type_id/division_id and the tournament columns when the feed
+        re-files the match (SB-847, SB-1747). ``adopted`` marks a hand-entered
+        row taken over by this message: its tournament columns are only filled
+        where they are null.
         """
         try:
             match_id = existing_match["id"]
@@ -544,6 +693,14 @@ class DatabaseTask(Task):
                     logger.info(
                         f"Match {match_id} division corrected: {existing_match.get('division_id')} → {division_id}"
                     )
+
+            # Correct the tournament filing. On a row just adopted from a
+            # person, only what they left empty (SB-1747).
+            if self._feed_owns_tournament_filing(existing_match):
+                tournament_updates = tournament_changes(existing_match, filing, fill_only=adopted)
+                if tournament_updates:
+                    update_data.update(tournament_updates)
+                    logger.info(f"Match {match_id} tournament filing corrected: {tournament_updates}")
 
             # Correct home/away team swap if team IDs differ
             if home_team_id is not None and home_team_id != existing_match.get("home_team_id"):
@@ -596,10 +753,17 @@ class DatabaseTask(Task):
                 logger.warning(f"No update data provided for match {match_id}")
                 return False
 
-            # Execute update directly on matches table
-            response = self.dao.client.table("matches").update(update_data).eq("id", match_id).execute()
+            # A match on a tournament is written through the DAO method that
+            # clears the tournament cache where this process shares the API's
+            # cache (SB-1747). The worker does not today, so the clear is a
+            # no-op here. League matches are written directly, as before.
+            if existing_match.get("tournament_id") is not None or "tournament_id" in update_data:
+                written = self.dao.update_ingested_tournament_match(match_id, update_data)
+            else:
+                response = self.dao.client.table("matches").update(update_data).eq("id", match_id).execute()
+                written = bool(response.data)
 
-            if response.data:
+            if written:
                 logger.info(f"Successfully updated match {match_id}: {update_data}")
                 return update_data
             else:
@@ -644,16 +808,29 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             - match_date: str (ISO format)
             - season: str
             - age_group: str
-            - division: str
+            - division: str (league messages; omitted on a tournament message)
             Optional fields:
             - home_score: int
             - away_score: int
+            - home_penalty_score / away_penalty_score: int, as a pair, only
+              when regulation ended level
             - match_status: str
-            - match_type: str
+            - match_type: str ("Tournament" on a tournament message)
+            - league: str (scopes team and division lookups)
+            - external_match_id: str (the source match id a rescrape upserts
+              on; required on a tournament message)
+            - source: str (provenance; defaults to "match-scraper")
             - location: str
             - match_time: str ("HH:MM", the venue's local time)
             - scheduled_kickoff: str (ISO 8601 with offset, the feed's UTC
               kickoff; preferred over match_time when present)
+            Tournament fields (SB-1747) — tournament_id makes the message a
+            tournament message; the rest mean nothing without it:
+            - tournament_id: int
+            - competition: str (the feed's own name, e.g. "HD Group Play")
+            - tournament_group: str (the feed's own label, e.g. "A")
+            - tournament_round: str (a round key, e.g. "group_stage")
+            - tournament_round_order: int
 
     Returns:
         Dict containing:
@@ -671,6 +848,28 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             f"Processing match data: {match_data.get('home_team')} vs {match_data.get('away_team')} (MLS ID: {mls_id})"
         )
 
+        sample = (
+            f"{match_data.get('home_team')} vs {match_data.get('away_team')}, "
+            f"{match_data.get('match_date')} {match_data.get('age_group', '')}"
+        ).strip()
+
+        # Step 0: Read the tournament filing, if the message carries one
+        # (SB-1747). Read ahead of the general validation, which reports the
+        # same problems but as a retried ValueError: tournament fields that
+        # cannot be filed are permanent, and are recorded once per distinct
+        # problem in ingest_failures instead.
+        try:
+            filing = read_tournament_filing(match_data)
+        except TournamentFilingError as e:
+            raise UnresolvedNameError("invalid", str(e), league=match_data.get("league"), sample=sample) from e
+        if filing and filing.tournament_round and filing.tournament_round not in VALID_ROUNDS:
+            logger.warning(
+                "Tournament round is not one MT knows — filing it anyway",
+                tournament_round=filing.tournament_round,
+                tournament_id=filing.tournament_id,
+                external_match_id=match_data.get("external_match_id"),
+            )
+
         # Step 1: Validate the match data
         validation_result = validate_match_data(match_data)
         if not validation_result["valid"]:
@@ -681,7 +880,6 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         # Step 2: Extract team information
         home_team_name = match_data["home_team"]
         away_team_name = match_data["away_team"]
-
         # The feed's competition name scopes both lookups below. Team aliases
         # and division names are unique per league, not globally, so resolving
         # the league first is what keeps two competitions that share a name
@@ -697,23 +895,9 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
 
         logger.debug(f"Looking up teams: {home_team_name}, {away_team_name} (league_id={league_id})")
 
-        # Resolve teams. resolve_team_by_name consults team_aliases as well as
-        # teams.name (SB-822) — the plain name lookup this used to call meant
-        # the aliases seeded for the Kitman feed never applied to the feed.
-        # Nothing is created here: an unknown name fails the task rather than
-        # inventing a lightweight team row that later collides on the unique
-        # constraint.
-        sample = (
-            f"{home_team_name} vs {away_team_name}, {match_data.get('match_date')} {match_data.get('age_group', '')}"
-        ).strip()
-
-        home_team = self.team_dao.resolve_team_by_name(home_team_name, league_id=league_id)
-        if not home_team:
-            raise UnresolvedNameError("team", home_team_name, league=league_name, sample=sample)
-
-        away_team = self.team_dao.resolve_team_by_name(away_team_name, league_id=league_id)
-        if not away_team:
-            raise UnresolvedNameError("team", away_team_name, league=league_name, sample=sample)
+        # Resolve teams. An unknown name fails the task; nothing is created.
+        home_team = self._resolve_team(home_team_name, league_id=league_id, league_name=league_name, sample=sample)
+        away_team = self._resolve_team(away_team_name, league_id=league_id, league_name=league_name, sample=sample)
 
         # Both names are good. If either was failing before — an alias added
         # part way through a load, say — close its row now.
@@ -772,6 +956,22 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             else:
                 logger.warning(f"Age group not found: {match_data['age_group']}")
 
+        # A tournament message is filed on its tournament and has no division
+        # (the filing read above rejects one that sends both).
+        if filing:
+            self._require_tournament(filing, league_name=league_name, sample=sample)
+            # A league match with an unknown age group falls back to id 1 on
+            # create. At a six-age-group tournament that default would file a
+            # whole age group's fixtures under another's, so here it is a
+            # failure (SB-1747).
+            if age_group_id is None:
+                raise UnresolvedNameError(
+                    "invalid",
+                    f"unknown age group '{match_data.get('age_group') or ''}' on a tournament match",
+                    league=league_name,
+                    sample=sample,
+                )
+
         # Record that both teams play this age group in this division. Nothing
         # did, so a team the scraper had filed matches for all season did not
         # exist at that age group as far as the team pickers were concerned
@@ -782,6 +982,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         # Step 3: Check if match already exists
         external_match_id = match_data.get("external_match_id")
         existing_match = None
+        adopted = False
 
         # First try: Look up by external ID (fast path for previously scraped matches)
         if external_match_id:
@@ -798,6 +999,27 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 match_date=match_data["match_date"],
                 age_group_id=age_group_id,
             )
+
+            # A tournament message adopts a hit only when it is a hand-entered
+            # match on the same tournament (SB-1747). A league or friendly row,
+            # or one on another tournament, is a different match between the
+            # same teams that day; so is a hit that already carries a different
+            # source id — routine at a tournament. Either is left alone and
+            # this message creates its own row. A league message takes the hit
+            # as it always has.
+            if existing_match and filing is not None:
+                if existing_match.get("tournament_id") != filing.tournament_id:
+                    logger.info(
+                        f"Ignoring fallback match {existing_match['id']}: it is not on tournament "
+                        f"{filing.tournament_id}"
+                    )
+                    existing_match = None
+                elif self._is_other_fixture(existing_match, external_match_id):
+                    logger.info(
+                        f"Ignoring fallback match {existing_match['id']}: it is source match "
+                        f"{existing_match.get('match_id')}, not {external_match_id}"
+                    )
+                    existing_match = None
 
             if existing_match:
                 logger.info(
@@ -816,9 +1038,15 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                         # Update the existing_match dict to reflect the new match_id
                         existing_match["match_id"] = external_match_id
                         existing_match["source"] = "match-scraper"
+                        adopted = True
                         logger.info(f"Successfully populated match_id on match {existing_match['id']}")
                     else:
                         logger.warning(f"Failed to populate match_id on match {existing_match['id']}")
+
+        # A tournament message never moves a row off a league or off another
+        # tournament (SB-1747).
+        if existing_match and filing is not None:
+            self._require_row_on_tournament(existing_match, filing, league_name=league_name, sample=sample)
 
         # Step 4: Insert or update match
         if existing_match:
@@ -830,6 +1058,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 away_team["id"],
                 match_type_id=match_type_id,
                 division_id=division_id,
+                filing=filing,
+                adopted=adopted,
             )
 
             if needs_update:
@@ -844,6 +1074,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                     away_team["id"],
                     match_type_id=match_type_id,
                     division_id=division_id,
+                    filing=filing,
+                    adopted=adopted,
                 )
 
                 if success:
@@ -875,7 +1107,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             season_id = self._resolve_season_id(match_data)
 
             # Resolved once above, for both branches. 1 remains the fallback
-            # for a feed that names an age group we do not have.
+            # for a league feed that names an age group we do not have; a
+            # tournament message with one has already failed above.
             age_group_id_for_create = age_group_id or 1
 
             scheduled_kickoff = self._resolve_kickoff(match_data, home_team["id"])
@@ -899,6 +1132,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                 scheduled_kickoff=scheduled_kickoff,
                 home_penalty_score=home_pens,
                 away_penalty_score=away_pens,
+                **(filing.columns() if filing else {}),
             )
             if match_id:
                 alert_if_new_final_score(

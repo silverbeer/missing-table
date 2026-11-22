@@ -247,6 +247,13 @@ class MatchDAO(BaseDAO):
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
                     "match_id": match.get("match_id"),
+                    # Tournament filing. Left out, an unchanged tournament
+                    # rescrape reads as changed and is re-written every run
+                    # (SB-1747) — the same trap as the shootout above.
+                    "tournament_id": match.get("tournament_id"),
+                    "tournament_group": match.get("tournament_group"),
+                    "tournament_round": match.get("tournament_round"),
+                    "tournament_round_order": match.get("tournament_round_order"),
                     "created_at": match["created_at"],
                     "updated_at": match["updated_at"],
                 }
@@ -332,6 +339,13 @@ class MatchDAO(BaseDAO):
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
                     "match_id": match.get("match_id"),
+                    # Tournament filing. Left out, an unchanged tournament
+                    # rescrape reads as changed and is re-written every run
+                    # (SB-1747) — the same trap as the shootout above.
+                    "tournament_id": match.get("tournament_id"),
+                    "tournament_group": match.get("tournament_group"),
+                    "tournament_round": match.get("tournament_round"),
+                    "tournament_round_order": match.get("tournament_round_order"),
                     "created_at": match["created_at"],
                     "updated_at": match["updated_at"],
                 }
@@ -400,6 +414,10 @@ class MatchDAO(BaseDAO):
         scheduled_kickoff: str | None = None,
         home_penalty_score: int | None = None,
         away_penalty_score: int | None = None,
+        tournament_id: int | None = None,
+        tournament_group: str | None = None,
+        tournament_round: str | None = None,
+        tournament_round_order: int | None = None,
     ) -> int | None:
         """Create a new match with pre-resolved IDs.
 
@@ -426,13 +444,20 @@ class MatchDAO(BaseDAO):
             home_penalty_score: Home shootout score, when a level match went to
                 penalties. MLS NEXT Flex fixtures cannot end level (SB-1020).
             away_penalty_score: Away shootout score, same conditions.
+            tournament_id: The tournament this match belongs to. A tournament
+                match is filed on the tournament and has no division (SB-1747).
+            tournament_group: The stored group value, already composed by
+                dao.tournament_groups.compose_group — never a raw feed label.
+            tournament_round: Round key (e.g. "group_stage").
+            tournament_round_order: Position within the round.
 
         Returns:
             Created match ID, or None on failure
         """
         try:
-            # Validate division for match-scraper sourced matches
-            if source == "match-scraper" and division_id is None:
+            # Validate division for match-scraper sourced matches. A tournament
+            # match is the exception: it is filed on the tournament instead.
+            if source == "match-scraper" and division_id is None and tournament_id is None:
                 logger.error("Division is required for match-scraper sourced matches but was not provided")
                 raise ValueError("Division is required for match-scraper sourced matches")
 
@@ -466,6 +491,14 @@ class MatchDAO(BaseDAO):
             if home_penalty_score is not None and away_penalty_score is not None:
                 data["home_penalty_score"] = home_penalty_score
                 data["away_penalty_score"] = away_penalty_score
+            if tournament_id is not None:
+                data["tournament_id"] = tournament_id
+                if tournament_group is not None:
+                    data["tournament_group"] = tournament_group
+                if tournament_round is not None:
+                    data["tournament_round"] = tournament_round
+                if tournament_round_order is not None:
+                    data["tournament_round_order"] = tournament_round_order
 
             response = self.client.table("matches").insert(data).execute()
 
@@ -476,6 +509,41 @@ class MatchDAO(BaseDAO):
         except Exception:
             logger.exception("Error creating match")
             return None
+
+    def tournament_exists(self, tournament_id: int) -> bool:
+        """Whether a tournaments row with this id exists.
+
+        Asked by ingest before filing a match on a tournament (SB-1747): the
+        foreign key would reject an unknown id anyway, but as a failed insert
+        that is retried three times and then lost in a worker log.
+
+        Raises on a database error — "could not look" must not be recorded as
+        "no such tournament".
+        """
+        response = self.client.table("tournaments").select("id").eq("id", tournament_id).limit(1).execute()
+        return bool(response.data)
+
+    @invalidates_cache(MATCHES_CACHE_PATTERN, PLAYOFF_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)
+    def update_ingested_tournament_match(self, match_id: int, updates: dict) -> bool:
+        """Write an ingest update to a match that is on a tournament.
+
+        The ingest task writes league updates straight to the table. A
+        tournament match cannot go that way: tournament reads are cached for
+        24 hours (TournamentDAO.get_tournament_by_id), so a score written
+        behind the cache would not appear on the tournament page until the
+        next day (SB-1747).
+
+        Returns whether a row was written. Raises on a database error; the
+        cache is only cleared when the write did not raise.
+
+        The clear only happens in a process that shares the API's cache
+        (CACHE_ENABLED=true and a reachable REDIS_URL). The ingest worker
+        currently has neither, so there this is a plain write and the
+        tournament page can stay stale until the cache expires or the API
+        clears it.
+        """
+        response = self.client.table("matches").update(updates).eq("id", match_id).execute()
+        return bool(response.data)
 
     # === Match Methods ===
 

@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from celery_app import app
+from celery_tasks.tournament_filing import tournament_filing_errors
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ def validate_match_data(match_data: dict[str, Any]) -> dict[str, Any]:
     - Values are within acceptable ranges
     - Dates are valid
     - Team names are not empty
+    - Tournament fields, when present, can be filed
 
     Args:
         match_data: Dictionary containing match information
@@ -102,6 +104,10 @@ def validate_match_data(match_data: dict[str, Any]) -> dict[str, Any]:
         errors.append("season must be a string")
     elif len(season) < 4:
         warnings.append(f"Unusual season format: {season}")
+
+    # Validate tournament fields (SB-1747). All optional; a message with none
+    # is a league message. Any of them without tournament_id is an error.
+    errors.extend(tournament_filing_errors(match_data))
 
     # Log validation result
     if errors:

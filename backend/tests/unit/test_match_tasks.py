@@ -10,12 +10,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from celery_tasks.exceptions import UnresolvedNameError
-from celery_tasks.match_tasks import DatabaseTask, process_match_data
+from celery_tasks.match_tasks import KNOWN_TOURNAMENT_SECONDS, DatabaseTask, process_match_data
 
 MATCH_TYPES = [
     {"id": 1, "name": "League", "counts_for_qualification": True},
     {"id": 5, "name": "Flex", "counts_for_qualification": True},
     {"id": 3, "name": "Friendly", "counts_for_qualification": False},
+    {"id": 2, "name": "Tournament", "counts_for_qualification": False},
 ]
 
 
@@ -644,6 +645,7 @@ def ingest():
     task._ingest_failures_dao.record.return_value = {"id": 1, "match_count": 1, "should_alert": True}
     task._resolved_names = set()
     task._ensured_mappings = set()
+    task._known_tournaments = {}
 
     task._team_dao.resolve_team_by_name.side_effect = lambda name, league_id=None: {
         MATCH["home_team"]: IFA,
@@ -667,6 +669,9 @@ def ingest():
     task._ingest_failures_dao = None
     task._resolved_names = set()
     task._ensured_mappings = set()
+    task._known_tournaments = {}
+    # Drop a clock a test set on the instance; the class one shows through.
+    task.__dict__.pop("_clock", None)
 
 
 def _run(task, **overrides):
@@ -1150,3 +1155,497 @@ class TestFinalScoreAlertHook:
             _run(ingest, home_score=1, away_score=1, match_status="completed")
         before, after = alert.call_args.args
         assert before is None and after["id"] == 4242 and after["home_score"] == 1
+
+
+# ── tournament matches (SB-1747) ─────────────────────────────────────
+
+TOURNAMENT_FIELDS = {
+    "match_type": "Tournament",
+    "league": None,
+    "division": None,
+    "external_match_id": "fest-101",
+    "tournament_id": 12,
+    "competition": "HD Group Play",
+    "tournament_group": "A",
+    "tournament_round": "group_stage",
+    "tournament_round_order": 3,
+}
+
+
+def _run_tournament(task, **overrides):
+    return _run(task, **{**TOURNAMENT_FIELDS, **overrides})
+
+
+def _tournament_row(**overrides):
+    """A scraped tournament fixture as the DAO flattens it: no score yet."""
+    return {
+        "id": 900,
+        "home_team_id": IFA["id"],
+        "away_team_id": OPPONENT["id"],
+        "match_status": "scheduled",
+        "home_score": None,
+        "away_score": None,
+        "home_penalty_score": None,
+        "away_penalty_score": None,
+        "scheduled_kickoff": None,
+        "match_date": MATCH["match_date"],
+        "match_type_id": 2,
+        "division_id": None,
+        "source": "match-scraper",
+        "match_id": "fest-101",
+        "tournament_id": 12,
+        "tournament_group": "HD · A",
+        "tournament_round": "group_stage",
+        "tournament_round_order": 3,
+        **overrides,
+    }
+
+
+class TestIngestFilesATournamentMatch:
+    def test_it_is_created_on_the_tournament_with_no_division(self, ingest):
+        result = _run_tournament(ingest)
+
+        assert result["status"] == "created"
+        created = ingest._dao.create_match.call_args.kwargs
+        assert created["division_id"] is None
+        assert created["tournament_id"] == 12
+        assert created["tournament_group"] == "HD · A"
+        assert created["tournament_round"] == "group_stage"
+        assert created["tournament_round_order"] == 3
+
+    def test_the_tournament_match_type_is_looked_up_by_name(self, ingest):
+        _run_tournament(ingest)
+        assert ingest._dao.create_match.call_args.kwargs["match_type_id"] == 2
+
+    def test_the_source_match_id_and_provenance_reach_the_row(self, ingest):
+        _run_tournament(ingest)
+        created = ingest._dao.create_match.call_args.kwargs
+        assert created["match_id"] == "fest-101"
+        assert created["source"] == "match-scraper"
+
+    def test_no_division_is_looked_up_and_no_mapping_registered(self, ingest):
+        _run_tournament(ingest)
+        ingest._league_dao.get_division_by_name.assert_not_called()
+        ingest._team_dao.ensure_team_mapping.assert_not_called()
+
+    def test_a_league_message_passes_no_tournament_arguments(self, ingest):
+        _run(ingest)
+        assert "tournament_id" not in ingest._dao.create_match.call_args.kwargs
+        ingest._dao.tournament_exists.assert_not_called()
+
+    def test_the_tournament_is_checked_once_per_worker(self, ingest):
+        _run_tournament(ingest)
+        _run_tournament(ingest, external_match_id="fest-102")
+        ingest._dao.tournament_exists.assert_called_once_with(12)
+
+    def test_a_known_tournament_is_asked_about_again_once_the_entry_expires(self, ingest):
+        now = [1000.0]
+        ingest._clock = lambda: now[0]
+
+        _run_tournament(ingest)
+        now[0] += KNOWN_TOURNAMENT_SECONDS - 1
+        _run_tournament(ingest, external_match_id="fest-102")
+        assert ingest._dao.tournament_exists.call_count == 1
+
+        now[0] += 1
+        _run_tournament(ingest, external_match_id="fest-103")
+        assert ingest._dao.tournament_exists.call_count == 2
+
+    def test_a_tournament_deleted_after_it_was_seen_becomes_a_recorded_failure(self, ingest):
+        now = [1000.0]
+        ingest._clock = lambda: now[0]
+        _run_tournament(ingest)
+        assert ingest._dao.create_match.call_count == 1
+
+        ingest._dao.tournament_exists.return_value = False
+        now[0] += KNOWN_TOURNAMENT_SECONDS
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, external_match_id="fest-102")
+
+        assert ingest._dao.create_match.call_count == 1
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args[:2] == ("invalid", "unknown tournament_id 12")
+
+    def test_the_known_tournament_lifetime_is_ten_minutes(self):
+        assert KNOWN_TOURNAMENT_SECONDS == 600
+
+    def test_an_unknown_team_still_fails_and_creates_nothing(self, ingest):
+        with pytest.raises(UnresolvedNameError, match="Team not found: Brand New Club"):
+            _run_tournament(ingest, home_team="Brand New Club")
+        ingest._dao.create_match.assert_not_called()
+
+    def test_a_shootout_reaches_create(self, ingest):
+        _run_tournament(
+            ingest,
+            tournament_round="placement_final",
+            home_score=1,
+            away_score=1,
+            home_penalty_score=4,
+            away_penalty_score=3,
+            match_status="completed",
+        )
+        created = ingest._dao.create_match.call_args.kwargs
+        assert (created["home_penalty_score"], created["away_penalty_score"]) == (4, 3)
+
+
+class TestIngestRejectsATournamentMatchItCannotFile:
+    def test_an_unknown_tournament_is_an_invalid_failure(self, ingest):
+        ingest._dao.tournament_exists.return_value = False
+
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, tournament_id=999)
+
+        ingest._dao.create_match.assert_not_called()
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args[0] == "invalid"
+        assert recorded.args[1] == "unknown tournament_id 999"
+
+    def test_an_unknown_tournament_is_not_retried(self):
+        # The same exception type the task already declines to retry: a
+        # tournament nobody created will not exist in ten minutes either.
+        assert UnresolvedNameError in process_match_data.dont_autoretry_for
+
+    def test_an_unknown_tournament_is_not_remembered_as_known(self, ingest):
+        ingest._dao.tournament_exists.return_value = False
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, tournament_id=999)
+
+        ingest._dao.tournament_exists.return_value = True
+        assert _run_tournament(ingest, tournament_id=999)["status"] == "created"
+
+    def test_an_unknown_age_group_fails_rather_than_defaulting(self, ingest):
+        ingest._season_dao.get_age_group_by_name.return_value = None
+
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, age_group="U99")
+
+        ingest._dao.create_match.assert_not_called()
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args[0] == "invalid"
+        assert "U99" in recorded.args[1]
+
+    def test_a_league_message_still_defaults_an_unknown_age_group(self, ingest):
+        # Unchanged on purpose: only tournament messages fail here.
+        ingest._season_dao.get_age_group_by_name.return_value = None
+        _run(ingest, age_group="U99")
+        assert ingest._dao.create_match.call_args.kwargs["age_group_id"] == 1
+
+    def test_tournament_fields_without_the_id_are_an_invalid_failure(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run(ingest, tournament_group="A")
+
+        ingest._dao.create_match.assert_not_called()
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args[0] == "invalid"
+        assert recorded.args[1] == "tournament_group requires tournament_id"
+
+    def test_a_malformed_round_is_recorded_before_any_lookup(self, ingest):
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, tournament_round="Group Stage")
+        ingest._team_dao.resolve_team_by_name.assert_not_called()
+        assert ingest._ingest_failures_dao.record.call_args.args[0] == "invalid"
+
+    def test_a_round_mt_does_not_know_is_filed_with_a_warning(self, ingest):
+        with patch("celery_tasks.match_tasks.logger") as log:
+            result = _run_tournament(ingest, tournament_round="play_in_2")
+
+        assert result["status"] == "created"
+        assert ingest._dao.create_match.call_args.kwargs["tournament_round"] == "play_in_2"
+        assert any(c.kwargs.get("tournament_round") == "play_in_2" for c in log.warning.call_args_list)
+
+
+class TestIngestRescrapesATournamentMatch:
+    def test_an_unchanged_rescrape_is_skipped(self, ingest):
+        # Guards the flatten: without the tournament columns on the row every
+        # rescrape reads as a re-filing and rewrites all 2,400 matches.
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row()
+
+        result = _run_tournament(ingest)
+
+        assert result["status"] == "skipped"
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+        ingest._dao.client.table("matches").update.assert_not_called()
+        ingest._dao.create_match.assert_not_called()
+
+    def test_a_score_is_written_through_the_cache_clearing_dao_method(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row()
+
+        result = _run_tournament(ingest, home_score=2, away_score=1, match_status="completed")
+
+        assert result["status"] == "updated"
+        match_id, payload = ingest._dao.update_ingested_tournament_match.call_args.args
+        assert match_id == 900
+        assert (payload["home_score"], payload["away_score"]) == (2, 1)
+        assert "tournament_id" not in payload
+        ingest._dao.client.table("matches").update.assert_not_called()
+
+    def test_a_league_update_is_still_written_directly(self, ingest):
+        existing = dict(TestIngestCorrectsAnExistingMatch.EXISTING)
+        ingest._dao.get_match_by_external_id.return_value = existing
+
+        _run(ingest, match_type="Flex", match_date="2026-09-20")
+
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+        ingest._dao.client.table("matches").update.assert_called_once()
+
+    def test_a_rescrape_that_omits_the_group_does_not_clear_it(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row()
+
+        result = _run_tournament(
+            ingest, competition=None, tournament_group=None, tournament_round=None, tournament_round_order=None
+        )
+
+        assert result["status"] == "skipped"
+
+    def test_the_feed_re_files_a_match_it_owns(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row()
+
+        result = _run_tournament(ingest, tournament_group="B")
+
+        assert result["status"] == "updated"
+        payload = ingest._dao.update_ingested_tournament_match.call_args.args[1]
+        assert payload["tournament_group"] == "HD · B"
+
+    def test_a_manual_rows_tournament_fields_are_not_re_filed(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row(
+            source="manual", tournament_group="Bracket A", tournament_round="final"
+        )
+
+        result = _run_tournament(ingest)
+
+        assert result["status"] == "skipped"
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+
+    def test_a_manual_row_still_takes_the_scraped_score(self, ingest):
+        # Scraped data wins on results; only the filing is the user's.
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row(
+            source="manual", tournament_group="Bracket A", tournament_round="final"
+        )
+
+        result = _run_tournament(ingest, home_score=3, away_score=0, match_status="completed")
+
+        assert result["status"] == "updated"
+        payload = ingest._dao.update_ingested_tournament_match.call_args.args[1]
+        assert payload["home_score"] == 3
+        assert "tournament_group" not in payload and "tournament_round" not in payload
+
+    def test_a_partial_rescrape_does_not_re_file_the_group(self, ingest):
+        # Each message composes to something other than "HD · A" if the
+        # missing field is ignored: "HD", "HD · Group Play", "A".
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row()
+
+        assert _run_tournament(ingest, tournament_group=None)["status"] == "skipped"
+        assert _run_tournament(ingest, tournament_round=None)["status"] == "skipped"
+        assert _run_tournament(ingest, competition=None)["status"] == "skipped"
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+
+    def test_a_partial_rescrape_with_a_score_writes_the_score_and_not_the_group(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row()
+
+        _run_tournament(ingest, competition=None, home_score=2, away_score=1, match_status="completed")
+
+        payload = ingest._dao.update_ingested_tournament_match.call_args.args[1]
+        assert (payload["home_score"], payload["away_score"]) == (2, 1)
+        assert "tournament_group" not in payload
+
+    def test_a_row_the_agent_sender_created_is_re_filed(self, ingest):
+        # match-scraper-agent is the live sender; most scraped rows carry it.
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row(source="match-scraper-agent")
+
+        result = _run_tournament(
+            ingest,
+            competition="HD Showcase",
+            tournament_group=None,
+            tournament_round="showcase",
+            tournament_round_order=7,
+        )
+
+        assert result["status"] == "updated"
+        match_id, payload = ingest._dao.update_ingested_tournament_match.call_args.args
+        assert match_id == 900
+        assert payload["tournament_group"] == "HD · Showcase"
+        assert payload["tournament_round"] == "showcase"
+        assert payload["tournament_round_order"] == 7
+        assert "tournament_id" not in payload
+
+    def test_league_re_filing_of_an_agent_row_is_unchanged(self, ingest):
+        # The pre-ticket rule, kept as it was: competition and division are
+        # re-filed only on rows whose source is exactly 'match-scraper'.
+        existing = dict(
+            TestIngestCorrectsAnExistingMatch.EXISTING, source="match-scraper-agent", match_date=MATCH["match_date"]
+        )
+        ingest._dao.get_match_by_external_id.return_value = existing
+        ingest._league_dao.get_division_by_name.return_value = {"id": 9, "name": "Florida", "league_id": 1}
+
+        assert _run(ingest, match_type="Flex", division="Florida")["status"] == "skipped"
+        ingest._dao.client.table("matches").update.assert_not_called()
+
+        _run(ingest, match_type="Flex", division="Florida", home_score=1, away_score=0, match_status="completed")
+        payload = ingest._dao.client.table("matches").update.call_args[0][0]
+        assert payload["home_score"] == 1
+        assert "match_type_id" not in payload and "division_id" not in payload
+
+    def test_a_league_row_is_not_moved_onto_a_tournament(self, ingest):
+        existing = dict(TestIngestCorrectsAnExistingMatch.EXISTING, match_date=MATCH["match_date"])
+        ingest._dao.get_match_by_external_id.return_value = existing
+
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, home_score=2, away_score=1, match_status="completed")
+
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+        ingest._dao.client.table("matches").update.assert_not_called()
+        ingest._dao.create_match.assert_not_called()
+        ingest._ingest_failures_dao.record.assert_called_once()
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args[0] == "invalid"
+        assert recorded.args[1] == "tournament_id 12 sent for a match already filed on a league division"
+
+    def test_a_row_on_another_tournament_is_not_moved(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row(tournament_id=11)
+
+        with pytest.raises(UnresolvedNameError):
+            _run_tournament(ingest, home_score=2, away_score=1, match_status="completed")
+
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+        ingest._dao.create_match.assert_not_called()
+        ingest._ingest_failures_dao.record.assert_called_once()
+        recorded = ingest._ingest_failures_dao.record.call_args
+        assert recorded.args[:2] == ("invalid", "tournament_id 12 sent for a match already filed on tournament 11")
+
+    def test_a_row_filed_nowhere_is_filed_on_the_tournament(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _tournament_row(
+            tournament_id=None, tournament_group=None, tournament_round=None, tournament_round_order=None
+        )
+
+        assert _run_tournament(ingest)["status"] == "updated"
+
+        payload = ingest._dao.update_ingested_tournament_match.call_args.args[1]
+        assert payload["tournament_id"] == 12
+        assert payload["tournament_group"] == "HD · A"
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+
+class TestIngestFallbackLookup:
+    """The teams-and-date fallback adopts hand-entered matches — nothing else."""
+
+    def test_a_hit_that_is_another_source_match_is_ignored(self, ingest):
+        # Two fixtures between the same teams on the same day: updating the
+        # first with the second's score overwrites a real result.
+        ingest._dao.get_match_by_teams_and_date.return_value = _tournament_row(match_id="fest-100", home_score=4)
+
+        result = _run_tournament(ingest, home_score=0, away_score=0, match_status="completed")
+
+        assert result["status"] == "created"
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+        ingest._dao.update_match_external_id.assert_not_called()
+        assert ingest._dao.create_match.call_args.kwargs["match_id"] == "fest-101"
+
+    def test_a_league_message_still_takes_a_hit_with_a_different_source_id(self, ingest):
+        # Unchanged from before SB-1747, deliberately: creating instead would
+        # collide on unique_manual_match, retry three times and lose the match
+        # on every scrape. Only tournament messages make the check above.
+        other = dict(TestIngestCorrectsAnExistingMatch.EXISTING, match_id="kitman-0", match_date=MATCH["match_date"])
+        ingest._dao.get_match_by_teams_and_date.return_value = dict(other)
+
+        assert _run(ingest)["status"] == "skipped"
+        ingest._dao.create_match.assert_not_called()
+        ingest._dao.update_match_external_id.assert_not_called()
+
+        ingest._dao.get_match_by_teams_and_date.return_value = dict(other)
+        result = _run(ingest, home_score=2, away_score=1, match_status="completed")
+
+        assert (result["status"], result["db_id"]) == ("updated", 4060)
+        payload = ingest._dao.client.table("matches").update.call_args[0][0]
+        assert (payload["home_score"], payload["away_score"]) == (2, 1)
+        ingest._dao.create_match.assert_not_called()
+        ingest._dao.update_match_external_id.assert_not_called()
+
+    def test_a_manual_league_row_is_not_adopted_by_a_tournament_message(self, ingest):
+        league_row = dict(
+            TestIngestCorrectsAnExistingMatch.EXISTING,
+            source="manual",
+            match_id=None,
+            tournament_id=None,
+            match_date=MATCH["match_date"],
+        )
+        ingest._dao.get_match_by_teams_and_date.return_value = league_row
+
+        result = _run_tournament(ingest, home_score=2, away_score=1, match_status="completed")
+
+        assert result["status"] == "created" and result["db_id"] == 4242
+        ingest._dao.update_match_external_id.assert_not_called()
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+        ingest._dao.client.table("matches").update.assert_not_called()
+        created = ingest._dao.create_match.call_args.kwargs
+        assert created["match_id"] == "fest-101"
+        assert created["tournament_id"] == 12 and created["division_id"] is None
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_a_manual_row_on_another_tournament_is_not_adopted(self, ingest):
+        ingest._dao.get_match_by_teams_and_date.return_value = _tournament_row(
+            source="manual", match_id=None, tournament_id=11
+        )
+
+        result = _run_tournament(ingest)
+
+        assert result["status"] == "created"
+        ingest._dao.update_match_external_id.assert_not_called()
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+        assert ingest._dao.create_match.call_args.kwargs["tournament_id"] == 12
+
+    def test_an_adopted_row_keeps_what_a_person_typed_and_has_its_nulls_filled(self, ingest):
+        ingest._dao.get_match_by_teams_and_date.return_value = _tournament_row(
+            source="manual",
+            match_id=None,
+            tournament_group="Group A",
+            tournament_round=None,
+            tournament_round_order=None,
+        )
+        ingest._dao.update_match_external_id.return_value = True
+
+        result = _run_tournament(ingest, home_score=2, away_score=1, match_status="completed")
+
+        assert result["status"] == "updated" and result["db_id"] == 900
+        ingest._dao.create_match.assert_not_called()
+        ingest._dao.update_match_external_id.assert_called_once_with(match_id=900, external_match_id="fest-101")
+        payload = ingest._dao.update_ingested_tournament_match.call_args.args[1]
+        assert "tournament_group" not in payload
+        assert payload["tournament_round"] == "group_stage"
+        assert payload["tournament_round_order"] == 3
+        assert (payload["home_score"], payload["away_score"]) == (2, 1)
+
+    def test_an_adopted_row_with_every_column_typed_has_none_overwritten(self, ingest):
+        ingest._dao.get_match_by_teams_and_date.return_value = _tournament_row(
+            source="manual",
+            match_id=None,
+            tournament_group="Group A",
+            tournament_round="final",
+            tournament_round_order=9,
+        )
+        ingest._dao.update_match_external_id.return_value = True
+
+        assert _run_tournament(ingest)["status"] == "skipped"
+        ingest._dao.update_ingested_tournament_match.assert_not_called()
+
+    def test_a_manual_match_with_no_source_id_is_adopted_not_duplicated(self, ingest):
+        ingest._dao.get_match_by_teams_and_date.return_value = _tournament_row(
+            source="manual", match_id=None, tournament_group=None, tournament_round=None, tournament_round_order=None
+        )
+        ingest._dao.update_match_external_id.return_value = True
+
+        result = _run_tournament(ingest)
+
+        assert result["status"] == "updated"
+        ingest._dao.create_match.assert_not_called()
+        ingest._dao.update_match_external_id.assert_called_once_with(match_id=900, external_match_id="fest-101")
+        # Adoption hands the filing to the feed, so the group lands too.
+        payload = ingest._dao.update_ingested_tournament_match.call_args.args[1]
+        assert payload["tournament_group"] == "HD · A"
+
+    def test_a_message_with_no_source_id_still_matches_on_teams_and_date(self, ingest):
+        # Unchanged league behaviour: nothing to compare, so the hit stands.
+        existing = dict(TestIngestCorrectsAnExistingMatch.EXISTING, match_id="kitman-0", match_date=MATCH["match_date"])
+        ingest._dao.get_match_by_teams_and_date.return_value = existing
+
+        assert _run(ingest, external_match_id=None)["status"] == "skipped"
+        ingest._dao.create_match.assert_not_called()
