@@ -95,6 +95,7 @@
 
 <script setup>
 import { computed, h } from 'vue';
+import { BRACKET_ROUND_ORDER } from '../utils/tournamentRounds';
 
 const props = defineProps({
   matches: { type: Array, required: true },
@@ -105,13 +106,20 @@ const props = defineProps({
 
 defineEmits(['match-click']);
 
-const ROUNDS = [
-  { key: 'round_of_32', label: 'Round of 32' },
-  { key: 'round_of_16', label: 'Round of 16' },
-  { key: 'quarterfinal', label: 'Quarterfinals' },
-  { key: 'semifinal', label: 'Semifinals' },
-  { key: 'final', label: 'Final' },
-];
+// Column headings are plural where a round has several matches, so they are
+// kept here rather than taken from the shared (singular) round labels.
+const COLUMN_HEADINGS = {
+  round_of_32: 'Round of 32',
+  round_of_16: 'Round of 16',
+  quarterfinal: 'Quarterfinals',
+  semifinal: 'Semifinals',
+  final: 'Final',
+};
+
+const ROUNDS = BRACKET_ROUND_ORDER.map(key => ({
+  key,
+  label: COLUMN_HEADINGS[key],
+}));
 
 // `tournament_round_order` is the explicit bracket-position field (0-based,
 // top of bracket = 0). When present, the match goes at that slot directly.

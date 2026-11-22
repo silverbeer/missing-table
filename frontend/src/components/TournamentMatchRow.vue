@@ -238,7 +238,10 @@ import { computed, nextTick, ref, watch } from 'vue';
 import ScorePill from './ui/ScorePill.vue';
 import TournamentChip from './ui/TournamentChip.vue';
 import MatchStatusLabel from './ui/MatchStatusLabel.vue';
-import { ROUND_LABELS_SHORT as ROUND_LABELS } from '../utils/tournamentRounds';
+import {
+  ROUND_LABELS_SHORT as ROUND_LABELS,
+  SHOOTOUT_ROUNDS,
+} from '../utils/tournamentRounds';
 import { isMyMatch } from '../utils/tournamentStatus';
 
 const props = defineProps({
@@ -267,18 +270,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['select', 'save']);
-
-// Bracket rounds are the only ones where a level score has to be broken, so
-// they are the only ones that show shootout inputs. Mirrors the rule in
-// AdminTournaments.vue.
-const BRACKET_ROUNDS = new Set([
-  'round_of_32',
-  'round_of_16',
-  'quarterfinal',
-  'semifinal',
-  'third_place',
-  'final',
-]);
 
 const editing = ref(false);
 const homeInput = ref(null);
@@ -335,9 +326,11 @@ const canSubmit = computed(
   () => parsedHome.value !== null && parsedAway.value !== null
 );
 
+// Shootout inputs appear only for a level score in a round that has to
+// produce a winner (SHOOTOUT_ROUNDS).
 const showPenalties = computed(
   () =>
-    BRACKET_ROUNDS.has(props.match.tournament_round) &&
+    SHOOTOUT_ROUNDS.has(props.match.tournament_round) &&
     canSubmit.value &&
     parsedHome.value === parsedAway.value
 );

@@ -113,6 +113,9 @@ VALID_ROUNDS = {
     "bronze_semifinal",
     "silver_final",
     "bronze_final",
+    "showcase",
+    "consolation",
+    "placement_final",
 }
 
 # Paths
