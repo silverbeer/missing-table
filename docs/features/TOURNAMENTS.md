@@ -199,6 +199,39 @@ helpers must agree byte for byte on every input:
 separator, the trimmed characters or the compose rule orphans every follow
 already saved.
 
+## Matches ingested from the scraper
+
+Tournament matches can arrive from match-scraper as well as from the admin
+tools (SB-1747). A queue message carrying `tournament_id` is filed on the
+tournament with a null division and the sender's `source` (`match-scraper` or
+`match-scraper-agent`); the feed's raw
+`competition` and `tournament_group` are composed into the stored
+`tournament_group` with `compose_group`, never by hand, so `HD · A` and
+`AD · A` stay two groups.
+
+A scraped match is upserted on its source match id: a rescrape fills in the
+score and shootout on the same row, an unchanged rescrape writes nothing, and
+a hand-entered match on the same tournament is adopted rather than duplicated
+— its typed group or round kept, its empty columns filled. A match is never
+moved onto a tournament from a league or from another tournament, and a
+rescrape missing part of the group never re-files a stored `HD · A`. Ingest only writes
+`matches` — logged goals are never touched, and a scraped score that disagrees
+with them stays the result while the goals stay the attribution.
+
+Most scraped tournament teams have no manager, so no roster and no events:
+that is the default the tab renders, and a match without a score is `null`,
+not `0–0` (see [Absent is not zero](#absent-is-not-zero)).
+
+**A scraped score can be stale on the Tournaments page.** Tournament reads
+are cached for up to 24 hours. The ingest write clears that cache only when
+the worker shares the API's cache (`CACHE_ENABLED=true` and the same
+`REDIS_URL`), which the production worker currently does not — so a score the
+worker files can take up to the cache lifetime to appear, unless an admin
+write or a deploy clears the cache first.
+
+The message fields, the stored-group rule and what drops a match are in
+[match-scraper.md](../08-integrations/match-scraper.md#tournament-matches).
+
 ## Things that are deliberately not there
 
 - **"Preview" as a row action.** The whole row is clickable. The old "Preview"
