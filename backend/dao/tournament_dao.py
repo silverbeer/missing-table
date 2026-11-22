@@ -8,8 +8,15 @@ Handles all database operations for tournaments, including:
 """
 
 import structlog
+from postgrest.exceptions import APIError
 
 from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, dao_cache, invalidates_cache
+from dao.tournament_filters import (
+    DEFAULT_LIMIT,
+    build_filters_payload,
+    empty_page,
+    unavailable_filters_payload,
+)
 
 logger = structlog.get_logger()
 
@@ -44,6 +51,38 @@ VALID_ROUNDS = {
     "consolation",
     "placement_final",
 }
+
+# The columns of one match in a tournament's match list. Shared by the detail
+# endpoint and the paged one so a row is the same shape from either (SB-1749).
+TOURNAMENT_MATCH_SELECT = """
+                    id,
+                    match_date,
+                    scheduled_kickoff,
+                    match_status,
+                    home_score,
+                    away_score,
+                    home_penalty_score,
+                    away_penalty_score,
+                    tournament_group,
+                    tournament_round,
+                    tournament_round_order,
+                    age_group:age_groups!matches_age_group_id_fkey(id, name),
+                    home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
+                    away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url))
+                """
+
+# PostgREST's "requested range not satisfiable": an offset past the last row
+# of a counted query. For a pager that is an empty page, not a failure.
+_RANGE_NOT_SATISFIABLE = "PGRST103"
+
+# PostgREST's "could not find the function in the schema cache": the facets
+# migration has not reached this database yet. The one facet failure that
+# degrades to "unavailable"; anything else is a real error.
+_FUNCTION_NOT_FOUND = "PGRST202"
+
+# How long a page of tournament matches stays cached. Short, so the keys of a
+# big event expire on their own instead of piling up for a day.
+TOURNAMENT_PAGE_CACHE_TTL = 60
 
 
 class TournamentDAO(BaseDAO):
@@ -183,45 +222,261 @@ class TournamentDAO(BaseDAO):
             # Fetch matches linked to this tournament
             m_query = (
                 self.client.table(MATCHES_READ_RELATION)
-                .select("""
-                    id,
-                    match_date,
-                    scheduled_kickoff,
-                    match_status,
-                    home_score,
-                    away_score,
-                    home_penalty_score,
-                    away_penalty_score,
-                    tournament_group,
-                    tournament_round,
-                    tournament_round_order,
-                    age_group:age_groups!matches_age_group_id_fkey(id, name),
-                    home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
-                    away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url))
-                """)
+                .select(TOURNAMENT_MATCH_SELECT)
                 .eq("tournament_id", tournament_id)
             )
             if not include_test:
                 m_query = m_query.eq("is_test", False)
             m_response = m_query.order("match_date", desc=False).execute()
 
-            # Flatten the nested club under each team into a top-level
-            # `home_team_club` / `away_team_club` on the match, matching the
-            # shape used by `/api/matches` and consumed by MatchDetailView /
-            # MatchesView. Keeps the frontend club-logo code paths consistent
-            # across endpoints.
-            matches = m_response.data or []
-            for m in matches:
-                home = m.get("home_team") or {}
-                away = m.get("away_team") or {}
-                m["home_team_club"] = home.pop("club", None)
-                m["away_team_club"] = away.pop("club", None)
-            tournament["matches"] = matches
+            tournament["matches"] = self._flatten_clubs(m_response.data or [])
             return tournament
 
         except Exception:
             logger.exception("Error fetching tournament by id", tournament_id=tournament_id)
             return None
+
+    @staticmethod
+    def _flatten_clubs(matches: list[dict]) -> list[dict]:
+        """Lift each team's nested club to `home_team_club` / `away_team_club`.
+
+        Matches the shape used by `/api/matches` and consumed by
+        MatchDetailView / MatchesView, so the frontend club-logo code paths
+        stay consistent across endpoints.
+        """
+        for m in matches:
+            home = m.get("home_team") or {}
+            away = m.get("away_team") or {}
+            m["home_team_club"] = home.pop("club", None)
+            m["away_team_club"] = away.pop("club", None)
+        return matches
+
+    # -------------------------------------------------------------------------
+    # Paged matches and filter facets (SB-1749)
+    # -------------------------------------------------------------------------
+
+    @dao_cache("tournaments:age_groups:{tournament_id}")
+    def get_tournament_age_groups(self, tournament_id: int) -> list[dict] | None:
+        """The tournament's own age groups, or None when there is no such tournament.
+
+        A database error is raised, not turned into None: "the lookup failed"
+        must not read as "not found".
+        """
+        rows = self.client.table("tournaments").select("id").eq("id", tournament_id).limit(1).execute().data or []
+        if not rows:
+            return None
+        return self._attach_age_groups(rows)[0]["age_groups"]
+
+    def get_tournament_matches(
+        self,
+        tournament_id: int,
+        *,
+        age_group_id: int | None = None,
+        group: str | None = None,
+        round: str | None = None,
+        limit: int = DEFAULT_LIMIT,
+        offset: int = 0,
+        include_test: bool = False,
+    ) -> dict:
+        """One page of a tournament's matches: ``{matches, total, limit, offset}``.
+
+        Rows have the same shape as ``get_tournament_by_id``'s ``matches``.
+        ``total`` is the exact number of matches the filters select, however
+        many that is — it comes from the database's count, not from the page.
+        Ordered by day, then kickoff, then id, so pages neither overlap nor
+        skip. Raises on a database error.
+        """
+        filters = {
+            "tournament_id": tournament_id,
+            "age_group_id": age_group_id,
+            "group": group,
+            "round": round,
+            "include_test": include_test,
+        }
+        # Only the pages the site itself asks for are cached: the default page
+        # size at a multiple of it. Any other limit or offset is served
+        # uncached, so sweeping them cannot fill the cache with keys.
+        canonical = limit == DEFAULT_LIMIT and offset % DEFAULT_LIMIT == 0
+        fetch = self._tournament_matches_page if canonical else self._fetch_tournament_matches_page
+        page = fetch(limit=limit, offset=offset, **filters)
+        if page is not None:
+            return page
+        if offset == 0:
+            return empty_page(limit, offset)
+        # Past the last row: nothing to show, but the total is still true.
+        head = self._filter_tournament_matches(
+            self.client.table(MATCHES_READ_RELATION).select("id", count="exact", head=True), **filters
+        )
+        return {**empty_page(limit, offset), "total": head.execute().count or 0}
+
+    @staticmethod
+    def _filter_tournament_matches(
+        query,
+        *,
+        tournament_id: int,
+        age_group_id: int | None,
+        group: str | None,
+        round: str | None,
+        include_test: bool,
+    ):
+        """Apply the paged endpoint's filters to a matches query."""
+        query = query.eq("tournament_id", tournament_id)
+        if not include_test:
+            query = query.eq("is_test", False)
+        if age_group_id is not None:
+            query = query.eq("age_group_id", age_group_id)
+        if group is not None:
+            query = query.eq("tournament_group", group)
+        if round is not None:
+            query = query.eq("tournament_round", round)
+        return query
+
+    @dao_cache(
+        "tournaments:matches:{tournament_id}:age{age_group_id}:round{round}"
+        ":l{limit}:o{offset}:test{include_test}:group{group}",
+        ttl=TOURNAMENT_PAGE_CACHE_TTL,
+    )
+    def _tournament_matches_page(
+        self,
+        tournament_id: int,
+        age_group_id: int | None,
+        group: str | None,
+        round: str | None,
+        limit: int,
+        offset: int,
+        include_test: bool,
+    ) -> dict | None:
+        """The cached page, for canonical requests only. None when it has no rows."""
+        return self._fetch_tournament_matches_page(
+            tournament_id=tournament_id,
+            age_group_id=age_group_id,
+            group=group,
+            round=round,
+            limit=limit,
+            offset=offset,
+            include_test=include_test,
+        )
+
+    def _fetch_tournament_matches_page(
+        self,
+        tournament_id: int,
+        age_group_id: int | None,
+        group: str | None,
+        round: str | None,
+        limit: int,
+        offset: int,
+        include_test: bool,
+    ) -> dict | None:
+        """One page from the database. None when there are no rows on it.
+
+        None is deliberate: ``dao_cache`` does not store it, so a caller
+        guessing at group names or offsets cannot fill the cache with empty
+        answers. Any other database error is raised.
+        """
+        try:
+            response = (
+                self._filter_tournament_matches(
+                    self.client.table(MATCHES_READ_RELATION).select(TOURNAMENT_MATCH_SELECT, count="exact"),
+                    tournament_id=tournament_id,
+                    age_group_id=age_group_id,
+                    group=group,
+                    round=round,
+                    include_test=include_test,
+                )
+                .order("match_date", desc=False)
+                .order("scheduled_kickoff", desc=False)
+                .order("id", desc=False)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
+        except APIError as exc:
+            if exc.code == _RANGE_NOT_SATISFIABLE:
+                return None
+            logger.exception("Error fetching tournament matches page", tournament_id=tournament_id)
+            raise
+
+        rows = response.data or []
+        if not rows:
+            return None
+        return {
+            "matches": self._flatten_clubs(rows),
+            "total": response.count or 0,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    def get_tournament_filters(
+        self,
+        tournament_id: int,
+        *,
+        age_group_id: int | None = None,
+        include_test: bool = False,
+        on_date: str | None = None,
+    ) -> dict:
+        """Age groups and groups a tournament can be filtered by, with match counts.
+
+        ``groups`` are the group-stage groups of ``age_group_id`` (of every age
+        group when it is None); ``[]`` means there are none. ``on_date`` adds
+        each age group's count for that day.
+
+        The counts come from the ``tournament_filter_facets`` SQL function,
+        which reaches production separately from this code. Until it exists
+        the facets are reported unavailable — ``groups`` None and every
+        ``matches`` None — rather than as empty lists and zeros, and the age
+        groups fall back to the tournament's own. Any other database error is
+        raised.
+        """
+        rows = self._tournament_facet_rows(
+            tournament_id=tournament_id,
+            age_group_id=age_group_id,
+            include_test=include_test,
+            on_date=on_date,
+        )
+        if rows is None:
+            return unavailable_filters_payload(self.get_tournament_age_groups(tournament_id))
+        return build_filters_payload(rows, on_date=on_date)
+
+    # Short-lived for the same reason as the match pages: on_date and
+    # age_group_id are caller-supplied, so a day-long TTL would let a visitor
+    # pile up keys that every score write then has to scan.
+    @dao_cache(
+        "tournaments:facets:{tournament_id}:age{age_group_id}:test{include_test}:on{on_date}",
+        ttl=TOURNAMENT_PAGE_CACHE_TTL,
+    )
+    def _tournament_facet_rows(
+        self,
+        tournament_id: int,
+        age_group_id: int | None,
+        include_test: bool,
+        on_date: str | None,
+    ) -> list[dict] | None:
+        """Raw facet rows, or None when the SQL function does not exist yet.
+
+        None is not cached, so the first request after the migration is applied
+        gets real counts instead of a day-old "unavailable". Only the missing
+        function degrades: a timeout, a revoked grant or a changed signature is
+        raised, so it is seen instead of passing for "not migrated".
+        """
+        try:
+            response = self.client.rpc(
+                "tournament_filter_facets",
+                {
+                    "p_tournament_id": tournament_id,
+                    "p_age_group_id": age_group_id,
+                    "p_include_test": include_test,
+                    "p_on_date": on_date,
+                },
+            ).execute()
+            return response.data or []
+        except APIError as exc:
+            if exc.code == _FUNCTION_NOT_FOUND:
+                logger.warning(
+                    "tournament_filter_facets not found; serving filters without counts",
+                    tournament_id=tournament_id,
+                )
+                return None
+            logger.exception("Error fetching tournament filter facets", tournament_id=tournament_id)
+            raise
 
     # =========================================================================
     # Admin write

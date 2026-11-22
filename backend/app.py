@@ -110,6 +110,7 @@ from services.content_filter import contains_objectionable_language
 # Legacy flag kept for backwards compatibility so existing envs keep working.
 DISABLE_SECURITY = os.getenv("DISABLE_SECURITY", "false").lower() == "true"
 
+from dao import tournament_filters
 from dao.ai_conversation_dao import AIConversationDAO
 from dao.audit_dao import AuditDAO
 from dao.club_dao import ClubDAO
@@ -134,7 +135,7 @@ from dao.qop_rankings_dao import QoPRankingsDAO
 from dao.roster_dao import RosterDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
-from dao.tournament_dao import TournamentDAO
+from dao.tournament_dao import VALID_ROUNDS, TournamentDAO
 
 
 # Load environment variables with environment-specific support
@@ -8880,6 +8881,84 @@ async def get_tournament(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/tournaments/{tournament_id}/matches")
+async def get_tournament_matches(
+    tournament_id: int,
+    age_group_id: str | None = Query(None, description="Only this age group"),
+    group: str | None = Query(None, description="Only this tournament_group, e.g. 'HD · A'"),
+    round: str | None = Query(None, description="Only this round key, e.g. 'group_stage'"),
+    limit: int = Query(tournament_filters.DEFAULT_LIMIT, description="Page size (max 500)"),
+    offset: int = Query(0, description="Matches to skip"),
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+):
+    """One page of a tournament's matches, filtered server-side (public, SB-1749).
+
+    Returns ``{matches, total, limit, offset}``; ``total`` is exact at any
+    size. A filter value that cannot match (an age group that is not an id, an
+    unknown round) is 200 with no matches, never the unfiltered list. An
+    unknown tournament is 404; a tournament with no matches is 200 and empty.
+    """
+    try:
+        limit = tournament_filters.clamp_limit(limit)
+        offset = tournament_filters.clamp_offset(offset)
+        if tournament_dao.get_tournament_age_groups(tournament_id) is None:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        filters = tournament_filters.resolve_match_filters(age_group_id, group, round, VALID_ROUNDS)
+        if not filters.satisfiable:
+            return tournament_filters.empty_page(limit, offset)
+        return tournament_dao.get_tournament_matches(
+            tournament_id,
+            age_group_id=filters.age_group_id,
+            group=filters.group,
+            round=filters.round,
+            limit=limit,
+            offset=offset,
+            include_test=viewer_sees_test_content(current_user),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error loading tournament matches", tournament_id=tournament_id)
+        raise HTTPException(status_code=500, detail="Could not load tournament matches") from e
+
+
+@app.get("/api/tournaments/{tournament_id}/filters")
+async def get_tournament_filters(
+    tournament_id: int,
+    age_group_id: str | None = Query(None, description="List the groups of this age group"),
+    on_date: str | None = Query(None, description="Also count each age group's matches on this day (YYYY-MM-DD)"),
+    current_user: dict[str, Any] | None = Depends(get_current_user_optional),
+):
+    """What a tournament's matches can be filtered by, with match counts (public, SB-1749).
+
+    Returns ``{facets_available, age_groups: [{id, name, matches,
+    matches_on_date}], groups: [{key, division, label, matches}] | null}``.
+    ``groups: []`` means the age group has no groups; ``null`` — and a null
+    ``matches`` — means the counts could not be computed, which is not zero.
+    An unknown tournament is 404.
+    """
+    try:
+        if tournament_dao.get_tournament_age_groups(tournament_id) is None:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        age_id, age_ok = tournament_filters.parse_age_group_id(age_group_id)
+        payload = tournament_dao.get_tournament_filters(
+            tournament_id,
+            age_group_id=age_id,
+            include_test=viewer_sees_test_content(current_user),
+            on_date=tournament_filters.parse_on_date(on_date),
+        )
+        if not age_ok and payload["groups"] is not None:
+            # Not an age group at all, so it has no groups — not every group.
+            payload = {**payload, "groups": []}
+        return payload
+    except HTTPException:
+        raise
+    except Exception as e:
+        # The specifics stay in the server log; the client gets no internals.
+        logger.exception("Error fetching tournament filters", tournament_id=tournament_id)
+        raise HTTPException(status_code=500, detail="Could not load tournament filters") from e
 
 
 @app.get("/api/admin/teams/lookup")

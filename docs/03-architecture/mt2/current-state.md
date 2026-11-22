@@ -98,7 +98,7 @@ flowchart LR
 | Standings | `GET /api/table`, `/api/qop-rankings`, `/api/playoffs/bracket`, `/api/leaderboards/goals` |
 | Reference | leagues, divisions, age-groups, seasons, current-season, match-types |
 | Players | `/api/players/{user_id}/profile`, `/api/roster/{id}/stats`, `/api/me/player-stats` |
-| Tournaments | `/api/tournaments`, `/api/tournaments/{id}` |
+| Tournaments | `/api/tournaments`, `/api/tournaments/{id}`, `/api/tournaments/{id}/matches` (paged), `/api/tournaments/{id}/filters` |
 | Agent | `/api/agent/match-summary`, `/api/agent/matches`, `/api/agent/audit/*` — used by the scraper agent |
 
 **There is no public text search** over teams, clubs or players. The only server-side

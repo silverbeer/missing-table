@@ -19,9 +19,9 @@
         "
       ></span>
       <span class="uppercase">{{ status.label }}</span>
-      <span v-if="stageLabel" class="opacity-60">·</span>
-      <span v-if="stageLabel" class="uppercase opacity-90">{{
-        stageLabel
+      <span v-if="ribbonStageLabel" class="opacity-60">·</span>
+      <span v-if="ribbonStageLabel" class="uppercase opacity-90">{{
+        ribbonStageLabel
       }}</span>
       <span
         v-if="countdown"
@@ -154,6 +154,9 @@ import {
 const props = defineProps({
   tournament: { type: Object, required: true },
   matches: { type: Array, default: () => [] },
+  // Exact size of the tournament when `matches` is only part of it — a large
+  // tournament is paged (SB-1749). Null means `matches` is all of them.
+  totalMatches: { type: Number, default: null },
   myClubId: { type: Number, default: null },
   myTeamId: { type: Number, default: null },
   stageLabel: { type: String, default: null },
@@ -174,8 +177,24 @@ onUnmounted(() => {
   if (timer) clearInterval(timer);
 });
 
+// `matches` is one page of a larger tournament. Anything read off it — a live
+// match, the next kickoff, the stage in play, the viewer's next match — would
+// describe that page and could be wrong for the tournament, so none is shown.
+const isPartial = computed(() => props.totalMatches != null);
+
+// For a partial list the status comes from the tournament's own dates alone:
+// "Happening today" and "Completed" are true without a single match, while
+// "Live now" and the countdown are not knowable from a page.
 const status = computed(() =>
-  tournamentStatus(props.tournament, props.matches, now.value)
+  tournamentStatus(
+    props.tournament,
+    isPartial.value ? [] : props.matches,
+    now.value
+  )
+);
+
+const ribbonStageLabel = computed(() =>
+  isPartial.value ? null : props.stageLabel
 );
 
 const countdown = computed(() => {
@@ -203,7 +222,7 @@ const dateRange = computed(() => {
   return end && end !== start ? `${start} – ${end}` : start;
 });
 
-const matchCount = computed(() => props.matches.length);
+const matchCount = computed(() => props.totalMatches ?? props.matches.length);
 
 // `tournaments.description` is frequently just the source schedule URL. Render
 // it as a named link rather than as a 66-character string of body text.
@@ -235,6 +254,7 @@ const myMatches = computed(() =>
 );
 
 const nextMyMatch = computed(() => {
+  if (isPartial.value) return null;
   const upcoming = myMatches.value
     .filter(m => !SCORED_STATUSES.includes(m.match_status))
     .filter(m => m.match_status !== 'cancelled')
@@ -279,6 +299,12 @@ const stats = computed(() => {
       .filter(Boolean)
       .map(d => String(d).slice(0, 10))
   ).size;
+
+  // Part of a larger tournament: played, days and "your matches" counted from
+  // the loaded rows would be numbers about a page. Only the total is known.
+  if (props.totalMatches != null) {
+    return [{ key: 'total', value: props.totalMatches, label: 'Matches' }];
+  }
 
   const out = [];
   // Only shown when the viewer actually has a club in this tournament —

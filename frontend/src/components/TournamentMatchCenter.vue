@@ -95,6 +95,7 @@
           <TournamentHeroCard
             :tournament="selected"
             :matches="selected.matches || []"
+            :total-matches="isLargeTournament ? selected.match_count : null"
             :my-club-id="myClubId"
             :my-team-id="myTeamId"
             :stage-label="stageLabel"
@@ -102,9 +103,13 @@
           >
             <template #actions>
               <!-- View toggle: List always shown; Bracket / Standings shown
-                   based on match round shape -->
+                   based on match round shape. Neither is offered for a large
+                   tournament: both are built from every match at once, which
+                   a paged tournament never holds (SB-1749). -->
               <div
-                v-if="hasBracketRounds || hasStandingsRounds"
+                v-if="
+                  !isLargeTournament && (hasBracketRounds || hasStandingsRounds)
+                "
                 class="inline-flex rounded-md border border-line bg-card p-0.5 shrink-0"
               >
                 <button
@@ -165,9 +170,20 @@
           </div>
 
           <template v-else-if="selected.matches && viewMode === 'list'">
+            <!-- Large tournament: filters are applied by the server, and an
+                 age group is always selected (SB-1749). -->
+            <TournamentFilters
+              v-if="isLargeTournament"
+              :age-groups="filterAgeGroups"
+              :selected-age-group-id="viewedAgeGroupId"
+              :groups="filterGroups"
+              :selected-group="selectedGroupKey"
+              @update:age-group="setAgeGroup"
+              @update:group="setGroup"
+            />
             <!-- Age group filter -->
             <div
-              v-if="availableAgeGroups.length > 1"
+              v-else-if="availableAgeGroups.length > 1"
               class="mb-4 flex flex-wrap gap-2"
             >
               <button
@@ -235,9 +251,44 @@
               </button>
             </div>
 
+            <!-- Large tournament: the page for the current filters is on its
+                 way, failed, or is genuinely empty. Empty is said in words —
+                 a spinner would promise matches that are not coming. -->
+            <template v-if="isLargeTournament">
+              <div
+                v-if="pageLoading"
+                class="flex justify-center py-8"
+                data-testid="tournament-page-loading"
+              >
+                <div
+                  class="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600"
+                ></div>
+              </div>
+              <div
+                v-else-if="pageError && selected.matches.length === 0"
+                class="text-center py-10 text-fg-muted"
+                data-testid="tournament-page-error"
+              >
+                {{ pageError }}
+                <button
+                  type="button"
+                  class="ml-1 text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200"
+                  @click="reloadPage"
+                >
+                  Try again
+                </button>
+              </div>
+              <div
+                v-else-if="selected.matches.length === 0"
+                class="text-center py-10 text-fg-muted"
+                data-testid="tournament-page-empty"
+              >
+                {{ largeEmptyText }}
+              </div>
+            </template>
             <!-- No matches -->
             <div
-              v-if="selected.matches.length === 0"
+              v-else-if="selected.matches.length === 0"
               class="text-center py-10 text-fg-muted"
             >
               No matches entered yet.
@@ -251,7 +302,8 @@
               No matches match this filter.
             </div>
 
-            <!-- Group stage / Knockout / Matches, each grouped by day. -->
+            <!-- Group stage / Showcase / Knockout / Placement finals /
+                 Consolation / Matches, each grouped by day. -->
             <div
               v-for="section in listSections"
               :key="section.key"
@@ -312,6 +364,33 @@
                   />
                 </div>
               </div>
+            </div>
+
+            <!-- Large tournament: how much of the filtered list is on screen,
+                 and the next page. No count is shown until the server has
+                 given one. -->
+            <div
+              v-if="isLargeTournament && selected.matches.length > 0"
+              class="mt-2 mb-6 flex flex-wrap items-center justify-center gap-3 text-sm text-fg-muted"
+              data-testid="tournament-page-footer"
+            >
+              <span v-if="filteredTotal != null" data-testid="tournament-shown">
+                Showing {{ selected.matches.length }} of {{ filteredTotal }}
+                {{ filteredTotal === 1 ? 'match' : 'matches' }}
+              </span>
+              <span v-if="pageError" data-testid="tournament-more-error">{{
+                pageError
+              }}</span>
+              <button
+                v-if="hasMoreMatches"
+                type="button"
+                :disabled="loadingMore"
+                data-testid="tournament-load-more"
+                class="px-4 py-1.5 rounded-full text-sm font-medium bg-card border border-line text-fg hover:border-brand-400 disabled:opacity-50"
+                @click="loadMore"
+              >
+                {{ loadingMore ? 'Loading…' : 'Load more' }}
+              </button>
             </div>
           </template>
           <!-- ── Bracket view ── -->
@@ -497,9 +576,14 @@ import ModalOverlay from './ui/ModalOverlay.vue';
 import TournamentHeroCard from './TournamentHeroCard.vue';
 import TournamentMatchRow from './TournamentMatchRow.vue';
 import TournamentMotdBanner from './TournamentMotdBanner.vue';
+import TournamentFilters from './TournamentFilters.vue';
 import { useLiveRowSync } from '@/composables/useLiveRowSync';
 import { useBracketFollows } from '../composables/useBracketFollows';
 import { usePushNotifications } from '../composables/usePushNotifications';
+import {
+  isLargeTournament as isLargeSummary,
+  useTournamentMatches,
+} from '../composables/useTournamentMatches';
 import {
   compareByStatus,
   groupMatchesByDay,
@@ -512,6 +596,11 @@ import {
   KNOCKOUT_ROUNDS,
   KNOCKOUT_ROUND_ORDER,
 } from '../utils/tournamentRounds';
+import {
+  STAGE_ROUNDS,
+  STAGE_ROUND_SECTIONS,
+  buildStageSections,
+} from '../utils/tournamentStages';
 
 // Past this many matches the list is long enough that a team filter earns its
 // row. Below it the input is larger than the thing it filters.
@@ -527,6 +616,7 @@ export default {
     TournamentHeroCard,
     TournamentMatchRow,
     TournamentMotdBanner,
+    TournamentFilters,
   },
   setup() {
     const authStore = useAuthStore();
@@ -544,9 +634,15 @@ export default {
     const seasons = ref([]);
     const selectedSeasonId = ref(null);
 
+    // How the matches are fetched — one detail call, or paged and filtered
+    // by the server for a large tournament — lives in the composable
+    // (SB-1749). `selected` is its tournament: the header plus whichever
+    // matches are loaded.
+    const tournamentMatches = useTournamentMatches();
     const selectedId = ref(null);
-    const selected = ref(null);
+    const selected = tournamentMatches.tournament;
     const matchesLoading = ref(false);
+    const isLargeTournament = tournamentMatches.isLarge;
 
     const teamFilter = ref('');
     const ageGroupFilter = ref(null);
@@ -689,12 +785,13 @@ export default {
       matchesLoading.value = true;
       teamFilter.value = '';
       ageGroupFilter.value = null;
+      // The row from the tournament list carries the exact match_count the
+      // scale switch reads, and is the header of a large tournament.
+      const summary = tournaments.value.find(t => t.id === id) ?? { id };
+      // A large tournament has no bracket or standings view to stay on.
+      if (isLargeSummary(summary)) viewMode.value = 'list';
       try {
-        const data = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/tournaments/${id}`,
-          { method: 'GET' }
-        );
-        selected.value = data;
+        await tournamentMatches.load(summary);
       } catch (err) {
         error.value = err.message;
       } finally {
@@ -712,11 +809,7 @@ export default {
       if (selectedId.value == null) return;
       fetchMotd(selectedId.value);
       try {
-        const data = await authStore.apiRequest(
-          `${getApiBaseUrl()}/api/tournaments/${selectedId.value}`,
-          { method: 'GET' }
-        );
-        selected.value = data;
+        await tournamentMatches.refresh();
       } catch (err) {
         // A background refresh that fails leaves what is on screen alone —
         // it is stale, not wrong, and blanking the page would be worse.
@@ -737,6 +830,30 @@ export default {
       return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
     });
 
+    // The age group on screen, in either mode: the server-side selection of a
+    // large tournament, the chip of a small one (null = All Ages).
+    const viewedAgeGroupId = computed(() =>
+      isLargeTournament.value
+        ? tournamentMatches.selectedAgeGroupId.value
+        : ageGroupFilter.value
+    );
+
+    // What an empty page of a large tournament says. An age group with no
+    // matches is a real state, so it is named, not left spinning.
+    const largeEmptyText = computed(() => {
+      if (tournamentMatches.selectedGroup.value) {
+        return 'No matches match this filter.';
+      }
+      const age = tournamentMatches.ageGroups.value.find(
+        ag => ag.id === tournamentMatches.selectedAgeGroupId.value
+      );
+      return age?.name
+        ? `No ${age.name} matches entered yet.`
+        : 'No matches entered yet.';
+    });
+
+    // In a large tournament the server has already applied the filters, so
+    // the loaded rows are the filtered rows.
     const filteredMatches = computed(() => {
       let matches = selected.value?.matches ?? [];
       if (ageGroupFilter.value !== null) {
@@ -789,12 +906,25 @@ export default {
         });
     });
 
+    // Showcase, placement finals and consolation: one section per stage
+    // label within each round (SB-1749).
+    const stageSections = round =>
+      buildStageSections(
+        filteredMatches.value.slice().sort(byKickoffAsc),
+        STAGE_ROUND_SECTIONS.find(s => s.round === round)
+      ).map(section => ({
+        ...section,
+        showRoundChip: false,
+        showGroupChip: false,
+      }));
+
     const untaggedMatches = computed(() =>
       filteredMatches.value
         .filter(
           m =>
             !m.tournament_round ||
             (!KNOCKOUT_ROUNDS.has(m.tournament_round) &&
+              !STAGE_ROUNDS.has(m.tournament_round) &&
               m.tournament_round !== 'group_stage')
         )
         .slice()
@@ -893,13 +1023,16 @@ export default {
 
     // The filter input is only worth its row once the list is long enough to
     // need it. Kept visible while a filter is active so it can be cleared.
+    // Not offered for a large tournament: it would search only the rows
+    // loaded so far and read as "this team is not here".
     const showTeamFilter = computed(
       () =>
-        (selected.value?.matches?.length ?? 0) > TEAM_FILTER_THRESHOLD ||
-        !!teamFilter.value
+        !isLargeTournament.value &&
+        ((selected.value?.matches?.length ?? 0) > TEAM_FILTER_THRESHOLD ||
+          !!teamFilter.value)
     );
 
-    // The three sections, each already sorted, then grouped into days. Empty
+    // The sections, each already sorted, then grouped into days. Empty
     // sections drop out so a tournament with no knockout stage shows no
     // "Knockout Rounds" heading over nothing.
     const listSections = computed(() =>
@@ -911,6 +1044,7 @@ export default {
           showRoundChip: false,
           showGroupChip: true,
         },
+        ...stageSections('showcase'),
         {
           key: 'knockout',
           title: 'Knockout Rounds',
@@ -918,6 +1052,8 @@ export default {
           showRoundChip: true,
           showGroupChip: true,
         },
+        ...stageSections('placement_final'),
+        ...stageSections('consolation'),
         {
           key: 'untagged',
           title: 'Matches',
@@ -1238,6 +1374,21 @@ export default {
       listSections,
       stageLabel,
       selectTournament,
+      isLargeTournament,
+      viewedAgeGroupId,
+      filterAgeGroups: tournamentMatches.ageGroups,
+      filterGroups: tournamentMatches.groups,
+      selectedGroupKey: tournamentMatches.selectedGroup,
+      filteredTotal: tournamentMatches.total,
+      hasMoreMatches: tournamentMatches.hasMore,
+      pageLoading: tournamentMatches.pageLoading,
+      loadingMore: tournamentMatches.loadingMore,
+      pageError: tournamentMatches.pageError,
+      largeEmptyText,
+      setAgeGroup: tournamentMatches.setAgeGroup,
+      setGroup: tournamentMatches.setGroup,
+      loadMore: tournamentMatches.loadMore,
+      reloadPage: tournamentMatches.reloadPage,
       todayMotd,
       todayMotdLiveMatch,
       motdMatchIds,
