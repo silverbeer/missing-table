@@ -181,6 +181,89 @@ class TestNotNullGuard:
 
 
 @pytest.mark.unit
+class TestMotdAgeGroupFill:
+    """A backup from before SB-1750 has picks with no age_group_id, now NOT NULL."""
+
+    MATCHES = [{"id": 501, "age_group_id": 3}, {"id": 502, "age_group_id": 4}, {"id": 503, "age_group_id": None}]
+
+    def test_a_row_with_an_age_group_is_untouched(self, restore):
+        # Its own value wins, even over the match's.
+        row = {"id": 1, "match_id": 501, "age_group_id": 9}
+
+        filled, skipped = restore.fill_age_group_from_matches([row], self.MATCHES)
+
+        assert filled == [row]
+        assert skipped == 0
+
+    def test_a_row_without_one_takes_its_matchs(self, restore):
+        legacy = {"id": 1, "tournament_id": 12, "match_date": "2026-12-04", "match_id": 502}
+
+        filled, skipped = restore.fill_age_group_from_matches([legacy], self.MATCHES)
+
+        assert filled == [{**legacy, "age_group_id": 4}]
+        assert skipped == 0
+        assert "age_group_id" not in legacy
+
+    def test_a_row_whose_match_is_not_in_the_backup_is_skipped_and_counted(self, restore):
+        rows_in = [{"id": 1, "match_id": 501}, {"id": 2, "match_id": 999}]
+
+        filled, skipped = restore.fill_age_group_from_matches(rows_in, self.MATCHES)
+
+        assert [r["id"] for r in filled] == [1]
+        assert skipped == 1
+
+    def test_a_row_whose_match_has_no_age_group_is_skipped_and_counted(self, restore):
+        rows_in = [{"id": 1, "match_id": 503}, {"id": 2, "match_id": 503, "age_group_id": None}]
+
+        filled, skipped = restore.fill_age_group_from_matches(rows_in, self.MATCHES)
+
+        assert filled == []
+        assert skipped == 2
+
+    def test_an_older_backup_restores_its_picks_and_names_the_ones_it_could_not(
+        self, restore, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.setattr(restore, "clear_table", lambda *_a, **_k: True)
+        monkeypatch.setattr(restore, "reset_sequences", lambda *_a, **_k: None)
+        monkeypatch.setattr(restore, "get_local_user_profile_ids", lambda: set())
+        monkeypatch.setattr(restore, "read_user_reference_catalog", lambda _url: PROD_USER_REFERENCE_CATALOG)
+        restore.db_url = "postgresql://test/db"  # pragma: allowlist secret
+        restore.supabase = FakeClient()
+        match = {"id": 501, "home_team_id": 1, "away_team_id": 2, "season_id": 3, "age_group_id": 3, "match_type_id": 5}
+        picks = [{"id": 1, "match_id": 501}, {"id": 2, "match_id": 999}]
+        backup = write_backup(
+            tmp_path / "database_backup_20261101_000000.json",
+            {"matches": [match], "tournament_match_of_the_day": picks},
+        )
+
+        assert restore.restore_from_backup(backup) is True
+
+        assert restore.supabase.inserted["tournament_match_of_the_day"] == [
+            {"id": 1, "match_id": 501, "age_group_id": 3}
+        ]
+        out = capsys.readouterr().out
+        assert "Skipping 1 tournament_match_of_the_day record(s) with no age group" in out
+        assert "Skipped 1 record(s)" in out
+
+    def test_match_of_the_week_is_left_as_the_backup_had_it(self, restore, tmp_path, monkeypatch):
+        # Same latent gap, separate ticket: this fill is scoped to Match of the Day.
+        monkeypatch.setattr(restore, "clear_table", lambda *_a, **_k: True)
+        monkeypatch.setattr(restore, "reset_sequences", lambda *_a, **_k: None)
+        monkeypatch.setattr(restore, "get_local_user_profile_ids", lambda: set())
+        monkeypatch.setattr(restore, "read_user_reference_catalog", lambda _url: PROD_USER_REFERENCE_CATALOG)
+        restore.db_url = "postgresql://test/db"  # pragma: allowlist secret
+        restore.supabase = FakeClient()
+        backup = write_backup(
+            tmp_path / "database_backup_20261101_000001.json",
+            {"match_of_the_week": [{"id": 1, "match_id": 501}]},
+        )
+
+        restore.restore_from_backup(backup)
+
+        assert restore.supabase.inserted["match_of_the_week"] == [{"id": 1, "match_id": 501}]
+
+
+@pytest.mark.unit
 class TestExitCode:
     """What setup-local-db.sh actually checks."""
 

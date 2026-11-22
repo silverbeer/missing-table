@@ -7,13 +7,13 @@ call the same admin endpoints.
 | | Match of the Week (SB-1010) | Tournament Match of the Day (SB-1559) |
 |---|---|---|
 | Table | `match_of_the_week` | `tournament_match_of_the_day` |
-| One pick per | calendar week (Monday start), pool and age group (SB-1638) | tournament **and** day |
-| Uniqueness | `UNIQUE(week_start, pool, age_group_id)` | `UNIQUE(tournament_id, match_date)` |
-| Key derived from | the match's date → its Monday; its age group; its division → pool | the match's own date |
+| One pick per | calendar week (Monday start), pool and age group (SB-1638) | tournament, day **and** age group (SB-1750) |
+| Uniqueness | `UNIQUE(week_start, pool, age_group_id)` | `UNIQUE(tournament_id, match_date, age_group_id)` |
+| Key derived from | the match's date → its Monday; its age group; its division → pool | the match's own date and age group |
 | Extra fields | `blurb`, `reasons` (SB-1552) | `blurb`, `reasons` |
-| Read | `GET /api/motw?week_start=&age_group_id=&pool=` | `GET /api/tournaments/{id}/motd?date=` |
+| Read | `GET /api/motw?week_start=&age_group_id=&pool=` | `GET /api/tournaments/{id}/motd?date=&age_group_id=` |
 | Write | `POST /api/admin/motw` | `POST /api/admin/tournaments/{id}/motd` |
-| Clear | `DELETE /api/admin/motw/{week_start}?age_group_id=&pool=` | `DELETE /api/admin/tournaments/{id}/motd/{date}` |
+| Clear | `DELETE /api/admin/motw/{week_start}?age_group_id=&pool=` | `DELETE /api/admin/tournaments/{id}/motd/{date}?age_group_id=` |
 
 They are separate tables on purpose: MOTW's slot uniqueness and its pick ordinal
 ("Week 6") would both have to loosen to admit tournament rows.
@@ -22,7 +22,8 @@ They are separate tables on purpose: MOTW's slot uniqueness and its pick ordinal
 
 - **No pick is `200` with `null`, never `404`.** Most weeks and days start unpicked.
 - **The slot comes from the match, not from today.** Picking a future fixture fills its
-  own week or day instead of overwriting the current one.
+  own week or day instead of overwriting the current one, and picking a U16 match never
+  touches the U15 pick.
 - **Re-picking is an upsert that replaces the whole pick.** Fields you omit on a re-pick
   are cleared, not kept — with one exception: MOTW `reasons` (below).
 - **`reasons` is a list of `{text, kind}`, at most 6.** `null` = never provided, `[]` =
@@ -95,11 +96,30 @@ over the MT AI `ToolDeps` protocols and public data only.
 
 ## Match of the Day specifics
 
-- The match must belong to the tournament (`matches.tournament_id`), else **400**. An
-  optional `match_date` in the body guards against picking a match from the wrong day.
-- `GET` without `date` returns every pick as `picks`, oldest first, so the tournament
-  page chooses "today" in the viewer's timezone. Tournaments have no timezone column,
-  and Fest (Mesa, `America/Phoenix`) is 2–3 hours behind most viewers.
+- **One pick per slot (SB-1750).** A slot is (tournament, day, age group). MLS NEXT Fest
+  plays six age groups at once, so a Fest day holds up to six picks. SB-1559 started
+  with one pick per tournament per day; a single-age tournament still has exactly that,
+  and its callers need not name an age group.
+- The match must belong to the tournament (`matches.tournament_id`), else **400**. The
+  day and the age group always come from the match. Optional `match_date` and
+  `age_group_id` in the body are guards: a match on another day, or in another age
+  group, is a **400**. A re-pick replaces only its own age group's pick for the day.
+- A match with no age group cannot be picked: **400**, before anything is written. The
+  age group is part of the slot key, and production allows a match without one.
+- `GET` without `date` returns every pick as `picks`, oldest day first and then by age
+  group, so the tournament page chooses "today" in the viewer's timezone. Tournaments
+  have no timezone column, and Fest (Mesa, `America/Phoenix`) is 2–3 hours behind most
+  viewers. `age_group_id` narrows the list to one age group.
+- `GET ?date=` returns that day's `picks` (every age group's) and `motd`: the slot named
+  by `age_group_id`, or with no age group the day's first pick by age group, which is
+  the only one a single-age tournament has. An age group with no pick that day is
+  `motd: null` with **200**, never another age group's pick.
+- Every pick carries `age_group_id` and `age_group` (the name).
+- `DELETE` with `?age_group_id=` clears that one slot; without it, every pick that day.
+  `cleared` is how many picks went away (0 when none was there).
+- A pick the database refuses to store is a **500**, not the 404 that an unknown match
+  id gets. A clear the database refuses is a **500** too, never `cleared: 0`: the pick
+  is still there. The cause is in the backend log, not in the response.
 - `reasons` is the "Why this is the Match of the Day" list: up to 6 items of
   `{text, kind}`. `null` means never provided; `[]` means provided and empty. The
   distinction is kept in the data; on screen both render no "Why" list.
@@ -109,6 +129,10 @@ over the MT AI `ToolDeps` protocols and public data only.
 `TournamentMatchCenter` fetches `GET /api/tournaments/{id}/motd` alongside the
 tournament, and again on each refresh. Picks are decoration: a failed fetch is
 logged and the page renders as if there were none.
+
+The page does not use the age group yet: it shows a day's first pick whatever age
+group is being viewed. Making the banner and chips follow the viewed age group is the
+remaining part of SB-1750.
 
 - **Banner** (`TournamentMotdBanner.vue`): today's pick only, where "today" is the
   viewer's local date (`localDateKey`), shown above every view (list, bracket,
@@ -122,13 +146,32 @@ logged and the page renders as if there were none.
 
 ```bash
 mt tournament motd show  -T 12                 # every pick in tournament 12
-mt tournament motd show  -T 12 -d 2026-12-04   # one day
+mt tournament motd show  -T 12 -d 2026-12-04   # one day, every age group
+mt tournament motd show  -T 12 -d 2026-12-04 -a U16   # one slot
 mt tournament motd set   -T 12 -m 501 -b "Northeast leaders meet in the desert" \
                          -r "Both unbeaten in league play" -r "First ever meeting"
-mt tournament motd clear -T 12 -d 2026-12-04
+mt tournament motd clear -T 12 -d 2026-12-04 -a U16   # one age group's pick
+mt tournament motd clear -T 12 -d 2026-12-04          # every pick that day
 ```
 
-`set` accepts `--date` as a guard: it refuses if the match is on a different day.
+`set` takes the age group from the match, so it needs no `-a`. `--date` and `--age` are
+guards: it refuses if the match is on a different day or in a different age group.
+`clear` says how many picks it removed.
+
+### Deploying SB-1750
+
+`20261122120000_motd_per_age_group.sql` adds `age_group_id` (filled in from each pick's
+match) and moves the unique key to the triple. Run `./scripts/db_tools.sh migrate prod`
+**immediately before merging** the backend change. Admin writes fail in the gap either
+way round: the old backend upserts on a key that no longer has a constraint, and the
+new backend writes a column that does not exist yet. Public reads do not: they never
+name the new column, and a row without one takes its match's age group.
+
+**Restoring a backup taken before the migration.** Its picks have no `age_group_id`,
+which is now NOT NULL. `scripts/restore_database.py` fills each one from the backup's
+own `matches` rows (`fill_age_group_from_matches`), as the migration did. A pick whose
+match is not in the backup, or whose match has no age group, is not restored; the
+restore prints how many and counts them among the skipped records.
 
 ## The MOTW agent's account (SB-1553)
 

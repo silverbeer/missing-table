@@ -9449,11 +9449,15 @@ MotdReason = FeaturedReason
 
 
 class MotdPick(BaseModel):
-    """An admin's pick for one tournament day."""
+    """An admin's pick for one tournament day and age group."""
 
     match_id: int = Field(..., description="The match being featured; must belong to the tournament.")
     match_date: str | None = Field(
         None, description="Optional guard: the day being picked. Rejected if the match is on a different day."
+    )
+    age_group_id: int | None = Field(
+        None,
+        description="Optional guard: the age group being picked. Rejected if the match is in a different one.",
     )
     blurb: str | None = Field(None, max_length=280, description="Optional one-line headline.")
     reasons: list[MotdReason] | None = Field(
@@ -9474,26 +9478,38 @@ def _iso_date(value: str, label: str) -> str:
 async def get_tournament_match_of_the_day(
     tournament_id: int,
     date: str | None = None,
+    age_group_id: int | None = None,
     current_user: dict[str, Any] | None = Depends(get_current_user_optional),
 ):
-    """Match of the Day for a tournament (SB-1559).
+    """Match of the Day for a tournament (SB-1559), one per age group (SB-1750).
 
-    With `date`: that day's pick, `{"motd": null}` when nobody picked — **200**,
-    not 404 (CLAUDE.md rule 1). Without `date`: every pick in the tournament as
-    `picks`, so the page can choose "today" in the viewer's timezone rather
-    than the server guessing which day it is at the venue.
+    With `date`: `picks` is every age group's pick that day and `motd` is the
+    one for `age_group_id` — or, with no age group, the day's first, which is
+    the only pick a single-age tournament has. `{"motd": null}` when nobody
+    picked that slot — **200**, not 404 (CLAUDE.md rule 1) — and never another
+    age group's pick in its place.
+
+    Without `date`: every pick in the tournament as `picks` (narrowed to
+    `age_group_id` when given), so the page can choose "today" in the viewer's
+    timezone rather than the server guessing which day it is at the venue.
     """
     include_test = viewer_sees_test_content(current_user)
     if date:
         day = _iso_date(date, "date")
         try:
-            motd = motd_dao.get_for_day(tournament_id, day, include_test=include_test)
-            return {"tournament_id": tournament_id, "match_date": day, "motd": motd}
+            picks = motd_dao.list_for_day(tournament_id, day, include_test=include_test)
+            if age_group_id is None:
+                motd = picks[0] if picks else None
+            else:
+                motd = next((p for p in picks if p.get("age_group_id") == age_group_id), None)
+            return {"tournament_id": tournament_id, "match_date": day, "motd": motd, "picks": picks}
         except Exception as e:
             logger.error(f"Error reading match of the day: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Could not read match of the day") from e
     try:
         picks = motd_dao.list_for_tournament(tournament_id, include_test=include_test)
+        if age_group_id is not None:
+            picks = [p for p in picks if p.get("age_group_id") == age_group_id]
         return {"tournament_id": tournament_id, "picks": picks}
     except Exception as e:
         logger.error(f"Error listing matches of the day: {e}", exc_info=True)
@@ -9506,16 +9522,19 @@ async def set_tournament_match_of_the_day(
     body: MotdPick,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
-    """Feature a match for its tournament day, replacing that day's pick (SB-1559).
+    """Feature a match for its tournament day and age group, replacing that slot's pick (SB-1559, SB-1750).
 
-    The day comes from the match itself. A match from another tournament, or
-    on a different day than `match_date`, is a 400; an unknown match is a 404.
+    The day and the age group come from the match itself, so another age
+    group's pick for the day is untouched. A match from another tournament, on
+    a different day than `match_date`, or in a different age group than
+    `age_group_id`, is a 400; an unknown match is a 404.
     """
     try:
         result = motd_dao.set_for_match(
             tournament_id,
             body.match_id,
             match_date=_iso_date(body.match_date, "match_date") if body.match_date else None,
+            age_group_id=body.age_group_id,
             blurb=body.blurb,
             reasons=[r.model_dump() for r in body.reasons] if body.reasons is not None else None,
             selected_by=current_user.get("user_id"),
@@ -9536,13 +9555,19 @@ async def set_tournament_match_of_the_day(
 async def clear_tournament_match_of_the_day(
     tournament_id: int,
     match_date: str,
+    age_group_id: int | None = None,
     current_user: dict[str, Any] = Depends(require_admin),
 ):
-    """Unpick a tournament day (SB-1559). Idempotent, like the MOTW clear."""
+    """Unpick a tournament day (SB-1559). Idempotent, like the MOTW clear.
+
+    With `age_group_id`, only that age group's pick; without, every pick that
+    day (SB-1750). `cleared` is how many went away; a delete that failed is a
+    500, never `cleared: 0`.
+    """
     day = _iso_date(match_date, "match_date")
     try:
-        cleared = motd_dao.clear_day(tournament_id, day)
-        return {"tournament_id": tournament_id, "match_date": day, "cleared": cleared}
+        cleared = motd_dao.clear_day(tournament_id, day, age_group_id=age_group_id)
+        return {"tournament_id": tournament_id, "match_date": day, "age_group_id": age_group_id, "cleared": cleared}
     except Exception as e:
         logger.error(f"Error clearing match of the day: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not clear match of the day") from e
