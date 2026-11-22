@@ -183,6 +183,30 @@ export function tournamentStatus(tournament, matches = [], now = new Date()) {
   };
 }
 
+const formatTournamentDate = value => {
+  if (!value) return '';
+  return new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString(
+    'en-US',
+    {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }
+  );
+};
+
+/**
+ * "Aug 29, 2026 – Aug 31, 2026", or the start date alone for a one-day
+ * tournament, or '' when there is no start date. Shared by the hero card and
+ * the season index so the two never print a tournament's dates differently.
+ */
+export function formatTournamentDateRange(tournament) {
+  const start = formatTournamentDate(tournament?.start_date);
+  if (!start) return '';
+  const end = formatTournamentDate(tournament?.end_date);
+  return end && end !== start ? `${start} – ${end}` : start;
+}
+
 /**
  * Sort order for the tournament selector chips: live first, then what is about
  * to start, then the rest of the calendar, then what is finished.

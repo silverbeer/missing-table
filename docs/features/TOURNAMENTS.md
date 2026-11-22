@@ -1,21 +1,23 @@
 # Tournaments Tab
 
-**Status:** companion refactor shipped (SB-886), stale-status fix (SB-889), modal fix (SB-890), preview fixes (SB-892) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
+**Status:** companion refactor shipped (SB-886), stale-status fix (SB-889), modal fix (SB-890), preview fixes (SB-892), season index + URL per tournament (SB-1767) | **Follow-ons:** weather (SB-887), tournament-level IG share (SB-888)
 
 The Tournaments tab is a **companion**, not a schedule dump. It answers "what is
 happening with my team this weekend" before it answers "what is in this
 tournament".
 
-Entry point: `TournamentMatchCenter.vue`, which owns the filters and the three
-view modes (List / Bracket / Standings). How the matches are fetched — and
-whether the tournament is too big to fetch at once — lives in
+Entry point: `TournamentMatchCenter.vue`, which owns the season index, the
+filters and the three view modes (List / Bracket / Standings). How the matches
+are fetched — and whether the tournament is too big to fetch at once — lives in
 `composables/useTournamentMatches.js` (see [Large tournaments](#large-tournaments)).
 
 ## Components
 
 | Component | Job |
 |-----------|-----|
-| `TournamentMatchCenter.vue` | Fetches seasons + tournaments, owns filters and view mode |
+| `TournamentMatchCenter.vue` | Fetches seasons + tournaments, index vs detail, the URL, filters and view mode |
+| `TournamentIndex.vue` | The season index: one card per tournament (SB-1767) |
+| `utils/tournamentRoute.js` | Pure: reads and builds `/tournaments` and `/tournaments/<id>` |
 | `composables/useTournamentMatches.js` | Fetches a tournament's matches; the scale switch, server-side filters and paging |
 | `TournamentFilters.vue` | Age Group and Group controls of a large tournament |
 | `TournamentHeroCard.vue` | Status ribbon, identity, "your next match", quick stats |
@@ -32,6 +34,103 @@ whether the tournament is too big to fetch at once — lives in
 byte-identical copies** inside `TournamentMatchCenter` (group stage, knockout,
 untagged), so every fix had to be written three times. If you are adding
 something to a row, add it there once.
+
+## Season index
+
+The tab opens on an index of the selected season's active tournaments
+(`TournamentIndex.vue`, SB-1767): one card each, in `compareByStatus` order,
+with the logo, name, date range, location, a status chip and the match count.
+The season selector stays above it, and an empty season keeps the existing
+"No tournaments this season" state.
+
+- **Status** comes from `tournamentStatus(t, [], now)` — the list rows carry no
+  matches, so it is the dates alone, as for a paged tournament. `live` shows as
+  **Happening today** (the hero card's words for a date-only live state),
+  `soon` and `upcoming` as **Upcoming**, `completed` as **Completed**; no dates,
+  no chip. The chip is words as well as colour.
+- **Live cards stand out**: a red ring and a red dot. The dot is static on
+  purpose — a pulse would claim a match in progress, and on a rest day of a
+  tournament the dates say "live" when nothing is being played.
+- **Long names wrap** (`break-words`) instead of overflowing the card.
+- **No logo** is a neutral placeholder the size of a logo, so the names line up.
+- **No count** — `match_count: null` — shows no number at all (see
+  [Absent is not zero](#absent-is-not-zero)).
+- Each card is a real `<button>` with a visible focus ring; cards stack on a
+  phone and sit two across from `sm` up.
+
+A card opens the tournament. Inside it, **"← All tournaments"** goes back to
+the index, and when the season has more than one tournament the old chip row
+remains as a compact, horizontally scrolling switcher. Going back clears the
+selection and the Match of the Day picks and returns the view to List. Nothing
+inside a tournament changed: small and large (paged) modes, the Match of the
+Day banner and bracket follows work as before.
+
+**A season with exactly one tournament opens it directly** — an index of one
+card is a click for nothing. The URL is *replaced*, not pushed, so back does not
+land on an index that would only reopen it. "All tournaments" still shows the
+one card, and it is not reopened until the season changes or the tab is
+entered again.
+
+## URLs
+
+There is no router, so the two paths are hand-parsed by
+`utils/tournamentRoute.js` (`parseTournamentPath`, `tournamentPath`):
+
+| Path | Opens |
+|------|-------|
+| `/tournaments` | the Tournaments tab, on the season index |
+| `/tournaments/<id>` | that tournament, from any season |
+| `/tournaments/<not-a-number>` | the index |
+
+Each tournament's URL is shareable and survives a hard reload — production
+nginx (`try_files … /index.html`), the service worker's navigation route and
+Vite's dev server all serve `index.html` for it.
+
+**Who does what.** `App.vue` only decides the tab: a tournaments path on load or
+on back/forward opens the Tournaments tab, any other path on back/forward leaves
+it. `TournamentMatchCenter` only decides index vs detail, with its own
+`popstate` listener. Neither does the other's job, so they never fight.
+
+| Action | History |
+|--------|---------|
+| Tab entered from the tab bar | `replaceState('/tournaments')` |
+| Card or switcher chip | `pushState('/tournaments/<id>')` |
+| "All tournaments" after a card | `history.back()` |
+| "All tournaments" after a direct link | `pushState('/tournaments')` |
+| One-tournament season | `replaceState('/tournaments/<id>')` |
+| Season changed | `replaceState('/tournaments')`, then that season's index |
+| Leaving the tab | `replaceState('/')` — reloading another tab must not reopen a tournament |
+
+**Late answers do nothing.** A list or lookup that resolves after the visitor
+has moved on is dropped: after the tab unmounts (another tab, sign-out, an
+expired session) nothing writes the address bar or sends another request; and
+every navigation — card, switcher, "All tournaments", back / forward, season
+change — bumps a sequence number that each continuation re-checks after its
+`await`, so pressing back during a link lookup cannot reopen the tournament
+under an index URL.
+
+**An id from a link is opened from its list row**, never from the detail
+endpoint: the row's `match_count` is what chooses small or large mode. An id
+that is not in the current season's list is looked up in the unfiltered
+`GET /api/tournaments`; if found, the season switches to it. Unknown, inactive
+or test-hidden ids all show the index with the same neutral notice — "That
+tournament isn't available." — and the URL becomes `/tournaments`. The notice
+never says which of those it was.
+
+**Invite-only.** Missing Table shows no club or team details to anyone signed
+out. A signed-out visitor at `/tournaments/<id>` gets the normal logged-out
+landing with the login prompt open, and nothing else: the Tournaments
+component is not mounted and no `/api/tournaments*` request is made. The path
+is left in the address bar and kept in `sessionStorage['mt_return_path']`, so:
+
+- signing in with a password opens the tab on that tournament;
+- signing in with Google — which returns to `/auth/callback` — restores the
+  path instead of landing on Profile. The stored value is used only if it parses
+  as a tournaments path, and is cleared after use.
+
+**No title, no preview.** Nothing sets `document.title` or any meta / Open
+Graph tag from tournament or team data: the title stays "Missing Table" and a
+shared link previews as Missing Table, never as the tournament.
 
 ## Tournament status
 
@@ -55,7 +154,7 @@ Two rules worth knowing:
 `countdownTo` is deliberately `null` beyond 7 days. A ticking clock on something
 three weeks away is decoration, not information.
 
-`compareByStatus` sorts the tournament selector chips: live → soon → upcoming →
+`compareByStatus` sorts the season index and the switcher chips: live → soon → upcoming →
 completed. Within a state, **anything still ahead sorts soonest-first and
 anything finished sorts most-recent-first** — the tournament someone wants to
 revisit is the one that just ended.
@@ -82,6 +181,14 @@ draws**, and a broader predicate would erase them.
 
 A live match at 0-0 is a real scoreline. That is why `in_progress` is in the
 scorable set.
+
+**A match count that could not be loaded is `null`, not `0`** (SB-1767).
+`_attach_match_counts` in `tournament_dao.py` used to write `0` when a count
+query failed or returned no count, so a tournament with hundreds of matches
+could read "0 matches". It now writes `None`; a real empty tournament is still
+`0`. Every consumer renders absent as absent: the index card shows no number,
+the admin panel shows "— matches", and `isLargeTournament(null)` is false, so an
+uncounted tournament opens in small mode (one detail call) rather than paged.
 
 ## A past match that never got a result
 
@@ -587,6 +694,11 @@ showing them.
 | `__tests__/components/TournamentMatchRow.spec.js` | Row states, club highlight, chips |
 | `__tests__/components/TournamentHeroCard.spec.js` | Ribbon, schedule link, next-match strip, stats |
 | `__tests__/components/TournamentMatchCenter.spec.js` | Wiring and filters |
+| `__tests__/utils/tournamentRoute.spec.js` | `/tournaments` and `/tournaments/<id>` parsing and building |
+| `__tests__/components/TournamentIndex.spec.js` | Index cards: order, status words, logo vs placeholder, no number for a `null` count, live styling, dates and location |
+| `__tests__/components/TournamentMatchCenterIndex.spec.js` | Index vs detail and history: card push, direct link, another season's link (large still pages), unknown id, back / `popstate`, one-tournament season, empty season, unchanged `document.title`; late answers after unmount and after back during a lookup |
+| `__tests__/components/TournamentDeepLink.spec.js` | App level: signed in lands on the tournament; signed out (on load or by back / forward) shows only the login prompt and makes no `/api/tournaments` request; sign-in (password and Google) returns to it; leaving the tab or signing out resets the URL and stops requests; the return path is cleared by a normal load and a failed Google sign-in |
+| `backend/tests/unit/test_tournament_match_counts.py` | Exact per-tournament counts; a failed or missing count is `None`, a real empty tournament `0` |
 | `__tests__/components/TournamentMatchCenterFestScale.spec.js` | Large tournaments: showcase-only and groups-plus-finals age groups, request parameters, degraded filters, small tournament unchanged |
 | `__tests__/components/TournamentFilters.spec.js` | Age Group / Group controls; the three states of `groups` |
 | `__tests__/components/AdminTournaments.truncation.spec.js` | Exact count and the truncation note in the admin panel |

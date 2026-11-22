@@ -74,11 +74,21 @@
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="text-sm text-fg-muted">
-              {{ tournament.match_count ?? 0 }} match{{
-                (tournament.match_count ?? 0) !== 1 ? 'es' : ''
+            <!-- A count that could not be loaded is absent, never 0. -->
+            <span
+              v-if="typeof tournament.match_count === 'number'"
+              class="text-sm text-fg-muted"
+            >
+              {{ tournament.match_count }} match{{
+                tournament.match_count !== 1 ? 'es' : ''
               }}
             </span>
+            <span
+              v-else
+              class="text-sm text-fg-muted"
+              title="Match count unavailable"
+              >— matches</span
+            >
             <button
               @click.stop="openEditTournament(tournament)"
               class="text-brand-600 dark:text-brand-300 hover:text-brand-900 text-sm"
