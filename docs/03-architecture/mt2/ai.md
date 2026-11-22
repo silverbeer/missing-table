@@ -885,7 +885,9 @@ The MT web app has a chat screen over `POST /api/ai/chat`
 - **Entry point.** An **Ask** tab (Beta badge), listed only for a signed-in user
   when `GET /api/ai/status` returns `enabled: true` and `web_chat: true`. A failed status check hides
   it. `/chat` opens the tab directly once the status check passes. The app has
-  no router, so this is a one-time deep link, not a route.
+  no router, so this is a one-time deep link, not a route. (`/tournaments/<id>`
+  is the one path the app keeps in sync with history — see
+  [TOURNAMENTS.md](../../features/TOURNAMENTS.md#urls).)
 - **Conversation.** The first reply's `conversation_id` goes with every
   follow-up. **New chat** clears it. **Recent** lists `GET /api/ai/conversations`
   and reopens one through `GET /api/ai/conversations/{id}`. Stored turns hold

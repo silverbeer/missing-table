@@ -422,7 +422,29 @@ import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { useBlockedUsers } from './composables/useBlockedUsers';
 import { getApiBaseUrl } from './config/api';
 import { errorMessage } from './utils/apiError';
+import { parseTournamentPath } from './utils/tournamentRoute';
 import { recordPageView, recordInviteRequest } from './faro';
+
+// The tournaments path a signed-out visitor arrived on, kept across the
+// Google sign-in round trip, which returns to /auth/callback (SB-1767).
+const RETURN_PATH_KEY = 'mt_return_path';
+const storeReturnPath = path => {
+  try {
+    window.sessionStorage.setItem(RETURN_PATH_KEY, path);
+  } catch {
+    // Storage blocked: sign-in still works, it just lands on the default tab.
+  }
+};
+const takeReturnPath = () => {
+  try {
+    const path = window.sessionStorage.getItem(RETURN_PATH_KEY);
+    window.sessionStorage.removeItem(RETURN_PATH_KEY);
+    // Only ever a tournaments path — never an arbitrary stored URL.
+    return parseTournamentPath(path) ? path : null;
+  } catch {
+    return null;
+  }
+};
 
 // Eagerly loaded: initial-paint view (LeagueTable is the default tab) and the
 // always-mounted chrome (nav, footer, indicators, login screen). These belong
@@ -545,6 +567,12 @@ export default {
     // /chat opens the MT AI chat tab once the status check says it is on
     // (SB-1500). There is no router; this is a one-shot deep link.
     let openChatOnLoad = /^\/chat\/?$/.test(window.location.pathname);
+    // /tournaments and /tournaments/<id> open the Tournaments tab (SB-1767);
+    // TournamentMatchCenter reads the id. Signed out, the path only opens the
+    // login prompt — nothing about the tournament renders or is fetched — and
+    // is remembered so the Google sign-in round trip comes back to it.
+    let openTournamentsOnLoad =
+      parseTournamentPath(window.location.pathname) != null;
     // MT AI chat (SB-1500): the tab is listed only when the backend says the
     // feature is enabled for this deployment.
     const aiChatEnabled = ref(false);
@@ -838,10 +866,18 @@ export default {
         // This is an OAuth callback - handle it
         console.log('OAuth callback detected, processing...');
         const result = await authStore.handleOAuthCallback();
+        const returnPath = takeReturnPath();
         if (result.success) {
-          // Redirect to home page and clear the OAuth tokens from URL
-          window.history.replaceState(null, '', '/');
-          currentTab.value = 'profile'; // Show profile tab after login
+          if (returnPath) {
+            // Signed in from a tournament link: back to that tournament.
+            window.history.replaceState(null, '', returnPath);
+            openTournamentsOnLoad = false;
+            currentTab.value = 'match-center';
+          } else {
+            // Redirect to home page and clear the OAuth tokens from URL
+            window.history.replaceState(null, '', '/');
+            currentTab.value = 'profile'; // Show profile tab after login
+          }
           console.log('OAuth login successful');
         } else {
           console.error('OAuth callback failed:', result.error);
@@ -851,6 +887,15 @@ export default {
       } else {
         // Normal initialization
         await authStore.initialize();
+        // A return path is only for the sign-in that set it.
+        takeReturnPath();
+      }
+
+      // A tournament link, signed out: the login prompt and nothing else.
+      // The tab opens once someone signs in (the auth watcher below).
+      if (openTournamentsOnLoad && !authStore.isAuthenticated.value) {
+        storeReturnPath(window.location.pathname);
+        showLoginModal.value = true;
       }
 
       // Record initial page view after auth initialization
@@ -967,6 +1012,11 @@ export default {
       isAuth => {
         if (isAuth) {
           loadAiChatStatus();
+          if (openTournamentsOnLoad) {
+            openTournamentsOnLoad = false;
+            currentTab.value = 'match-center';
+            takeReturnPath();
+          }
         } else {
           aiChatEnabled.value = false;
           if (currentTab.value === 'chat') currentTab.value = 'table';
@@ -989,10 +1039,24 @@ export default {
       { immediate: true }
     );
 
+    // Back / forward (SB-1767). This only switches tabs: a tournaments path
+    // opens the Tournaments tab, any other path leaves it. Index vs detail is
+    // TournamentMatchCenter's own popstate handler, so the two never fight.
+    // Signed out, nothing opens — the tab content is behind the session.
+    const handlePopState = () => {
+      if (parseTournamentPath(window.location.pathname)) {
+        if (authStore.isAuthenticated.value) currentTab.value = 'match-center';
+      } else if (currentTab.value === 'match-center') {
+        currentTab.value = 'table';
+      }
+    };
+    onMounted(() => window.addEventListener('popstate', handlePopState));
+
     // Cleanup on unmount
     onUnmounted(() => {
       stopLiveMatchPolling();
       adminAttention.stopPolling();
+      window.removeEventListener('popstate', handlePopState);
     });
 
     // Handle clicking on LIVE tab

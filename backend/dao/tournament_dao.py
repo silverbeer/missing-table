@@ -145,10 +145,12 @@ class TournamentDAO(BaseDAO):
                 )
                 if not include_test:
                     count_query = count_query.eq("is_test", False)
-                t["match_count"] = count_query.execute().count or 0
+                # No count in the response is unknown, not zero: None, so a
+                # client renders no number (SB-1767). A real 0 stays 0.
+                t["match_count"] = count_query.execute().count
             except Exception:
                 logger.exception("Error fetching tournament match count", tournament_id=t["id"])
-                t["match_count"] = 0
+                t["match_count"] = None
         return tournaments
 
     def _sync_age_groups(self, tournament_id: int, age_group_ids: list[int]) -> None:

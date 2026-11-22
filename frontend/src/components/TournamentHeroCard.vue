@@ -146,6 +146,7 @@ import TournamentChip from './ui/TournamentChip.vue';
 import {
   tournamentStatus,
   formatCountdown,
+  formatTournamentDateRange,
   isMyMatch,
   relativeDayLabel,
   SCORED_STATUSES,
@@ -203,24 +204,7 @@ const countdown = computed(() => {
   return formatCountdown(new Date(target) - now.value);
 });
 
-const formatDate = value => {
-  if (!value) return '';
-  return new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString(
-    'en-US',
-    {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }
-  );
-};
-
-const dateRange = computed(() => {
-  const start = formatDate(props.tournament.start_date);
-  if (!start) return '';
-  const end = formatDate(props.tournament.end_date);
-  return end && end !== start ? `${start} – ${end}` : start;
-});
+const dateRange = computed(() => formatTournamentDateRange(props.tournament));
 
 const matchCount = computed(() => props.totalMatches ?? props.matches.length);
 

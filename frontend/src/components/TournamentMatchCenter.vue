@@ -68,24 +68,56 @@
         <p class="text-sm mt-1">
           Try another season, or check back soon for upcoming events.
         </p>
+        <p
+          v-if="indexNotice"
+          class="text-sm mt-3"
+          data-testid="tournament-index-notice"
+        >
+          {{ indexNotice }}
+        </p>
       </div>
 
+      <!-- Season index (SB-1767): one card per tournament. -->
+      <TournamentIndex
+        v-else-if="selectedId == null"
+        :tournaments="tournaments"
+        :notice="indexNotice"
+        @open="openTournament"
+      />
+
       <template v-else>
-        <!-- Tournament selector (only shown when multiple active) -->
-        <div v-if="tournaments.length > 1" class="mb-6 flex flex-wrap gap-2">
+        <!-- Back to the index, and a compact switcher between this season's
+             tournaments when there is more than one. -->
+        <div class="mb-6 flex items-center gap-2 min-w-0">
           <button
-            v-for="t in tournaments"
-            :key="t.id"
-            @click="selectTournament(t.id)"
-            :class="[
-              'px-4 py-2 rounded-full text-sm font-medium transition-colors',
-              selectedId === t.id
-                ? 'bg-brand-600 text-white'
-                : 'bg-card border border-line text-fg hover:border-brand-400',
-            ]"
+            type="button"
+            class="shrink-0 px-3 py-2 rounded-full text-sm font-medium text-brand-600 dark:text-brand-300 hover:text-brand-800 dark:hover:text-brand-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            data-testid="tournament-back-to-index"
+            @click="backToIndex"
           >
-            {{ t.name }}
+            ← All tournaments
           </button>
+          <div
+            v-if="tournaments.length > 1"
+            class="flex gap-2 overflow-x-auto min-w-0 pb-1"
+            data-testid="tournament-switcher"
+          >
+            <button
+              v-for="t in tournaments"
+              :key="t.id"
+              type="button"
+              @click="openTournament(t.id)"
+              :aria-current="selectedId === t.id ? 'page' : undefined"
+              :class="[
+                'shrink-0 whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors',
+                selectedId === t.id
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-card border border-line text-fg hover:border-brand-400',
+              ]"
+            >
+              {{ t.name }}
+            </button>
+          </div>
         </div>
 
         <!-- Tournament detail -->
@@ -568,7 +600,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, unref, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, unref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../config/api';
 import TournamentBracket from './TournamentBracket.vue';
@@ -579,6 +611,8 @@ import TournamentHeroCard from './TournamentHeroCard.vue';
 import TournamentMatchRow from './TournamentMatchRow.vue';
 import TournamentMotdBanner from './TournamentMotdBanner.vue';
 import TournamentFilters from './TournamentFilters.vue';
+import TournamentIndex from './TournamentIndex.vue';
+import { parseTournamentPath, tournamentPath } from '../utils/tournamentRoute';
 import { useLiveRowSync } from '@/composables/useLiveRowSync';
 import { useBracketFollows } from '../composables/useBracketFollows';
 import { usePushNotifications } from '../composables/usePushNotifications';
@@ -620,6 +654,7 @@ export default {
     TournamentMatchRow,
     TournamentMotdBanner,
     TournamentFilters,
+    TournamentIndex,
   },
   setup() {
     const authStore = useAuthStore();
@@ -716,34 +751,176 @@ export default {
       }
     };
 
-    const fetchTournaments = async () => {
+    // ── URLs (SB-1767) ──
+    // `/tournaments` is the season index, `/tournaments/<id>` one tournament.
+    // App.vue decides that a path opens this tab; this component decides
+    // index vs detail. Nothing here ever writes the page title or a preview
+    // tag: the title stays "Missing Table" whatever is open.
+    const indexNotice = ref(null);
+    // Async work outlives the component (tab switched, signed out) and must
+    // not write the address bar or fetch for a page nobody is on.
+    let isUnmounted = false;
+    // Bumped by every navigation: card, switcher, "All tournaments", back /
+    // forward, season change. A continuation that finds it moved belongs to
+    // a navigation the visitor has already left, and does nothing.
+    let navSeq = 0;
+    // Bumped by every list fetch; only the latest one owns `loading` and
+    // `tournaments`.
+    let listSeq = 0;
+    // The visitor asked for the index, so a one-tournament season is not
+    // opened for them again until the season changes or the tab is re-entered.
+    let indexRequested = false;
+    // The open tournament was pushed on top of the index: "All tournaments"
+    // is then a history.back(), so the back button and the link agree.
+    let pushedFromIndex = false;
+    // The season was set to follow a link into another season, not by the
+    // selector, so its watcher must not fetch or reset the URL.
+    let seasonSetByLink = false;
+
+    const currentRoute = () => parseTournamentPath(window.location?.pathname);
+    const writeHistory = (method, path) => {
+      if (isUnmounted) return;
+      try {
+        window.history[method](null, '', path);
+      } catch (err) {
+        // A sandboxed frame can refuse; the page still works without a URL.
+        console.error('Error updating the address bar:', err);
+      }
+    };
+
+    const fetchTournamentList = async seasonId => {
+      const url = new URL(`${getApiBaseUrl()}/api/tournaments`);
+      if (seasonId != null) url.searchParams.set('season_id', seasonId);
+      const data = await authStore.apiRequest(url.toString(), {
+        method: 'GET',
+      });
+      // Live first, then what is about to start, then the rest of the
+      // calendar, then what is finished — the index reads in that order.
+      return (data || []).slice().sort((a, b) => compareByStatus(a, b));
+    };
+
+    const showIndex = () => {
+      selectedId.value = null;
+      selected.value = null;
+      motdPicks.value = [];
+      viewMode.value = 'list';
+      pushedFromIndex = false;
+    };
+
+    // No id asked for: the index, except that a season with exactly one
+    // tournament opens it — replacing the URL, so back does not land on an
+    // index that would only open it again.
+    const openDefault = async () => {
+      if (tournaments.value.length === 1 && !indexRequested) {
+        const id = tournaments.value[0].id;
+        // Replaced, not pushed: there is no index behind it to go back to.
+        pushedFromIndex = false;
+        writeHistory('replaceState', tournamentPath(id));
+        await selectTournament(id);
+      } else {
+        showIndex();
+      }
+    };
+
+    // An id from the URL. It must be opened from its row in a tournament
+    // list — `match_count` there picks small or large mode — so an id in
+    // another season is looked up in the unfiltered list, never through the
+    // detail endpoint.
+    const openFromLink = async (id, seq) => {
+      if (
+        !tournaments.value.some(t => t.id === id) &&
+        selectedSeasonId.value != null
+      ) {
+        const all = await fetchTournamentList(null);
+        if (isUnmounted || seq !== navSeq) return;
+        const row = all.find(t => t.id === id);
+        if (row && row.season_id != null) {
+          if (row.season_id !== selectedSeasonId.value) {
+            seasonSetByLink = true;
+            selectedSeasonId.value = row.season_id;
+          }
+          tournaments.value = all.filter(t => t.season_id === row.season_id);
+        }
+      }
+      if (tournaments.value.some(t => t.id === id)) {
+        await selectTournament(id);
+        return;
+      }
+      // Unknown, inactive or hidden from this viewer: the same words for
+      // each, so a link never confirms that a tournament exists.
+      indexNotice.value = "That tournament isn't available.";
+      showIndex();
+      writeHistory('replaceState', tournamentPath());
+    };
+
+    // `wantedId`: an id from the URL, opened once the list can say where it
+    // is. Without one the season's default applies.
+    const fetchTournaments = async (wantedId = null) => {
+      const seq = navSeq;
+      const fetchId = ++listSeq;
+      const current = () => !isUnmounted && fetchId === listSeq;
       try {
         loading.value = true;
         error.value = null;
-        const url = new URL(`${getApiBaseUrl()}/api/tournaments`);
-        if (selectedSeasonId.value != null) {
-          url.searchParams.set('season_id', selectedSeasonId.value);
-        }
-        const data = await authStore.apiRequest(url.toString(), {
-          method: 'GET',
-        });
-        // Live first, then what is about to start, then the rest of the
-        // calendar, then what is finished — so the selector opens on the
-        // tournament a visitor is most likely here for, and so does the
-        // default selection below.
-        tournaments.value = (data || [])
-          .slice()
-          .sort((a, b) => compareByStatus(a, b));
-        if (tournaments.value.length > 0) {
-          await selectTournament(tournaments.value[0].id);
+        const list = await fetchTournamentList(selectedSeasonId.value);
+        if (!current()) return;
+        tournaments.value = list;
+        // A navigation since this fetch began has already chosen the view.
+        if (seq !== navSeq) return;
+        if (wantedId != null) {
+          await openFromLink(wantedId, seq);
         } else {
-          selectedId.value = null;
-          selected.value = null;
+          await openDefault();
         }
       } catch (err) {
-        error.value = err.message;
+        if (current()) error.value = err.message;
       } finally {
-        loading.value = false;
+        if (current()) loading.value = false;
+      }
+    };
+
+    // A card or a switcher chip. Pushed, so back returns to where it was
+    // opened from.
+    const openTournament = async id => {
+      if (id === selectedId.value) return;
+      navSeq += 1;
+      const fromIndex = selectedId.value == null;
+      writeHistory('pushState', tournamentPath(id));
+      pushedFromIndex = fromIndex;
+      indexNotice.value = null;
+      await selectTournament(id);
+    };
+
+    const backToIndex = () => {
+      navSeq += 1;
+      indexRequested = true;
+      indexNotice.value = null;
+      if (pushedFromIndex) {
+        window.history.back();
+      } else {
+        writeHistory('pushState', tournamentPath());
+      }
+      showIndex();
+    };
+
+    // Back / forward between the index and a tournament. A path outside the
+    // tab is App.vue's to handle: it switches tabs, and this unmounts.
+    const onPopState = () => {
+      const route = currentRoute();
+      if (!route) return;
+      navSeq += 1;
+      indexNotice.value = null;
+      pushedFromIndex = false;
+      if (route.kind === 'index') {
+        indexRequested = true;
+        showIndex();
+        return;
+      }
+      if (route.id === selectedId.value) return;
+      if (tournaments.value.some(t => t.id === route.id)) {
+        selectTournament(route.id);
+      } else {
+        fetchTournaments(route.id);
       }
     };
 
@@ -752,13 +929,14 @@ export default {
     // page as it would be with no picks, never on an error path.
     const motdPicks = ref([]);
     const fetchMotd = async id => {
+      if (isUnmounted) return;
       try {
         const data = await authStore.apiRequest(
           `${getApiBaseUrl()}/api/tournaments/${id}/motd`,
           { method: 'GET' }
         );
         // A late answer for a tournament the visitor has already left.
-        if (selectedId.value !== id) return;
+        if (isUnmounted || selectedId.value !== id) return;
         motdPicks.value = Array.isArray(data?.picks) ? data.picks : [];
       } catch (err) {
         console.error('Error fetching match of the day:', err);
@@ -790,6 +968,7 @@ export default {
     );
 
     const selectTournament = async id => {
+      if (isUnmounted) return;
       selectedId.value = id;
       motdPicks.value = [];
       fetchMotd(id);
@@ -1341,15 +1520,51 @@ export default {
       }
     });
 
-    // Refetch tournaments whenever the season changes.
-    watch(selectedSeasonId, () => {
+    // Refetch tournaments whenever the season changes, and show that season's
+    // index. The default season set on mount is skipped — onMounted fetches
+    // for it, and a second fetch would race the id from the URL.
+    watch(selectedSeasonId, (seasonId, previous) => {
+      if (previous == null) return;
+      if (seasonSetByLink) {
+        seasonSetByLink = false;
+        return;
+      }
+      navSeq += 1;
+      indexRequested = false;
+      indexNotice.value = null;
+      writeHistory('replaceState', tournamentPath());
       fetchTournaments();
     });
 
     onMounted(async () => {
+      const route = currentRoute();
+      const wantedId = route?.kind === 'detail' ? route.id : null;
+      if (!route) {
+        // Entered from the tab bar: the address bar says where we are.
+        writeHistory('replaceState', tournamentPath());
+      }
+      window.addEventListener('popstate', onPopState);
+      const mountSeq = navSeq;
       await fetchSeasons();
-      await fetchTournaments();
+      if (isUnmounted) return;
+      if (navSeq === mountSeq) {
+        await fetchTournaments(wantedId);
+      } else if (listSeq === 0) {
+        // Back / forward to the index while seasons loaded: that season's
+        // index, without the link that is no longer in the address bar.
+        await fetchTournaments();
+      }
+      if (isUnmounted) return;
       bracketFollows.ensureLoaded();
+    });
+
+    // Leaving the tab: a reload of the next tab must not reopen a tournament.
+    // A path outside the tab (back to another page) is left as it is. After
+    // this, nothing still in flight writes the address bar or fetches.
+    onUnmounted(() => {
+      window.removeEventListener('popstate', onPopState);
+      if (currentRoute()) writeHistory('replaceState', '/');
+      isUnmounted = true;
     });
 
     return {
@@ -1390,6 +1605,9 @@ export default {
       listSections,
       stageLabel,
       selectTournament,
+      openTournament,
+      backToIndex,
+      indexNotice,
       isLargeTournament,
       viewedAgeGroupId,
       filterAgeGroups: tournamentMatches.ageGroups,

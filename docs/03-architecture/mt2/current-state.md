@@ -145,7 +145,12 @@ over HTTP to `/api/qop-rankings`.
 **Vue 3, plain JavaScript (no TypeScript), Vite 5, Tailwind 3** (`frontend/`).
 
 - **No vue-router**: `App.vue` switches views with a `currentTab` ref; views are
-  lazy-loaded via `utils/lazyView.js`.
+  lazy-loaded via `utils/lazyView.js`. The few paths it reads on load are hand-parsed:
+  `/privacy` (public page), `/chat` (one-shot, opens the Ask tab), `/tournaments` and
+  `/tournaments/<id>` (the Tournaments tab and one tournament, kept in sync with
+  `history` and back/forward — `utils/tournamentRoute.js`, see
+  [TOURNAMENTS.md](../../features/TOURNAMENTS.md#urls)), and `?matchId=` (push-notification
+  match overlay).
 - **No Pinia/Vuex**: `stores/auth.js` (~1,100 lines) is a module-level `reactive()`
   singleton, plus ~19 composables.
 - **API client**: `auth.apiRequest()` adds the bearer token and CSRF header and retries

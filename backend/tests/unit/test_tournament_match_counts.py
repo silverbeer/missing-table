@@ -96,9 +96,10 @@ class TestAttachMatchCounts:
         _wire(dao, [_response(0)])
         assert dao._attach_match_counts([{"id": 7}])[0]["match_count"] == 0
 
-    def test_missing_count_attribute_is_zero(self, dao):
+    def test_missing_count_is_none_not_zero(self, dao):
+        # Unknown is not zero (SB-1767): the client shows no number.
         _wire(dao, [_response(None)])
-        assert dao._attach_match_counts([{"id": 7}])[0]["match_count"] == 0
+        assert dao._attach_match_counts([{"id": 7}])[0]["match_count"] is None
 
     def test_test_partition_filter_applied_by_default(self, dao):
         queries = _wire(dao, [_response(3)])
@@ -122,4 +123,4 @@ class TestAttachMatchCounts:
 
         out = dao._attach_match_counts([{"id": 1}, {"id": 2}, {"id": 3}])
 
-        assert [t["match_count"] for t in out] == [11, 0, 22]
+        assert [t["match_count"] for t in out] == [11, None, 22]
