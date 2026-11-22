@@ -527,11 +527,142 @@ On a tournament message, three existing fields are constrained:
 | `match_type` | Must be `Tournament` (any case). The id is looked up by name |
 | `division` | Must be omitted or null |
 
-`league` stays optional and, when present, scopes team resolution exactly as
-it does for a league message. `home_penalty_score` / `away_penalty_score`,
-`source`, `age_group`, `season` and the kickoff fields behave as they always
-have. The full contract is
+`league` stays optional, but on a tournament message it does more than it does
+on a league message: it names the **side** the teams are on, and a team name
+is resolved on that side or not at all — see
+[Which team a name means](#which-team-a-name-means). When sent it must be the
+name of a league MT has (`Homegrown`, `Academy`, `Flex`); anything else drops
+the match as an unknown league. `home_penalty_score` /
+`away_penalty_score`, `source`, `age_group`, `season` and the kickoff fields
+behave as they always have. The full contract is
 [`match-message-schema.json`](match-message-schema.json).
+
+#### Which team a name means
+
+A tournament such as MLS NEXT Fest puts the Homegrown Division (`HD …`
+competitions) and the Academy Division (`AD …`) in one event, and many clubs
+field a team on each side **under the same name**. On a league message an
+exact `teams.name` hit is taken whatever `league` says — the league only
+scopes aliases — which on a tournament message would file an Academy fixture
+on the Homegrown team's history, silently. So a tournament message resolves
+its two team names differently (SB-1748,
+`TeamDAO.resolve_tournament_team`), in this order:
+
+0. **The `league` itself.** If the message sends one and MT has no league by
+   that name, the message fails here and no team is looked up — see
+   [An unknown league](#an-unknown-league).
+1. **An alias scoped to the message's `league`** (`team_aliases.league_id`,
+   SB-1652). A deliberate statement about that league: trusted as it stands.
+2. **The exact team name** — every team with that name, not the first one.
+3. **An alias with no league.** An alias scoped to a *different* league does
+   not apply.
+4. **The side guard**, on whichever of 2 and 3 found anything first.
+
+Matching is exact apart from letter case and whitespace. Nothing is fuzzy,
+nothing is inferred from a club's other teams, and nothing is created. The
+name is compared as text, never as a pattern: `%` and `_` in a feed name match
+only themselves, both against team names and against aliases, and a name the
+database cannot be asked about at all (one ending in a backslash, before this
+was escaped) is an unknown team, not a retried error. League messages are not
+changed by this; their alias lookup is as it was.
+
+A name that is both one team's exact name and a league-agnostic alias of
+another resolves to the team that owns the name — step 2 found something, so
+step 3 is not consulted. If that team is on the other side the message fails
+as `wrong side`; it does not fall through to the alias. A league-scoped alias
+(step 1) is the way to say what the name means on one side.
+
+**A team's side** at the message's age group is the set of leagues of the
+divisions it is registered in at that age (`team_mappings`), a child league
+counted as its parent (`leagues.parent_league_id`: Flex is Homegrown). A team
+with no registration at that age is judged by its registrations at every age
+plus `teams.league_id`, folded the same way. `teams.league_id` alone is not
+the test: Homegrown clubs carry Flex there and MLS academies carry nothing.
+
+**The guard** then keeps the candidates whose side includes the message's
+`league` (itself folded to its parent) — and of those, only the ones that are
+**cleanly** on it. A team registered on the hinted side *and* another at the
+message's age group (an Academy division and a Homegrown one, both at U14) is
+not a clean match: its registrations cannot say which side it is, and taking
+it for an Academy message is exactly the Academy-fixture-on-a-Homegrown-team
+fault. A handful of production teams are mapped that way, left over from old
+mis-filing.
+
+| `league` | Candidates left | Result |
+|----------|-----------------|--------|
+| sent | exactly one cleanly on that side | that team — even if a both-sides team shares the name |
+| sent | more than one cleanly on that side | fails — `ambiguous: team ids 7, 9` |
+| sent | none cleanly on it, one or more on both sides | fails — `ambiguous: team 17 is registered as both Academy and Homegrown at this age group` |
+| sent | none | fails — `wrong side: exists as Homegrown` |
+| not sent | exactly one candidate | that team (a both-sides team included: there is no hint to contradict) |
+| not sent | more than one candidate | fails — `ambiguous: team ids 7, 9` |
+
+"Both sides" is judged at the message's age group only. A team with no
+registration at that age is judged by its registrations at every other age
+plus `teams.league_id`; if those span both sides it still answers either
+hint, as it did.
+
+A team with no registrations and no `teams.league_id` has no side: it resolves
+only for a message that sends no `league`, and otherwise fails as
+`wrong side: team has no league or division registration`.
+
+A failure is a `team` row in `ingest_failures` like any other unknown name —
+recorded once per name **and league**, counted, not retried — with the reason
+appended to its `sample` in square brackets:
+
+- **`wrong side: exists as <league>`** — the name is a team, but only on the
+  other side. The team on this side does not exist yet, or is not registered
+  at any age group, or goes by another name and needs a league-scoped alias.
+- **`wrong side: team has no league or division registration`** — the name is
+  a team that is registered nowhere, so nothing says which side it is on.
+- **`ambiguous: team ids …`** — more than one team on this side (or, with no
+  `league`, more than one team at all) has that name. The ids are the
+  candidates; MT picks none of them.
+- **`ambiguous: team N is registered as both Academy and Homegrown at this age
+  group`** — the only team with that name on this side is mapped into both at
+  the message's age group. Remove the mapping that is wrong
+  (`mt team mapping list` shows them) and the name resolves.
+
+#### An unknown league
+
+A tournament message whose `league` is not the name of a league MT has —
+`HD`, `Homegrown Division`, a typo — is **one** failure for that string, kind
+`league`, with the string as its `raw_name` and no `league` of its own. It is
+recorded once and counted, not retried, and no team is looked up. The name is
+compared whole, without case or padding; it is never a pattern and never a
+nearest match. It fails closed: the message is dropped, not resolved as if no
+`league` had been sent.
+
+Before this, the wrong string reached the side guard and every team in the
+event failed as `wrong side: exists as Homegrown` — one misleading row per
+team (about 1,350 at a Fest) for one mistake at the sender.
+
+A league message is not affected. An unknown `league` there is still a logged
+warning and unscoped lookups, exactly as before.
+
+A league message is untouched by all of this: it still resolves through
+`resolve_team_by_name`, with the same calls in the same order.
+
+**Closing a failure is per league too.** When a name resolves, its open
+failure row closes itself. For a tournament message only the row for the
+message's `league` is closed (`resolve_ingest_failures_by_league`), so a
+Homegrown success does not close the Academy row for the same name — which
+would reopen on the next Academy failure and alert again.
+
+> **Deploy note.** That function is a migration
+> (`20261124120000_ingest_failures_resolve_by_league.sql`), applied with
+> `./scripts/db_tools.sh migrate prod`. Until it is, tournament team failure
+> rows are simply not auto-closed — the worker logs once that the function is
+> missing and leaves them open rather than closing the wrong side's. A worker
+> that has been told the function is missing does not call it again for ten
+> minutes, rather than twice per tournament message, so closing starts within
+> ten minutes of the migration landing, without a restart. Resolution itself
+> does not depend on the migration.
+
+**What it costs.** The side guard needs the `leagues` table; each worker reads
+it once and keeps it for ten minutes, so a league created or renamed is seen
+within that. A hinted name is then two queries (aliases, teams), three when it
+is reached only through a league-agnostic alias.
 
 #### What is stored in `tournament_group`
 
@@ -658,7 +789,9 @@ a count, and is not retried:
 | Age group not in `age_groups` | `unknown age group 'U99' on a tournament match` |
 | A tournament field with no `tournament_id` | `tournament_group requires tournament_id` |
 | Missing `external_match_id`, wrong `match_type`, a `division`, a malformed round key, a wrong type | the rule that failed |
+| A `league` that is not a league MT has (kind `league`) | the `league` string — see [An unknown league](#an-unknown-league) |
 | Unknown team name (kind `team`) | the name, as for a league message |
+| Team name that exists only on the other side, or matches more than one team (kind `team`) | the name; the reason is in `sample` — see [Which team a name means](#which-team-a-name-means) |
 
 An unknown age group is a failure **only** for tournament messages. A league
 message still falls back to age group id 1, as before.

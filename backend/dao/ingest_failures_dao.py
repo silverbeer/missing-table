@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
+from postgrest.exceptions import APIError
 
 from dao.base_dao import BaseDAO
 
@@ -23,9 +24,17 @@ logger = structlog.get_logger()
 
 DEFAULT_SOURCE = "match-scraper"
 
+# PostgREST's "could not find the function in the schema cache": the
+# resolve-by-league migration has not reached this database yet (SB-1748).
+_FUNCTION_NOT_FOUND = "PGRST202"
+
 
 class IngestFailuresDAO(BaseDAO):
     """Read and write the ingest_failures table."""
+
+    # Said once per worker, not once per team per match: until the migration
+    # is applied every tournament message would repeat it twice.
+    _missing_resolve_by_league_logged = False
 
     def record(
         self,
@@ -82,6 +91,51 @@ class IngestFailuresDAO(BaseDAO):
             return int(response.data or 0)
         except Exception:
             logger.exception("Could not resolve ingest failures", kind=kind, raw_name=raw_name)
+            return 0
+
+    def resolve_in_league(
+        self, kind: str, raw_name: str, *, league: str | None, source: str | None = None
+    ) -> int | None:
+        """Close the open row for a name that now resolves in one league (SB-1748).
+
+        A tournament message resolves a name per side, and each side has its
+        own row. `resolve` ignores the league, so a Homegrown success would
+        close the Academy row for the same name; the next Academy failure
+        reopens it with notified_at cleared, and the name alerts again on
+        every flap. `league` is matched as the feed spelled it, and None
+        matches only rows recorded with none.
+
+        Returns None when the database does not have the function yet. The row
+        is then left open — the league-blind `resolve` is not a fallback,
+        because closing the wrong side's row is the fault this exists to end —
+        and the caller should ask again rather than remember the answer.
+        """
+        try:
+            response = self.client.rpc(
+                "resolve_ingest_failures_by_league",
+                {
+                    "p_kind": kind,
+                    "p_raw_name": raw_name,
+                    "p_league": league,
+                    "p_source": source or DEFAULT_SOURCE,
+                },
+            ).execute()
+            return int(response.data or 0)
+        except APIError as exc:
+            if exc.code == _FUNCTION_NOT_FOUND:
+                if not self._missing_resolve_by_league_logged:
+                    self._missing_resolve_by_league_logged = True
+                    logger.warning(
+                        "resolve_ingest_failures_by_league is not installed — leaving failure rows open",
+                        kind=kind,
+                        raw_name=raw_name,
+                        league=league,
+                    )
+                return None
+            logger.exception("Could not resolve ingest failures", kind=kind, raw_name=raw_name, league=league)
+            return 0
+        except Exception:
+            logger.exception("Could not resolve ingest failures", kind=kind, raw_name=raw_name, league=league)
             return 0
 
     def get(self, failure_id: int) -> dict[str, Any] | None:

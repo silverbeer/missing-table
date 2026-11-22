@@ -425,6 +425,25 @@ rescrape missing part of the group never re-files a stored `HD · A`. Ingest onl
 `matches` — logged goals are never touched, and a scraped score that disagrees
 with them stays the result while the goals stay the attribution.
 
+A scraped team name is resolved **on the message's side** (SB-1748). Homegrown
+and Academy share an event and team names, so a message's `league` decides
+which of two same-named teams it means, read from where each team is
+registered at that age group (Flex counts as Homegrown). A name that exists
+only on the other side, or matches more than one team, drops the match as a
+`team` ingest failure (`wrong side: …` / `ambiguous: …`) instead of landing on
+the wrong team's history; nothing is created or guessed. A team registered as
+both Academy and Homegrown at the message's age group answers neither hint:
+it is `ambiguous` unless another team with the name is cleanly on that side.
+A `league` that is not a league MT has (`HD`, a typo) is one `league` ingest
+failure for the string itself, with no team looked up — not a `wrong side`
+failure for every team in the event. Each side's failure
+row closes on its own, which needs the
+`20261124120000_ingest_failures_resolve_by_league.sql` migration
+(`./scripts/db_tools.sh migrate prod`) — until it is applied those rows are
+simply not auto-closed, and a worker asks for the missing function once every
+ten minutes rather than on every message. Details:
+[Which team a name means](../08-integrations/match-scraper.md#which-team-a-name-means).
+
 Most scraped tournament teams have no manager, so no roster and no events:
 that is the default the tab renders, and a match without a score is `null`,
 not `0–0` (see [Absent is not zero](#absent-is-not-zero)).

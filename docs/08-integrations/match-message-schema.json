@@ -64,7 +64,7 @@
     "league": {
       "type": ["string", "null"],
       "enum": ["Homegrown", "Academy", "Flex", null],
-      "description": "League name. Scopes team-alias and division lookups. An unmapped name degrades to unscoped lookups rather than failing.",
+      "description": "League name. On a league message it scopes team-alias and division lookups, and an unmapped name degrades to unscoped lookups rather than failing. On a tournament message (tournament_id set) it decides which side's team an exact name means, so when sent it must be the name of an existing league (compared whole, ignoring case): any other value drops the match as one 'league' ingest failure and no team is looked up.",
       "example": "Homegrown"
     },
     "home_score": {
