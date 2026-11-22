@@ -2,13 +2,13 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://missingtable.com/schemas/match-message-v1.json",
   "title": "Match Data Message Contract",
-  "description": "Message format for match data submitted from match-scraper to RabbitMQ/Celery workers. This is the canonical contract between the producer (match-scraper) and consumer (celery workers).",
-  "version": "1.2.0",
+  "description": "Message format for match data submitted from match-scraper to RabbitMQ/Celery workers. This is the canonical contract between the producer (match-scraper) and consumer (celery workers). Field names are the ones on the wire: the argument celery_tasks.match_tasks.process_match_data receives, which is match-scraper's MatchData.model_dump(mode='json').",
+  "version": "1.3.0",
   "type": "object",
   "required": [
     "home_team",
     "away_team",
-    "date",
+    "match_date",
     "season",
     "age_group",
     "match_type"
@@ -17,16 +17,16 @@
     "home_team": {
       "type": "string",
       "minLength": 1,
-      "description": "Home team name (must match teams.name in database)",
+      "description": "Home team name. Resolved against teams.name and team_aliases; an unknown name drops the match and is recorded in ingest_failures.",
       "example": "Chicago Fire Juniors"
     },
     "away_team": {
       "type": "string",
       "minLength": 1,
-      "description": "Away team name (must match teams.name in database)",
+      "description": "Away team name. Resolved the same way as home_team.",
       "example": "Indiana Fire Academy"
     },
-    "date": {
+    "match_date": {
       "type": "string",
       "format": "date",
       "description": "Match date in ISO 8601 format (YYYY-MM-DD)",
@@ -41,41 +41,65 @@
     "age_group": {
       "type": "string",
       "minLength": 1,
-      "description": "Age group (must match age_groups.name in database)",
+      "description": "Age group (must match age_groups.name in database). An unknown age group on a tournament message drops the match; on a league message it falls back to age group id 1.",
       "example": "U14"
     },
     "match_type": {
       "type": "string",
       "minLength": 1,
-      "description": "Match type (must match match_types.name in database)",
+      "description": "Match type (must match match_types.name, compared without case). Must be 'Tournament' when tournament_id is set.",
       "example": "League"
     },
     "division": {
       "type": ["string", "null"],
-      "description": "Division name (optional, must match divisions.name if provided)",
+      "description": "Division name (must match divisions.name within the league if provided). Must be omitted or null when tournament_id is set.",
       "example": "Northeast"
     },
-    "score_home": {
+    "division_id": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "Sent by match-scraper. Not read by the worker, which resolves the division by name.",
+      "example": 41
+    },
+    "league": {
+      "type": ["string", "null"],
+      "enum": ["Homegrown", "Academy", "Flex", null],
+      "description": "League name. Scopes team-alias and division lookups. An unmapped name degrades to unscoped lookups rather than failing.",
+      "example": "Homegrown"
+    },
+    "home_score": {
       "type": ["integer", "null"],
       "minimum": 0,
       "description": "Home team score (null if match not played yet)",
       "example": 2
     },
-    "score_away": {
+    "away_score": {
       "type": ["integer", "null"],
       "minimum": 0,
       "description": "Away team score (null if match not played yet)",
       "example": 1
     },
-    "status": {
+    "home_penalty_score": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Home penalty shootout score. Sent as a pair with away_penalty_score, and only when regulation ended level; anything else is ignored with a warning.",
+      "example": 4
+    },
+    "away_penalty_score": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Away penalty shootout score. Same conditions as home_penalty_score.",
+      "example": 3
+    },
+    "match_status": {
       "type": ["string", "null"],
       "enum": ["scheduled", "tbd", "completed", "postponed", "cancelled", null],
       "description": "Match status. 'tbd' (to be determined) indicates match has been played but score is not yet available.",
       "example": "completed"
     },
-    "match_id": {
+    "external_match_id": {
       "type": ["string", "null"],
-      "description": "External match ID from source system (for deduplication)",
+      "description": "The source system's match id. Stored in matches.match_id (unique) and is what a rescrape upserts on. Required when tournament_id is set.",
       "example": "mlsnext_12345"
     },
     "match_time": {
@@ -99,53 +123,150 @@
       "type": ["string", "null"],
       "description": "Additional notes about the match",
       "example": "Weather delay"
+    },
+    "source": {
+      "type": ["string", "null"],
+      "description": "Provenance, stored in matches.source on create. Defaults to 'match-scraper' when absent; the live sender writes 'match-scraper-agent'. A rescrape re-files tournament columns on rows carrying either.",
+      "example": "match-scraper-agent"
+    },
+    "tournament_id": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "description": "tournaments.id. Makes this a tournament message: the match is filed on the tournament with a null division. An id that does not exist drops the match and is recorded in ingest_failures as 'invalid'.",
+      "example": 12
+    },
+    "competition": {
+      "type": ["string", "null"],
+      "description": "The feed's own competition name, as sent. Requires tournament_id. Not stored on its own: it namespaces matches.tournament_group (see docs/08-integrations/match-scraper.md, 'Tournament matches'). Runs of inner whitespace are collapsed to one space before it is used.",
+      "example": "HD Group Play"
+    },
+    "tournament_group": {
+      "type": ["string", "null"],
+      "description": "The feed's own group label, as sent — not the stored value. Requires tournament_id. The stored group is only written when tournament_round is sent too, and for group_stage only when this label is; a message missing either leaves the stored group as it is.",
+      "example": "A"
+    },
+    "tournament_round": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)*$",
+      "maxLength": 40,
+      "description": "Round key. Requires tournament_id. Validated for shape only; a key MT does not know is filed and logged with a warning.",
+      "example": "group_stage"
+    },
+    "tournament_round_order": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Position within the round. Requires tournament_id.",
+      "example": 3
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["tournament_id"],
+        "properties": {
+          "tournament_id": {
+            "type": "integer"
+          }
+        }
+      },
+      "then": {
+        "required": ["external_match_id"],
+        "properties": {
+          "external_match_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "match_type": {
+            "pattern": "^[Tt][Oo][Uu][Rr][Nn][Aa][Mm][Ee][Nn][Tt]$"
+          },
+          "division": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "competition": {
+            "type": "null"
+          },
+          "tournament_group": {
+            "type": "null"
+          },
+          "tournament_round": {
+            "type": "null"
+          },
+          "tournament_round_order": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false,
   "examples": [
     {
       "home_team": "Chicago Fire Juniors",
       "away_team": "Indiana Fire Academy",
-      "date": "2025-10-13",
+      "match_date": "2025-10-13",
       "season": "2024-25",
       "age_group": "U14",
       "match_type": "League",
       "division": "Northeast",
-      "score_home": 2,
-      "score_away": 1,
-      "status": "completed",
-      "match_id": "mlsnext_12345",
+      "home_score": 2,
+      "away_score": 1,
+      "match_status": "completed",
+      "external_match_id": "mlsnext_12345",
       "match_time": "14:00",
       "location": "Toyota Park"
     },
     {
       "home_team": "Team A",
       "away_team": "Team B",
-      "date": "2025-10-20",
+      "match_date": "2025-10-20",
       "season": "2024-25",
       "age_group": "U16",
       "match_type": "Cup",
-      "score_home": null,
-      "score_away": null,
-      "status": "scheduled",
+      "home_score": null,
+      "away_score": null,
+      "match_status": "scheduled",
       "match_time": "10:30"
     },
     {
       "home_team": "Team C",
       "away_team": "Team D",
-      "date": "2025-10-15",
+      "match_date": "2025-10-15",
       "season": "2024-25",
       "age_group": "U18",
       "match_type": "League",
-      "score_home": null,
-      "score_away": null,
-      "status": "tbd",
+      "home_score": null,
+      "away_score": null,
+      "match_status": "tbd",
       "notes": "Match played, score pending from source"
+    },
+    {
+      "home_team": "Team E",
+      "away_team": "Team F",
+      "match_date": "2026-12-04",
+      "season": "2026-2027",
+      "age_group": "U15",
+      "match_type": "Tournament",
+      "match_status": "completed",
+      "home_score": 1,
+      "away_score": 1,
+      "home_penalty_score": 4,
+      "away_penalty_score": 3,
+      "external_match_id": "fest_101",
+      "source": "match-scraper-agent",
+      "tournament_id": 12,
+      "competition": "HD Group Play",
+      "tournament_group": "A",
+      "tournament_round": "group_stage",
+      "tournament_round_order": 3
     }
   ],
   "definitions": {
     "celery_task": {
-      "task_name": "missing_table.tasks.process_match_data",
+      "task_name": "celery_tasks.match_tasks.process_match_data",
       "queue": "matches",
       "routing_key": "matches",
       "description": "Celery task that processes this message"

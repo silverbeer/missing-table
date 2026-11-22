@@ -1586,10 +1586,20 @@ class MissingTableClient:
             params["week"] = week
         return self._request("GET", "/api/admin/motw/candidates", params=params).json()
 
-    def get_tournament_motd(self, tournament_id: int, date: str | None = None) -> dict[str, Any]:
-        """One day's pick (``motd``, null when unpicked) or, without ``date``, every pick (``picks``)."""
-        params = {"date": date} if date else None
-        return self._request("GET", f"/api/tournaments/{tournament_id}/motd", params=params).json()
+    def get_tournament_motd(
+        self, tournament_id: int, date: str | None = None, age_group_id: int | None = None
+    ) -> dict[str, Any]:
+        """One day's pick (``motd``, null when unpicked) or, without ``date``, every pick (``picks``).
+
+        ``age_group_id`` names the slot: that age group's pick for the day, or
+        only its picks in the list.
+        """
+        params: dict[str, Any] = {}
+        if date:
+            params["date"] = date
+        if age_group_id is not None:
+            params["age_group_id"] = age_group_id
+        return self._request("GET", f"/api/tournaments/{tournament_id}/motd", params=params or None).json()
 
     def set_tournament_motd(
         self,
@@ -1597,22 +1607,30 @@ class MissingTableClient:
         match_id: int,
         *,
         match_date: str | None = None,
+        age_group_id: int | None = None,
         blurb: str | None = None,
         reasons: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Feature a match for its tournament day (admin). ``reasons`` None = not provided."""
+        """Feature a match for its tournament day and age group (admin). ``reasons`` None = not provided."""
         body: dict[str, Any] = {"match_id": match_id}
         if match_date:
             body["match_date"] = match_date
+        if age_group_id is not None:
+            body["age_group_id"] = age_group_id
         if blurb is not None:
             body["blurb"] = blurb
         if reasons is not None:
             body["reasons"] = reasons
         return self._request("POST", f"/api/admin/tournaments/{tournament_id}/motd", json_data=body).json()
 
-    def clear_tournament_motd(self, tournament_id: int, match_date: str) -> dict[str, Any]:
-        """Unpick a tournament day (admin). Idempotent."""
-        return self._request("DELETE", f"/api/admin/tournaments/{tournament_id}/motd/{match_date}").json()
+    def clear_tournament_motd(
+        self, tournament_id: int, match_date: str, age_group_id: int | None = None
+    ) -> dict[str, Any]:
+        """Unpick a tournament day, or one age group's pick for it (admin). Idempotent."""
+        params = {"age_group_id": age_group_id} if age_group_id is not None else None
+        return self._request(
+            "DELETE", f"/api/admin/tournaments/{tournament_id}/motd/{match_date}", params=params
+        ).json()
 
     # Ingest failures
 

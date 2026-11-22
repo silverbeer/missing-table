@@ -500,6 +500,170 @@ and status are *not* gated — scraped data still wins on results. Adopting a
 manual match (populating its `match_id`) sets `source = 'match-scraper'`, after
 which the feed owns its filing too.
 
+### Tournament matches
+
+A message that carries `tournament_id` is a **tournament message** (SB-1747).
+Its match is filed on the tournament — `matches.tournament_id` set,
+`division_id` null — instead of in a league division. Everything else about
+the message is unchanged, and every field below is optional and additive: a
+league message does not send them and is processed exactly as before.
+
+These are fields on the queue message (`process_match_data`). The HTTP submit
+endpoint does not accept them.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `tournament_id` | integer ≥ 1 | `tournaments.id`. Its presence is what makes the message a tournament message |
+| `competition` | string \| null | The feed's own competition name, as sent — `HD Group Play`, `AD Showcase`, `GA Cup Qualifier` |
+| `tournament_group` | string \| null | The feed's own group label, as sent — `A`. **Not** the stored value; see below |
+| `tournament_round` | string \| null | A round key — `group_stage`, `showcase`, `placement_final`, … |
+| `tournament_round_order` | integer ≥ 0 \| null | Position within the round |
+
+On a tournament message, three existing fields are constrained:
+
+| Field | Rule |
+|-------|------|
+| `external_match_id` | **Required.** It is what a rescrape upserts on |
+| `match_type` | Must be `Tournament` (any case). The id is looked up by name |
+| `division` | Must be omitted or null |
+
+`league` stays optional and, when present, scopes team resolution exactly as
+it does for a league message. `home_penalty_score` / `away_penalty_score`,
+`source`, `age_group`, `season` and the kickoff fields behave as they always
+have. The full contract is
+[`match-message-schema.json`](match-message-schema.json).
+
+#### What is stored in `tournament_group`
+
+`competition` and `tournament_group` are raw feed values. The stored
+`matches.tournament_group` is one namespaced string built from them, in the
+[frozen group format](../features/TOURNAMENTS.md#group-format), by
+`stored_group` in `backend/celery_tasks/tournament_filing.py`:
+
+1. **Division** is `HD` or `AD` when the competition's first word is exactly
+   that (any case, stored upper-case). Otherwise there is no division.
+2. **`group_stage`** — the group label, namespaced by the division, or by the
+   whole competition when it has none.
+3. **Any other round** — the feed's group label is not a group there
+   (`Playoffs`), so the competition is what the match is filed under: the
+   division plus the rest of the competition name, or the competition whole.
+4. **No competition at all** — the raw group label, unchanged.
+5. **Not enough to say** — no stored value is produced, and nothing is written
+   over the one already there, when the round is missing, when a `group_stage`
+   message has no group label, or when any other round has neither a
+   competition nor a group. Composing from what is left would yield a
+   different string (`HD` for `HD · A`), and bracket follows key on the
+   stored one.
+
+Runs of whitespace inside `competition` are collapsed to a single space first,
+so `HD  Group  Play` and `HD Group Play` store the same bytes. Letter case is
+left as sent, apart from the `HD`/`AD` token.
+
+| `competition` | `tournament_group` | `tournament_round` | Stored |
+|---------------|--------------------|--------------------|--------|
+| `HD Group Play` | `A` | `group_stage` | `HD · A` |
+| `AD Group Play` | `A` | `group_stage` | `AD · A` |
+| `GA Cup Qualifier` | `NEXT Pro` | `group_stage` | `GA Cup Qualifier · NEXT Pro` |
+| *(none)* | `Bracket A` | `group_stage` | `Bracket A` |
+| `HD Showcase` | *(anything)* | `showcase` | `HD · Showcase` |
+| `HD Group Play` | `Playoffs` | `placement_final` | `HD · Group Play` |
+| `GA Cup Qualifier` | *(anything)* | `final` | `GA Cup Qualifier` |
+| `Pro Player Pathway` | *(none)* | `showcase` | `Pro Player Pathway` |
+| `HD Group Play` | *(none)* | `group_stage` | *(nothing — stored value kept)* |
+| `HD Group Play` | `A` | *(none)* | *(nothing — stored value kept)* |
+
+Empty and whitespace-only strings are treated as absent. A value the frozen
+format rejects — a namespace containing ` · `, or a bare label containing it —
+drops the match as `invalid` rather than being stored altered.
+
+#### The upsert rule
+
+A tournament match is upserted on its source match id
+(`external_match_id` → `matches.match_id`, which is unique):
+
+- **Found by source id** → the same row is updated. Scores, the shootout and
+  status follow the rules they always have. A rescrape with nothing new is
+  `skipped` and writes nothing.
+- **Not found** → a teams-and-date lookup, to adopt a match somebody entered
+  by hand. A hit is adopted only when it is **on the same tournament** and has
+  no source id: it takes the feed's id and `source = 'match-scraper'`, and is
+  not duplicated. Any other hit is left alone and this message creates its own
+  row — a league or friendly match between the same teams that day, a match on
+  another tournament, or one that already has a *different* source id (another
+  fixture between the same teams, routine at a tournament). These checks are
+  made for tournament messages only; a league message takes the teams-and-date
+  hit exactly as it did before.
+- **An adopted row is only filled in.** On the message that adopts it, the
+  tournament columns are written where the row has none; a group or round
+  somebody typed (`Group A`) stays. This holds for the adopting message only:
+  the row is the feed's from then on, and a later rescrape re-files it like
+  any other.
+- **A row is never moved between competitions.** A row found by source id that
+  is in a league division, or on a different tournament, is not re-filed onto
+  this one. The message is dropped as `invalid` and the row is left untouched.
+  A row with no division and no tournament is filed.
+- **A null never clears.** A rescrape that omits the group, round or order
+  leaves the stored value in place. Nor does a partial one re-file: see rule 5
+  above, and a stored namespaced group (`HD · A`) is never replaced by one
+  without a namespace (`A`).
+- **A hand-entered row keeps its filing.** Tournament columns are re-filed
+  only on rows the feed owns: `matches.source` is `match-scraper` or
+  `match-scraper-agent` (the live sender), or empty. Scores still land.
+  Competition and division re-filing (above) is narrower — `match-scraper`
+  only — so a row the agent created has its tournament columns corrected by a
+  rescrape but not its `match_type_id` or `division_id`.
+- **User data is never touched.** Ingest writes columns on `matches` only.
+  Goals and other `match_events` a manager logged survive every rescrape, and
+  a scraped score that disagrees with them is left disagreeing.
+
+A created row carries `source` from the message (default `match-scraper`), so
+provenance stays queryable.
+
+Updates to a tournament match are written through
+`MatchDAO.update_ingested_tournament_match`, which clears the tournament and
+match caches **of the process doing the write** — and only if that process has
+the cache switched on. Clearing is a no-op unless `CACHE_ENABLED=true` and
+`REDIS_URL` points at a Redis it can reach (`dao/base_dao.py`).
+
+**In production that is not the ingest worker.** The API has
+`CACHE_ENABLED: "true"` (`helm/missing-table/values-prod.yaml`) and a
+`REDIS_URL` for the Redis in its own cluster
+(`helm/missing-table/templates/backend.yaml`). The worker
+(`k3s/worker/deployment-prod.yaml`) sets neither, and runs in a different
+cluster from that Redis. So a match the worker creates, or a score it writes,
+does not clear the API's cache: tournament reads are cached for up to 24
+hours, and the Tournaments page can show the old state for that long (or until
+an admin write or a deploy's cache flush clears it). Nothing in this code
+path guarantees otherwise; it does the right thing only once the worker shares
+the API's cache.
+
+#### What drops a tournament match
+
+Each is recorded once in `ingest_failures` (kind `invalid` unless noted), with
+a count, and is not retried:
+
+| Problem | `raw_name` |
+|---------|------------|
+| `tournament_id` does not exist | `unknown tournament_id 99` |
+| The row with this source id is in a league division | `tournament_id 12 sent for a match already filed on a league division` |
+| The row with this source id is on another tournament | `tournament_id 12 sent for a match already filed on tournament 11` |
+| Age group not in `age_groups` | `unknown age group 'U99' on a tournament match` |
+| A tournament field with no `tournament_id` | `tournament_group requires tournament_id` |
+| Missing `external_match_id`, wrong `match_type`, a `division`, a malformed round key, a wrong type | the rule that failed |
+| Unknown team name (kind `team`) | the name, as for a league message |
+
+An unknown age group is a failure **only** for tournament messages. A league
+message still falls back to age group id 1, as before.
+
+A round key outside the set MT knows (`VALID_ROUNDS`) is *not* a failure: it
+is validated for shape (lowercase snake_case, at most 40 characters), filed,
+and logged with a warning, so a feed that grows a round does not lose matches.
+
+Teams are never created by ingest. A tournament brings clubs MT has not seen;
+until they exist as teams or aliases, their matches are dropped and reported.
+Ingest registers no `team_mappings` row for a tournament match — there is no
+division to register.
+
 ### Ingest registers the age group
 
 A team's `age_groups` come entirely from `team_mappings`, and every age-group
