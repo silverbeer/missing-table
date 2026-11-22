@@ -366,6 +366,32 @@ def validate_records(table_name: str, data: list) -> list:
     return valid
 
 
+def fill_age_group_from_matches(rows: list, matches: list) -> tuple[list, int]:
+    """Give each row missing `age_group_id` its match's (SB-1750).
+
+    A backup taken before the per-age-group migration has
+    tournament_match_of_the_day rows without the column, which is NOT NULL
+    now. The migration filled it from the pick's match; this does the same
+    from the backup's own `matches` rows.
+
+    Returns the rows to restore and how many were left out because their
+    match is not in the backup or has no age group. Pure: no row is mutated.
+    """
+    age_by_match = {m.get("id"): m.get("age_group_id") for m in matches}
+    filled = []
+    skipped = 0
+    for row in rows:
+        if row.get("age_group_id") is not None:
+            filled.append(row)
+            continue
+        age_group_id = age_by_match.get(row.get("match_id"))
+        if age_group_id is None:
+            skipped += 1
+            continue
+        filled.append({**row, "age_group_id": age_group_id})
+    return filled, skipped
+
+
 class TableResult:
     """What actually happened to one table (SB-917).
 
@@ -596,9 +622,23 @@ def restore_from_backup(backup_file: Path, clear_existing: bool = True):
     results = []
     for table in restoration_order:
         if table in tables_data:
+            table_rows = tables_data[table]
+            unfillable = 0
+            if table == "tournament_match_of_the_day":
+                table_rows, unfillable = fill_age_group_from_matches(
+                    table_rows, tables_data.get("matches") or []
+                )
+                if unfillable:
+                    print(
+                        f"  ⚠ Skipping {unfillable} {table} record(s) with no age group:"
+                        " the match is not in this backup or has none"
+                    )
             result = restore_table(
-                table, tables_data[table], local_profile_ids, user_columns
+                table, table_rows, local_profile_ids, user_columns
             )
+            # Left out before the insert, but still rows the backup held.
+            result.attempted += unfillable
+            result.skipped_invalid += unfillable
             results.append(result)
             if result.ok:
                 success_count += 1

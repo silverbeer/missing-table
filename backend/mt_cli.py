@@ -1254,7 +1254,7 @@ def tournament_remove_match(
     console.print(f"[green]Removed match #{match} from tournament #{tournament}[/green]")
 
 
-motd_app = typer.Typer(help="Tournament Match of the Day: one featured match per tournament per day (admin)")
+motd_app = typer.Typer(help="Tournament Match of the Day: one featured match per tournament, day and age group (admin)")
 tournament_app.add_typer(motd_app, name="motd")
 
 
@@ -1266,7 +1266,9 @@ def _motd_teams(match: dict[str, Any]) -> str:
 
 def _print_motd(pick: dict[str, Any]) -> None:
     match = pick.get("match") or {}
-    console.print(f"[bold]{pick.get('match_date')}[/bold]  #{match.get('id', '?')}  {_motd_teams(match)}")
+    age = pick.get("age_group") or match.get("age_group_name")
+    age_label = f"{age}  " if age else ""
+    console.print(f"[bold]{pick.get('match_date')}[/bold]  {age_label}#{match.get('id', '?')}  {_motd_teams(match)}")
     if pick.get("blurb"):
         console.print(f"  {pick['blurb']}")
     reasons = pick.get("reasons")
@@ -1281,23 +1283,29 @@ def _print_motd(pick: dict[str, Any]) -> None:
 def tournament_motd_show(
     tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
     date: str = typer.Option(None, "--date", "-d", help="Day (YYYY-MM-DD); omit to list every pick"),
+    age: str = typer.Option(None, "--age", "-a", help="Age group (e.g. U15); omit for every age group"),
 ):
-    """Show a day's Match of the Day, or every pick in the tournament."""
+    """Show a day's Match of the Day picks, or every pick in the tournament."""
     client, _ = get_client()
     try:
-        result = client.get_tournament_motd(tournament, date)
+        age_group_id = _resolve_age_group_id(client, age) if age else None
+        result = client.get_tournament_motd(tournament, date, age_group_id)
     except APIError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from None
+    slot = f" ({age})" if age else ""
     if date:
-        if result.get("motd"):
-            _print_motd(result["motd"])
-        else:
-            console.print(f"[yellow]No Match of the Day picked for {result.get('match_date')}.[/yellow]")
+        # With an age group the answer is that slot's pick; without, every age group's.
+        one = [result["motd"]] if result.get("motd") else []
+        picks = one if age else result.get("picks") or one
+        if not picks:
+            console.print(f"[yellow]No Match of the Day picked for {result.get('match_date')}{slot}.[/yellow]")
+        for pick in picks:
+            _print_motd(pick)
         return
     picks = result.get("picks") or []
     if not picks:
-        console.print(f"[yellow]No Match of the Day picked yet for tournament #{tournament}.[/yellow]")
+        console.print(f"[yellow]No Match of the Day picked yet for tournament #{tournament}{slot}.[/yellow]")
     for pick in picks:
         _print_motd(pick)
 
@@ -1307,14 +1315,18 @@ def tournament_motd_set(
     tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
     match: int = typer.Option(..., "--match", "-m", help="Match ID to feature (must be in the tournament)"),
     date: str = typer.Option(None, "--date", "-d", help="Guard: refuse unless the match is on this day"),
+    age: str = typer.Option(None, "--age", "-a", help="Guard: refuse unless the match is in this age group"),
     blurb: str = typer.Option(None, "--blurb", "-b", help="One-line headline"),
     reason: list[str] = typer.Option(None, "--reason", "-r", help="'Why this match' line; repeat for more (max 6)"),
 ):
-    """Feature a match as its day's Match of the Day, replacing that day's pick."""
+    """Feature a match as its day's Match of the Day for its age group, replacing that slot's pick."""
     client, _ = get_client()
     reasons = [{"text": r} for r in reason] if reason else None
     try:
-        pick = client.set_tournament_motd(tournament, match, match_date=date, blurb=blurb, reasons=reasons)
+        age_group_id = _resolve_age_group_id(client, age) if age else None
+        pick = client.set_tournament_motd(
+            tournament, match, match_date=date, age_group_id=age_group_id, blurb=blurb, reasons=reasons
+        )
     except APIError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from None
@@ -1326,18 +1338,23 @@ def tournament_motd_set(
 def tournament_motd_clear(
     tournament: int = typer.Option(..., "--tournament", "-T", help="Tournament ID"),
     date: str = typer.Option(..., "--date", "-d", help="Day to unpick (YYYY-MM-DD)"),
+    age: str = typer.Option(None, "--age", "-a", help="Age group to unpick (e.g. U15); omit to unpick every one"),
 ):
-    """Unpick a tournament day."""
+    """Unpick a tournament day: one age group's pick, or every pick that day."""
     client, _ = get_client()
     try:
-        result = client.clear_tournament_motd(tournament, date)
+        age_group_id = _resolve_age_group_id(client, age) if age else None
+        result = client.clear_tournament_motd(tournament, date, age_group_id)
     except APIError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from None
-    if result.get("cleared"):
-        console.print(f"[green]Cleared Match of the Day for {result.get('match_date')}[/green]")
+    slot = f" ({age})" if age else ""
+    cleared = int(result.get("cleared") or 0)
+    if cleared:
+        noun = "pick" if cleared == 1 else "picks"
+        console.print(f"[green]Cleared {cleared} Match of the Day {noun} for {result.get('match_date')}{slot}[/green]")
     else:
-        console.print(f"[yellow]Nothing was picked for {result.get('match_date')}.[/yellow]")
+        console.print(f"[yellow]Nothing was picked for {result.get('match_date')}{slot}.[/yellow]")
 
 
 def _motw_team(team: dict[str, Any]) -> str:
