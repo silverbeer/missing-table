@@ -27,8 +27,8 @@
           @click="$emit('open', card.tournament.id)"
         >
           <img
-            v-if="card.tournament.logo_url"
-            :src="card.tournament.logo_url"
+            v-if="card.logo"
+            :src="card.logo"
             alt=""
             class="w-12 h-12 rounded-lg object-contain bg-card border border-line shrink-0"
             data-testid="tournament-card-logo"
@@ -118,6 +118,8 @@ import {
   formatTournamentDateRange,
   tournamentStatus,
 } from '../utils/tournamentStatus';
+import { useTheme } from '../composables/useTheme';
+import { tournamentLogoSrc } from '../utils/tournamentLogo';
 
 const props = defineProps({
   // Already in status order (`compareByStatus`); rendered as given.
@@ -127,6 +129,9 @@ const props = defineProps({
 });
 
 defineEmits(['open']);
+
+// Dark-mode logo when a tournament has one (SB-1770).
+const { isDark } = useTheme();
 
 const CHIPS = {
   // The list carries no matches, so "live" here is the dates alone — the
@@ -159,6 +164,7 @@ const cards = computed(() =>
     const chip = status ? CHIPS[status.state] : null;
     return {
       tournament: t,
+      logo: tournamentLogoSrc(t, isDark.value),
       state: status?.state ?? 'unknown',
       chip: chip?.label ?? null,
       chipClass: chip?.cls ?? '',

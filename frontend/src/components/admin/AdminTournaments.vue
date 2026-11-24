@@ -403,7 +403,7 @@
                   <input
                     type="file"
                     ref="tLogoInput"
-                    @change="handleTournamentLogoSelect"
+                    @change="handleTournamentLogoSelect($event, 'light')"
                     accept="image/png,image/jpeg,image/jpg"
                     class="hidden"
                   />
@@ -418,6 +418,66 @@
                   <p class="mt-1 text-xs text-fg-muted">
                     PNG or JPG, max 2MB. Square with transparent background
                     looks best on share cards.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dark-mode logo (SB-1770) -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-fg mb-1"
+                >Dark-mode logo
+                <span class="font-normal text-fg-muted">(optional)</span></label
+              >
+              <div class="flex items-center gap-4">
+                <img
+                  v-if="tDarkLogoPreview || editingTournament?.logo_dark_url"
+                  :src="tDarkLogoPreview || editingTournament.logo_dark_url"
+                  alt="Tournament dark-mode logo preview"
+                  class="w-16 h-16 rounded-md object-contain border border-line bg-gray-900 p-1"
+                  data-testid="tournament-dark-logo-preview"
+                />
+                <div
+                  v-else
+                  class="w-16 h-16 rounded-md bg-gray-900 border border-line flex items-center justify-center text-xs text-gray-400"
+                >
+                  none
+                </div>
+                <div class="flex-1">
+                  <input
+                    type="file"
+                    ref="tDarkLogoInput"
+                    @change="handleTournamentLogoSelect($event, 'dark')"
+                    accept="image/png,image/jpeg,image/jpg"
+                    class="hidden"
+                    data-testid="tournament-dark-logo-input"
+                  />
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      @click="$refs.tDarkLogoInput.click()"
+                      :disabled="tUploadingLogo"
+                      class="px-3 py-2 text-sm font-medium text-fg bg-card border border-line rounded-md hover:bg-surface-alt disabled:opacity-50"
+                    >
+                      {{ tUploadingLogo ? 'Uploading...' : 'Choose Image' }}
+                    </button>
+                    <button
+                      v-if="
+                        !tDarkLogoPreview && editingTournament?.logo_dark_url
+                      "
+                      type="button"
+                      @click="removeTournamentDarkLogo"
+                      :disabled="tUploadingLogo"
+                      class="px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+                      data-testid="tournament-dark-logo-remove"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <p class="mt-1 text-xs text-fg-muted">
+                    Shown in dark mode and on share cards. Use when the logo has
+                    black parts that vanish on a dark background. Without one,
+                    the logo above is used everywhere.
                   </p>
                 </div>
               </div>
@@ -779,6 +839,19 @@ export default {
     const tLogoPreview = ref(null);
     const tSelectedLogoFile = ref(null);
     const tUploadingLogo = ref(false);
+    // Dark-mode variant (SB-1770): uploaded alongside, same rules.
+    const tDarkLogoPreview = ref(null);
+    const tSelectedDarkLogoFile = ref(null);
+    const logoRefs = {
+      light: { preview: tLogoPreview, file: tSelectedLogoFile },
+      dark: { preview: tDarkLogoPreview, file: tSelectedDarkLogoFile },
+    };
+    const resetLogoSelection = () => {
+      for (const v of Object.values(logoRefs)) {
+        v.preview.value = null;
+        v.file.value = null;
+      }
+    };
 
     // ── match modal ──
     const showMatchModal = ref(false);
@@ -960,8 +1033,7 @@ export default {
       editingTournament.value = null;
       tForm.value = emptyTournamentForm();
       tForm.value.season_id = newestSeasonId();
-      tLogoPreview.value = null;
-      tSelectedLogoFile.value = null;
+      resetLogoSelection();
       showTournamentModal.value = true;
     };
 
@@ -977,12 +1049,11 @@ export default {
         age_group_ids: (tournament.age_groups || []).map(ag => ag.id),
         is_active: tournament.is_active,
       };
-      tLogoPreview.value = null;
-      tSelectedLogoFile.value = null;
+      resetLogoSelection();
       showTournamentModal.value = true;
     };
 
-    const handleTournamentLogoSelect = event => {
+    const handleTournamentLogoSelect = (event, variant = 'light') => {
       const file = event.target.files[0];
       if (!file) return;
 
@@ -998,29 +1069,31 @@ export default {
         return;
       }
 
-      tSelectedLogoFile.value = file;
+      const slot = logoRefs[variant];
+      slot.file.value = file;
 
       const reader = new FileReader();
       reader.onload = e => {
-        tLogoPreview.value = e.target.result;
+        slot.preview.value = e.target.result;
       };
       reader.readAsDataURL(file);
       error.value = null;
     };
 
-    const uploadTournamentLogo = async tournamentId => {
-      if (!tSelectedLogoFile.value || !tournamentId) return;
+    const uploadTournamentLogo = async (tournamentId, variant = 'light') => {
+      const slot = logoRefs[variant];
+      if (!slot.file.value || !tournamentId) return;
 
       tUploadingLogo.value = true;
       try {
         const formData = new FormData();
-        formData.append('file', tSelectedLogoFile.value);
+        formData.append('file', slot.file.value);
 
         // Use fetch directly for file upload - don't set Content-Type
         // (browser sets it automatically with multipart boundary)
         const token = localStorage.getItem('auth_token');
         const fetchResponse = await fetch(
-          `${getApiBaseUrl()}/api/admin/tournaments/${tournamentId}/logo`,
+          `${getApiBaseUrl()}/api/admin/tournaments/${tournamentId}/logo?variant=${variant}`,
           {
             method: 'POST',
             headers: {
@@ -1039,8 +1112,27 @@ export default {
         // for us — do it here or the tournament keeps the old logo (SB-902).
         await bustApiCache();
 
-        tLogoPreview.value = null;
-        tSelectedLogoFile.value = null;
+        slot.preview.value = null;
+        slot.file.value = null;
+      } finally {
+        tUploadingLogo.value = false;
+      }
+    };
+
+    // Clears the dark variant only; the regular logo is then used everywhere.
+    const removeTournamentDarkLogo = async () => {
+      const t = editingTournament.value;
+      if (!t?.id) return;
+      tUploadingLogo.value = true;
+      try {
+        await authStore.apiRequest(
+          `${getApiBaseUrl()}/api/admin/tournaments/${t.id}/logo?variant=dark`,
+          { method: 'DELETE' }
+        );
+        editingTournament.value = { ...t, logo_dark_url: null };
+        await fetchTournaments();
+      } catch (err) {
+        error.value = err.message;
       } finally {
         tUploadingLogo.value = false;
       }
@@ -1070,8 +1162,9 @@ export default {
         }
 
         // Upload logo after save so create mode has an id to attach to
-        if (tSelectedLogoFile.value && tournamentId) {
-          await uploadTournamentLogo(tournamentId);
+        if (tournamentId) {
+          await uploadTournamentLogo(tournamentId, 'light');
+          await uploadTournamentLogo(tournamentId, 'dark');
         }
 
         await fetchTournaments();
@@ -1110,8 +1203,7 @@ export default {
       showTournamentModal.value = false;
       editingTournament.value = null;
       tForm.value = emptyTournamentForm();
-      tLogoPreview.value = null;
-      tSelectedLogoFile.value = null;
+      resetLogoSelection();
     };
 
     // ─────────────────────────────────────────────
@@ -1284,8 +1376,10 @@ export default {
       tFormLoading,
       tForm,
       tLogoPreview,
+      tDarkLogoPreview,
       tUploadingLogo,
       handleTournamentLogoSelect,
+      removeTournamentDarkLogo,
       // match modal
       showMatchModal,
       editingMatch,
