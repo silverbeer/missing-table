@@ -5,7 +5,7 @@ import os
 from collections import Counter
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from dotenv import load_dotenv
@@ -9154,6 +9154,7 @@ async def admin_delete_tournament(
 async def admin_upload_tournament_logo(
     tournament_id: int,
     file: UploadFile = File(...),
+    variant: Literal["light", "dark"] = Query("light"),
     current_user: dict[str, Any] = Depends(require_admin),
 ):
     """Upload a logo image for a tournament (admin only).
@@ -9162,6 +9163,9 @@ async def admin_upload_tournament_logo(
     Storage `tournament-logos` bucket. PNGs also get 64px/128px size
     variants so the IG share cards can pull a small render without
     downsampling the full asset at render time.
+
+    `variant=dark` (SB-1770) stores the dark-mode logo as `{id}-dark.{ext}`
+    in `logo_dark_url`; the default stores the regular logo in `logo_url`.
     """
     allowed_types = ["image/png", "image/jpeg", "image/jpg"]
     if file.content_type not in allowed_types:
@@ -9179,7 +9183,9 @@ async def admin_upload_tournament_logo(
         )
 
     ext = "png" if file.content_type == "image/png" else "jpg"
-    file_path = f"{tournament_id}.{ext}"
+    dark = variant == "dark"
+    base_name = f"{tournament_id}-dark" if dark else str(tournament_id)
+    file_path = f"{base_name}.{ext}"
 
     try:
         storage = match_dao.client.storage
@@ -9190,23 +9196,44 @@ async def admin_upload_tournament_logo(
 
         # Size variants — only for PNGs, same as club logos.
         if ext == "png":
-            _upload_logo_png_variants(storage, "tournament-logos", str(tournament_id), content)
+            _upload_logo_png_variants(storage, "tournament-logos", base_name, content)
             logger.info(f"Uploaded size variants for tournament {tournament_id}")
 
         public_url = storage.from_("tournament-logos").get_public_url(file_path)
 
-        updated = tournament_dao.update_tournament(tournament_id=tournament_id, logo_url=public_url)
+        updated = tournament_dao.set_tournament_logo(tournament_id, public_url, dark=dark)
         if not updated:
             raise HTTPException(status_code=404, detail=f"Tournament with id {tournament_id} not found")
 
-        logger.info(f"Uploaded logo for tournament {tournament_id}: {public_url}")
-        return {"logo_url": public_url, "tournament": updated}
+        logger.info(f"Uploaded {variant} logo for tournament {tournament_id}: {public_url}")
+        return {"logo_dark_url" if dark else "logo_url": public_url, "tournament": updated}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error uploading tournament logo: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to upload logo: {e!s}") from e
+
+
+@app.delete("/api/admin/tournaments/{tournament_id}/logo")
+async def admin_remove_tournament_logo(
+    tournament_id: int,
+    variant: Literal["light", "dark"] = Query("light"),
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Clear a tournament's light or dark logo (admin only, SB-1770).
+
+    Only the column is cleared; the stored file is left in the bucket and is
+    overwritten by the next upload of the same variant.
+    """
+    try:
+        updated = tournament_dao.set_tournament_logo(tournament_id, None, dark=variant == "dark")
+    except Exception as e:
+        logger.error(f"Error removing tournament logo: {e!s}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to remove logo") from e
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Tournament with id {tournament_id} not found")
+    return {"tournament": updated}
 
 
 @app.post("/api/admin/tournaments/{tournament_id}/matches", status_code=201)
