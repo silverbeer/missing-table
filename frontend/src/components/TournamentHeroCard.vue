@@ -34,8 +34,8 @@
 
     <div class="px-4 sm:px-5 pt-4 flex items-start gap-3 sm:gap-4 flex-wrap">
       <img
-        v-if="logoSrc"
-        :src="logoSrc"
+        v-if="tournament.logo_url"
+        :src="tournament.logo_url"
         :alt="`${tournament.name} logo`"
         class="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-card border border-line shrink-0"
         data-testid="tournament-logo"
@@ -143,8 +143,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import TournamentChip from './ui/TournamentChip.vue';
-import { useTheme } from '../composables/useTheme';
-import { tournamentLogoSrc } from '../utils/tournamentLogo';
 import {
   tournamentStatus,
   formatCountdown,
@@ -183,12 +181,6 @@ onUnmounted(() => {
 // `matches` is one page of a larger tournament. Anything read off it — a live
 // match, the next kickoff, the stage in play, the viewer's next match — would
 // describe that page and could be wrong for the tournament, so none is shown.
-// Dark-mode logo when the tournament has one (SB-1770).
-const { isDark } = useTheme();
-const logoSrc = computed(() =>
-  tournamentLogoSrc(props.tournament, isDark.value)
-);
-
 const isPartial = computed(() => props.totalMatches != null);
 
 // For a partial list the status comes from the tournament's own dates alone:

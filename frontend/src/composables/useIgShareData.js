@@ -234,13 +234,8 @@ export function useIgShareData(
   const tournamentGroup = computed(() =>
     cleanName(matchRef.value?.tournament_group)
   );
-  // The card ground is near-black, so the dark-mode logo is the one drawn
-  // for it (SB-1770); the plate check below still runs on whichever is used.
   const tournamentLogoUrl = computed(
-    () =>
-      matchRef.value?.tournament_logo_dark_url ||
-      matchRef.value?.tournament_logo_url ||
-      null
+    () => matchRef.value?.tournament_logo_url || null
   );
 
   /**

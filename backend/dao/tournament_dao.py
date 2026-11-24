@@ -52,11 +52,6 @@ VALID_ROUNDS = {
     "placement_final",
 }
 
-# logo_dark_url (SB-1770): optional dark-mode logo; renderers fall back to logo_url.
-TOURNAMENT_SELECT = (
-    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url, logo_dark_url"
-)
-
 # The columns of one match in a tournament's match list. Shared by the detail
 # endpoint and the paged one so a row is the same shape from either (SB-1749).
 TOURNAMENT_MATCH_SELECT = """
@@ -174,7 +169,11 @@ class TournamentDAO(BaseDAO):
         season_id, when provided, restricts results to that season.
         """
         try:
-            query = self.client.table("tournaments").select(TOURNAMENT_SELECT).eq("is_active", True)
+            query = (
+                self.client.table("tournaments")
+                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
+                .eq("is_active", True)
+            )
             if not include_test:
                 query = query.eq("is_test", False)
             if season_id is not None:
@@ -195,7 +194,10 @@ class TournamentDAO(BaseDAO):
         """
         try:
             response = (
-                self.client.table("tournaments").select(TOURNAMENT_SELECT).order("start_date", desc=True).execute()
+                self.client.table("tournaments")
+                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
+                .order("start_date", desc=True)
+                .execute()
             )
             data = self._attach_age_groups(response.data or [])
             return self._attach_match_counts(data, include_test=True)
@@ -215,7 +217,11 @@ class TournamentDAO(BaseDAO):
         """
         try:
             t_response = (
-                self.client.table("tournaments").select(TOURNAMENT_SELECT).eq("id", tournament_id).single().execute()
+                self.client.table("tournaments")
+                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
+                .eq("id", tournament_id)
+                .single()
+                .execute()
             )
             if not t_response.data:
                 return None
@@ -580,21 +586,6 @@ class TournamentDAO(BaseDAO):
             return self.get_tournament_by_id(tournament_id)
         except Exception:
             logger.exception("Error updating tournament", tournament_id=tournament_id)
-            raise
-
-    @invalidates_cache(TOURNAMENTS_CACHE_PATTERN)
-    def set_tournament_logo(self, tournament_id: int, url: str | None, dark: bool = False) -> dict | None:
-        """Set or clear (url=None) the light or dark logo URL (SB-1770).
-
-        Separate from update_tournament, where None means "leave unchanged" and
-        so cannot express removing a logo.
-        """
-        column = "logo_dark_url" if dark else "logo_url"
-        try:
-            self.client.table("tournaments").update({column: url}).eq("id", tournament_id).execute()
-            return self.get_tournament_by_id(tournament_id)
-        except Exception:
-            logger.exception("Error setting tournament logo", tournament_id=tournament_id, column=column)
             raise
 
     @invalidates_cache(TOURNAMENTS_CACHE_PATTERN)
