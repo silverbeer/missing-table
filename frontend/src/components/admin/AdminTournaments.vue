@@ -416,8 +416,9 @@
                     {{ tUploadingLogo ? 'Uploading...' : 'Choose Image' }}
                   </button>
                   <p class="mt-1 text-xs text-fg-muted">
-                    PNG or JPG, max 2MB. Square with transparent background
-                    looks best on share cards.
+                    PNG, square, transparent background, max 2MB. Upload just
+                    the shield, not the wordmark: the logo shows small, next to
+                    the tournament name, on light and dark pages.
                   </p>
                 </div>
               </div>
