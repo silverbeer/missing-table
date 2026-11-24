@@ -30,7 +30,7 @@
             v-if="card.tournament.logo_url"
             :src="card.tournament.logo_url"
             alt=""
-            class="w-12 h-12 rounded-lg object-contain bg-card border border-line shrink-0"
+            class="w-12 h-12 object-contain shrink-0"
             data-testid="tournament-card-logo"
           />
           <!-- No logo: a neutral mark, the same size, so the names line up. -->
