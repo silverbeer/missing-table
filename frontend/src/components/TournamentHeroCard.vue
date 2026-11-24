@@ -37,7 +37,7 @@
         v-if="tournament.logo_url"
         :src="tournament.logo_url"
         :alt="`${tournament.name} logo`"
-        class="w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-contain bg-card border border-line shrink-0"
+        class="w-14 h-14 sm:w-16 sm:h-16 object-contain shrink-0"
         data-testid="tournament-logo"
       />
       <div class="min-w-0 flex-1">
