@@ -29,27 +29,7 @@ The `enrich` command successfully finds club websites, but the logos it captures
 
 ### Tournament Logos
 
-Tournament logos follow the same convention in the `tournament-logos` bucket, keyed by tournament id (`6.png`, `6_sm.png`, `6_md.png`). Upload via **Admin → Tournaments → Edit → Logo** or the API endpoint. Square PNG with transparent background looks best — IG share cards render the logo inside a white rounded chip (background-image, not `<img>`, for html2canvas fidelity).
-
-#### Dark-mode variant (SB-1770)
-
-A logo with black parts (e.g. the MLS NEXT Flex / Fest wordmarks) vanishes on a dark background, so a tournament can carry an optional second logo in `tournaments.logo_dark_url`.
-
-| | Regular | Dark-mode |
-|---|---|---|
-| Column | `logo_url` | `logo_dark_url` (NULL = none) |
-| Files | `6.png`, `6_sm.png`, `6_md.png` | `6-dark.png`, `6-dark_sm.png`, `6-dark_md.png` |
-| Upload | `POST /api/admin/tournaments/{id}/logo` | same, `?variant=dark` |
-| Clear | `DELETE /api/admin/tournaments/{id}/logo` | same, `?variant=dark` |
-| Admin UI | Edit → Logo | Edit → Dark-mode logo (with Remove) |
-
-Which one renders — `tournamentLogoSrc()` in `frontend/src/utils/tournamentLogo.js`:
-
-- **Light mode**: always `logo_url`.
-- **Dark mode** (`useTheme().isDark`): `logo_dark_url`, falling back to `logo_url`.
-- **IG share cards**: `logo_dark_url` first regardless of theme — the card ground is always near-black. The white-plate check (`logoPlate.js`) still runs on whichever image is used.
-
-Match detail exposes both as `tournament_logo_url` / `tournament_logo_dark_url`.
+Tournament logos follow the same convention in the `tournament-logos` bucket, keyed by tournament id (`6.png`, `6_sm.png`, `6_md.png`). Upload via **Admin → Tournaments → Edit → Logo** or the API endpoint. Upload a **square, transparent PNG of the shield only** — no wordmark (SB-1771). The logo renders at 48–64px beside the tournament name, where a wide wordmark logo shrinks to an unreadable strip, while a crest reads on light and dark pages alike. IG share cards render the logo inside a white rounded chip (background-image, not `<img>`, for html2canvas fidelity).
 
 ### Storage Convention
 
