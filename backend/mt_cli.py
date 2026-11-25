@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import Counter
@@ -54,7 +55,7 @@ match_app = typer.Typer(help="Live match tracking commands")
 tournament_app = typer.Typer(help="Tournament + bracket seeding commands (admin)")
 team_app = typer.Typer(help="Team stats, matches, and admin edits")
 player_app = typer.Typer(help="Player stats (read-only)")
-club_app = typer.Typer(help="Club admin: create and rename")
+club_app = typer.Typer(help="Club admin: create, rename, crest and colours")
 alias_app = typer.Typer(help="Team name aliases (admin)")
 mapping_app = typer.Typer(help="Team age-group / division registrations (admin)")
 ingest_app = typer.Typer(help="Ingest: unresolved names, and planned fixes for a tournament's teams (admin)")
@@ -2895,6 +2896,96 @@ def club_rename(
     )
     console.print(f"[green]Renamed club #{current['id']}[/green] -> {name}")
     console.print("[dim]crest, colours and pro-academy flag preserved[/dim]")
+
+
+# The server's own limits for POST /api/clubs/{id}/logo, checked here so a bad
+# file fails before it is sent rather than as a 400 after.
+LOGO_SUFFIXES = {".png", ".jpg", ".jpeg"}
+LOGO_MAX_BYTES = 2 * 1024 * 1024
+
+_HEX_COLOUR = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+
+@club_app.command("set-logo")
+def club_set_logo(
+    club: str = typer.Argument(..., help="Club name or id"),
+    file: Path = typer.Argument(..., help="PNG or JPG crest, 2MB at most"),
+    if_missing: bool = typer.Option(False, "--if-missing", help="Do nothing if the club already has a crest"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Replace an existing crest without asking"),
+):
+    """Upload a club's crest.
+
+    The server stores it, writes the 64px and 128px variants the app and IG
+    cards use, and sets logo_url itself — so unlike set-colors this is not a
+    read-modify-write, and nothing else on the club changes (SB-1777).
+    """
+    if not file.is_file():
+        _fail(f"No such file: {file}")
+    if file.suffix.lower() not in LOGO_SUFFIXES:
+        _fail(f"Crest must be PNG or JPG, got {file.suffix or 'no extension'}")
+    size = file.stat().st_size
+    if size > LOGO_MAX_BYTES:
+        _fail(f"Crest is {size / 1024 / 1024:.2f}MB; the server takes 2MB at most")
+
+    client, _ = get_client()
+    current = _api(_resolve_club, client, club)
+    name = current.get("name")
+
+    if current.get("logo_url"):
+        if if_missing:
+            console.print(f"[yellow]{name} already has a crest; left alone (--if-missing).[/yellow]")
+            return
+        console.print(f"{name} already has a crest: {current['logo_url']}")
+        if not yes and not typer.confirm("Replace it?"):
+            raise typer.Exit(1)
+
+    result = _api(client.upload_club_logo, current["id"], str(file))
+    console.print(f"[green]{name}[/green] (club #{current['id']}) crest set: {result.get('logo_url')}")
+
+
+@club_app.command("set-colors")
+def club_set_colors(
+    club: str = typer.Argument(..., help="Club name or id"),
+    primary: str | None = typer.Option(None, "--primary", "-p", help="Primary colour, #RRGGBB"),
+    secondary: str | None = typer.Option(None, "--secondary", "-s", help="Secondary colour, #RRGGBB"),
+):
+    """Set a club's brand colours, which the IG cards and team headers use.
+
+    PUT /api/clubs/{id} is a replace, not a patch, so this reads the club and
+    resends every field, changing only the colours given. Sending a subset is
+    how a crest gets blanked (SB-824, SB-842).
+    """
+    if primary is None and secondary is None:
+        _fail("Give --primary, --secondary or both")
+    for label, value in (("primary", primary), ("secondary", secondary)):
+        if value is not None and not _HEX_COLOUR.match(value):
+            _fail(f"{label} colour must look like #1E3A8A, got {value!r}")
+
+    client, _ = get_client()
+    current = _api(_resolve_club, client, club)
+    full = _api(client.get_club, current["id"]) or current
+
+    new_primary = primary.upper() if primary else full.get("primary_color")
+    new_secondary = secondary.upper() if secondary else full.get("secondary_color")
+
+    updated = _api(
+        client.update_club_profile,
+        current["id"],
+        name=full.get("name"),
+        city=full.get("city") or "",
+        website=full.get("website"),
+        description=full.get("description"),
+        logo_url=full.get("logo_url"),
+        primary_color=new_primary,
+        secondary_color=new_secondary,
+        pro_academy=bool(full.get("pro_academy")),
+    )
+    console.print(
+        f"[green]{full.get('name')}[/green] colours: "
+        f"{full.get('primary_color')} / {full.get('secondary_color')} → {new_primary} / {new_secondary}"
+    )
+    console.print("[dim]crest, website, description and pro-academy flag preserved[/dim]")
+    _print_club(updated or full)
 
 
 @alias_app.command("add")

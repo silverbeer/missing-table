@@ -901,3 +901,135 @@ class TestAIGaps:
         assert "2026-10-08" in result.output
         assert "4 unanswered of 40 tool calls" in result.output
         client.get_ai_gaps.assert_called_once_with(days=7, tool="search_teams")
+
+
+def _club_by_id(client):
+    """get_club, answering from the same clubs get_clubs lists."""
+    return lambda cid: next(c for c in client.get_clubs.return_value if c["id"] == cid)
+
+
+class TestClubSetLogo:
+    """SB-1777: crests could only be set in the Admin UI."""
+
+    @pytest.fixture
+    def crest(self, tmp_path):
+        path = tmp_path / "crest.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+        return path
+
+    def test_it_uploads_to_the_club(self, client, crest):
+        client.upload_club_logo.return_value = {"logo_url": "https://cdn.test/13.png"}
+
+        result = runner.invoke(mt_cli.app, ["club", "set-logo", "NEFC", str(crest)])
+
+        assert result.exit_code == 0, result.output
+        client.upload_club_logo.assert_called_once_with(13, str(crest))
+        assert "https://cdn.test/13.png" in result.output
+
+    def test_it_never_does_a_profile_write(self, client, crest):
+        """The server sets logo_url; a PUT here could only blank other fields."""
+        client.upload_club_logo.return_value = {"logo_url": "x"}
+        runner.invoke(mt_cli.app, ["club", "set-logo", "NEFC", str(crest)])
+
+        client.update_club_profile.assert_not_called()
+
+    def test_if_missing_leaves_an_existing_crest_alone(self, client, crest):
+        result = runner.invoke(mt_cli.app, ["club", "set-logo", "Houston Dynamo FC", str(crest), "--if-missing"])
+
+        assert result.exit_code == 0
+        assert "already has a crest" in result.output
+        client.upload_club_logo.assert_not_called()
+
+    def test_replacing_a_crest_asks_first(self, client, crest):
+        result = runner.invoke(mt_cli.app, ["club", "set-logo", "Houston Dynamo FC", str(crest)], input="n\n")
+
+        assert result.exit_code == 1
+        client.upload_club_logo.assert_not_called()
+
+    def test_yes_replaces_without_asking(self, client, crest):
+        client.upload_club_logo.return_value = {"logo_url": "x"}
+        result = runner.invoke(mt_cli.app, ["club", "set-logo", "Houston Dynamo FC", str(crest), "--yes"])
+
+        assert result.exit_code == 0
+        client.upload_club_logo.assert_called_once()
+
+    def test_a_missing_file_sends_nothing(self, client, tmp_path):
+        result = runner.invoke(mt_cli.app, ["club", "set-logo", "NEFC", str(tmp_path / "nope.png")])
+
+        assert result.exit_code == 1
+        client.upload_club_logo.assert_not_called()
+
+    def test_a_non_image_is_refused(self, client, tmp_path):
+        path = tmp_path / "crest.svg"
+        path.write_text("<svg/>")
+
+        result = runner.invoke(mt_cli.app, ["club", "set-logo", "NEFC", str(path)])
+
+        assert result.exit_code == 1
+        assert "PNG or JPG" in result.output
+        client.upload_club_logo.assert_not_called()
+
+    def test_over_2mb_is_refused_before_sending(self, client, tmp_path):
+        path = tmp_path / "big.png"
+        path.write_bytes(b"0" * (mt_cli.LOGO_MAX_BYTES + 1))
+
+        result = runner.invoke(mt_cli.app, ["club", "set-logo", "NEFC", str(path)])
+
+        assert result.exit_code == 1
+        client.upload_club_logo.assert_not_called()
+
+
+class TestClubSetColors:
+    """SB-1777: a replace-not-patch write that must keep the crest."""
+
+    def test_it_sets_both_colours(self, client):
+        client.get_club.side_effect = _club_by_id(client)
+
+        result = runner.invoke(mt_cli.app, ["club", "set-colors", "NEFC", "-p", "#1b1a3a", "-s", "#E4202E"])
+
+        assert result.exit_code == 0, result.output
+        kw = client.update_club_profile.call_args.kwargs
+        assert kw["primary_color"] == "#1B1A3A"
+        assert kw["secondary_color"] == "#E4202E"
+
+    def test_the_crest_and_everything_else_survive(self, client):
+        """The regression SB-824 and SB-842 are both about."""
+        client.get_club.side_effect = _club_by_id(client)
+
+        runner.invoke(mt_cli.app, ["club", "set-colors", "Houston Dynamo FC", "-p", "#000000"])
+
+        kw = client.update_club_profile.call_args.kwargs
+        assert kw["logo_url"] == "https://cdn.test/186.png"
+        assert kw["website"] == "https://example.test"
+        assert kw["description"] == "MLS Pro Academy"
+        assert kw["city"] == "Houston, TX"
+        assert kw["pro_academy"] is False
+
+    def test_one_colour_keeps_the_other(self, client):
+        client.get_club.side_effect = _club_by_id(client)
+
+        runner.invoke(mt_cli.app, ["club", "set-colors", "Houston Dynamo FC", "-p", "#000000"])
+
+        kw = client.update_club_profile.call_args.kwargs
+        assert kw["primary_color"] == "#000000"
+        assert kw["secondary_color"] == "#101820"
+
+    def test_pro_academy_flag_survives(self, client):
+        client.get_club.side_effect = _club_by_id(client)
+
+        runner.invoke(mt_cli.app, ["club", "set-colors", "NEFC", "-p", "#000000"])
+
+        assert client.update_club_profile.call_args.kwargs["pro_academy"] is True
+
+    @pytest.mark.parametrize("bad", ["red", "#12345", "1E3A8A", "#GGGGGG"])
+    def test_a_bad_colour_writes_nothing(self, client, bad):
+        result = runner.invoke(mt_cli.app, ["club", "set-colors", "NEFC", "-p", bad])
+
+        assert result.exit_code == 1
+        client.update_club_profile.assert_not_called()
+
+    def test_no_colour_given_writes_nothing(self, client):
+        result = runner.invoke(mt_cli.app, ["club", "set-colors", "NEFC"])
+
+        assert result.exit_code == 1
+        client.update_club_profile.assert_not_called()
