@@ -94,6 +94,23 @@ mt match secondhalf                          # Kick off second half
 mt match end                                 # Full time (clears match_id)
 ```
 
+### Club Crest and Colours (admin)
+
+The IG share cards and team headers read a club's crest and brand colours, so
+a club without them renders as a grey blank.
+
+```bash
+mt club show "AC River"                                   # current crest, colours, every field
+mt club set-logo "AC River" ac-river.png --if-missing     # upload a PNG/JPG crest (2MB max)
+mt club set-logo "AC River" ac-river.png --yes            # replace an existing crest
+mt club set-colors "AC River" -p "#1B1A3A" -s "#E4202E"   # brand colours, #RRGGBB
+```
+
+`set-logo` uploads to `POST /api/clubs/{id}/logo`, which stores the image, writes
+its 64px/128px variants and sets `logo_url`; nothing else on the club changes.
+`set-colors` reads the club and resends every field, because `PUT /api/clubs/{id}`
+is a replace: sending only the colours would blank the crest (SB-824, SB-842).
+
 ## Match Day Workflow
 
 ### At Home (Mac mini)
