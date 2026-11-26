@@ -1789,6 +1789,116 @@ def team_matches(
     console.print("[dim]Only live, completed and forfeit matches count towards season stats (SB-671).[/dim]")
 
 
+def _dash(value, fmt: str = "{}") -> str:
+    """An absent value renders as absent, never as 0 (CLAUDE.md rule 2)."""
+    return "—" if value is None else fmt.format(value)
+
+
+@team_app.command("dossier")
+def team_dossier(
+    team: str = typer.Argument(..., help="Team name or id"),
+    age: str = typer.Option(None, "--age", "-a", help="Age group, e.g. U15 (or give --match)"),
+    match_id: int = typer.Option(None, "--match", "-m", help="Use the team's age in this match; shows playing up"),
+    as_json: bool = typer.Option(False, "--json", help="Print the raw result"),
+):
+    """A team inside its own conference tables, at one age group (SB-1780).
+
+    Positions and percentiles are within each table: conferences are never compared.
+    """
+    if age is None and match_id is None:
+        _fail("Give --age (e.g. U15) or --match")
+    client, _ = get_client()
+    team_row = _api(resolve_team, client, team)
+    age_row = _resolve_age_group(client, age) if age else None
+    result = _api(
+        client.get_team_dossier,
+        team_row["id"],
+        age_group_id=(age_row or {}).get("id"),
+        for_match_id=match_id,
+    )
+    if as_json:
+        console.print_json(data=result)
+        return
+
+    t = result.get("team") or {}
+    age_name = (result.get("age_group") or {}).get("name", "?")
+    season_name = (result.get("season") or {}).get("name", "?")
+    console.print(f"[bold]{t.get('name', team)} · {age_name} · {season_name}[/bold]")
+    ctx = result.get("context")
+    if ctx and ctx.get("playing_up"):
+        how = "inferred from registrations" if ctx.get("playing_up_inferred") else "recorded on the match"
+        console.print(
+            f"[yellow]Playing up in match {ctx['match_id']}: {ctx['season_age_group']['name']} side in a "
+            f"{ctx['bracket_age_group']['name']} match ({how}).[/yellow]"
+        )
+    console.print(f"[dim]{(result.get('coverage') or {}).get('note', '')}[/dim]")
+    if result.get("flags"):
+        console.print(f"[yellow]Flags: {', '.join(result['flags'])}[/yellow]")
+
+    confs = result.get("conferences") or []
+    if not confs:
+        console.print(f"[yellow]No {age_name} registration: no conference table to place the team in.[/yellow]")
+    else:
+        table = Table(title="Conferences (each its own table)")
+        table.add_column("Kind", style="dim")
+        table.add_column("Conference", style="cyan")
+        table.add_column("Pos", justify="right")
+        table.add_column("GP", justify="right")
+        table.add_column("W-D-L", justify="right")
+        table.add_column("GF-GA", justify="right")
+        table.add_column("PPG", justify="right")
+        table.add_column("CS", justify="right")
+        table.add_column("Pctl", justify="right")
+        for c in confs:
+            division = c.get("division") or {}
+            pos = "—" if c.get("position") is None else f"{c['position']}/{c.get('table_size')}"
+            record = "—" if c.get("wins") is None else f"{c['wins']}-{c['draws']}-{c['losses']}"
+            goals = "—" if c.get("gf") is None else f"{c['gf']}-{c['ga']}"
+            label = f"{c.get('league') or ''} {division.get('name', '?')}".strip()
+            if c.get("low_sample") and not c.get("no_results"):
+                label += " (small sample)"
+            table.add_row(
+                c.get("kind", "?"),
+                label,
+                pos,
+                str(c.get("played", 0)),
+                record,
+                goals,
+                _dash(c.get("ppg"), "{:.2f}"),
+                _dash(c.get("clean_sheets")),
+                _dash(c.get("strength_percentile")),
+            )
+        console.print(table)
+
+    wins = result.get("key_wins") or []
+    if wins:
+        table = Table(title="Key wins (strongest opponent first)")
+        table.add_column("Date", style="magenta", no_wrap=True)
+        table.add_column("Opponent", style="white")
+        table.add_column("Score", justify="right")
+        table.add_column("Why", style="cyan")
+        table.add_column("Opponent's table", style="dim")
+        for w in wins:
+            where = (
+                "—"
+                if w.get("opponent_position") is None
+                else f"{w['opponent_position']}/{w.get('opponent_table_size')} {w.get('opponent_conference')}"
+            )
+            table.add_row(
+                str(w.get("date", "?")), w["opponent"]["name"], w.get("score", "?"), w.get("kind", "?"), where
+            )
+        console.print(table)
+
+    form = result.get("form") or []
+    if form:
+        recent = ", ".join(f"{f['result']} {f['score']} v {f['opponent']['name']}" for f in form)
+        console.print(f"Form (newest first): {recent}")
+    streak_id = result.get("streak_fact_id")
+    streak = next((f for f in result.get("facts") or [] if f.get("id") == streak_id), None)
+    if streak:
+        console.print(f"[dim]{streak['text']}[/dim]")
+
+
 @app.command("coverage")
 def coverage(
     season_id: int = typer.Option(None, "--season", help="Season id (default: current)"),

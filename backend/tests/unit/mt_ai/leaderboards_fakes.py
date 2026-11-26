@@ -145,6 +145,9 @@ class FakeMatches:
     def get_standings(self, *a, **k):
         raise AssertionError("not used")
 
+    def get_match_by_id(self, *a, **k):
+        raise AssertionError("not used")
+
 
 class FakeTeams:
     def get_all_teams(self):

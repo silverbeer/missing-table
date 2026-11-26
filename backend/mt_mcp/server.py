@@ -62,6 +62,7 @@ from mt_tools.leaderboards import MAX_LIMIT as LEADERS_MAX_LIMIT
 from mt_tools.leaderboards import LeaderboardsResult, get_leaderboards
 from mt_tools.motw_candidates import MotwCandidatesResult, suggest_from_deps
 from mt_tools.my_team import MyTeamResult, resolve_my_team
+from mt_tools.team_dossier import TeamDossierResult, get_team_dossier
 
 logger = structlog.get_logger()
 
@@ -85,6 +86,8 @@ come from one of its facts; a fact with confirmed=false may only be stated as
 unconfirmed.
 Cross-conference stat boards (points, goals, unbeaten): get_leaderboards. State its
 coverage; it is a stat board, not a ranking, because conferences only meet at tournaments.
+Describing one team (a match preview, Match of the Day): get_team_dossier. Cite its fact
+ids, and never say one team is better than another from a different conference.
 """
 
 UNAVAILABLE = "MT could not answer that right now."
@@ -100,6 +103,7 @@ TOOL_TIERS: dict[str, Tier] = {
     "list_divisions": "read",
     "suggest_motw_candidates": "read",
     "get_leaderboards": "read",
+    "get_team_dossier": "read",
     "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
@@ -283,6 +287,30 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
         return await _run(
             lambda: get_leaderboards(deps(), league, age_group, season, limit=limit),
             "get_leaderboards",
+        )
+
+    @server.tool(name="get_team_dossier")
+    async def get_team_dossier_tool(
+        team_id: int, age_group_id: int | None = None, for_match_id: int | None = None
+    ) -> TeamDossierResult:
+        """One team at one age group this season, measured inside its own tables: per
+        competition (Homegrown conference, Flex conference and Pro Player Pathway kept
+        separate) its position of N, W-D-L, goals, points per game and strength
+        percentile within that table; clean sheets; key wins (over teams in the top
+        third of their own table, and over pro academies: "pro_academy_upset" is a
+        non-pro club beating one), strongest first; last 5 League/Flex results, newest
+        first; streaks. Give team_id and age_group_id (from search_teams), or
+        for_match_id to use the team's age in that match: "context" then says whether
+        it is playing up ("playing_up_inferred" when the match does not record it;
+        "playing_down" for an older side, which is not playing up).
+        Every claim must cite a fact id from "facts". Never say a team is better than
+        one from another conference: two conferences share no table. Null stats mean
+        no counted result yet, never 0; flags "low_sample" (under 3 games) and
+        "no_results" must be stated."""
+        viewer = Viewer.from_user(_caller().as_user())
+        return await _run(
+            lambda: get_team_dossier(deps(), team_id, age_group_id, for_match_id=for_match_id, viewer=viewer),
+            "get_team_dossier",
         )
 
     # --- my tier --------------------------------------------------------------

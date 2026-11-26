@@ -5,6 +5,7 @@ MT's default data: scraped fixtures and results, no rosters, no logged goals.
 
 from datetime import UTC, date, datetime
 
+from dao.side_age_groups import effective_side_age_groups
 from mt_ai.tools import ToolDeps
 
 HG, FLEX = 1, 2
@@ -21,7 +22,10 @@ LEAGUES = [
     {"id": HG, "name": "Homegrown", "is_test": False},
     {"id": FLEX, "name": "Flex", "is_test": False, "parent_league_id": HG},
 ]
-CLUBS = [{"id": i, "name": f"Club {i}", "timezone": "America/New_York", "is_test": False} for i in range(1, 9)]
+CLUBS = [
+    {"id": i, "name": f"Club {i}", "timezone": "America/New_York", "is_test": False, "pro_academy": False}
+    for i in range(1, 9)
+]
 
 # "Today" is Saturday 2026-11-07 in New York; the week is Nov 2-8.
 NOW = datetime(2026, 11, 7, 14, 0, tzinfo=UTC)
@@ -79,6 +83,8 @@ def match(home, away, day, division, *, age=U15, hs=None, as_=None, status=None,
         "age_group_id": age,
         "age_group_name": f"U{age}",
         "league_name": "Flex" if league_id == FLEX else "Homegrown",
+        "source": "match-scraper",
+        "season_id": 7,
     }
 
 
@@ -155,21 +161,44 @@ def standings(matches: list[dict], shootout: bool = False) -> list[dict]:
 
 
 class FakeMatches:
-    def __init__(self, matches: list[dict], fail: bool = False) -> None:
-        self.matches, self.fail = matches, fail
+    def __init__(
+        self, matches: list[dict], fail: bool = False, standings_fail: bool = False, match_fail: bool = False
+    ) -> None:
+        self.matches, self.fail, self.standings_fail, self.match_fail = matches, fail, standings_fail, match_fail
         self.standings_calls: list[tuple] = []
 
     def get_all_matches(
-        self, season_id=None, age_group_id=None, division_id=None, include_test=False, raise_on_error=False, **_
+        self,
+        season_id=None,
+        age_group_id=None,
+        division_id=None,
+        team_id=None,
+        include_test=False,
+        raise_on_error=False,
+        **_,
     ):
         if self.fail:
             raise RuntimeError("PostgREST down")
-        return [
-            dict(m)
-            for m in self.matches
-            if (division_id is None or m["division_id"] == division_id)
-            and (age_group_id is None or m["age_group_id"] == age_group_id)
-        ]
+        out = []
+        for m in self.matches:
+            if division_id is not None and m["division_id"] != division_id:
+                continue
+            if team_id is not None:
+                # Like team_age_group_filter: the age group the team's side fielded.
+                sides = dict(zip((m["home_team_id"], m["away_team_id"]), effective_side_age_groups(m), strict=True))
+                if team_id not in sides or (age_group_id is not None and sides[team_id] != age_group_id):
+                    continue
+            elif age_group_id is not None and m["age_group_id"] != age_group_id:
+                continue
+            out.append(dict(m))
+        return out
+
+    def get_match_by_id(self, match_id, include_test=False, *, raise_on_error=False):
+        if self.match_fail:
+            if raise_on_error:
+                raise RuntimeError("PostgREST down")
+            return None
+        return next((dict(m) for m in self.matches if m["id"] == match_id), None)
 
     def get_season_results(self, season_id, age_group_id, league_ids, match_type_ids, statuses=(), **_):
         if self.fail:
@@ -186,6 +215,8 @@ class FakeMatches:
         raise_on_error=False,
     ):
         self.standings_calls.append((division_id, age_group_id, match_type))
+        if self.standings_fail:
+            raise RuntimeError("PostgREST down")
         ms = [
             m
             for m in self.matches
@@ -200,16 +231,22 @@ class FakeMatches:
 
 
 class FakeTeams:
+    def __init__(self, teams: list[dict] | None = None) -> None:
+        self.teams = TEAMS if teams is None else teams
+
     def get_all_teams(self):
-        return [dict(t) for t in TEAMS]
+        return [dict(t) for t in self.teams]
 
     def resolve_team_by_name(self, name, league_id=None):
         return None
 
 
 class FakeClubs:
+    def __init__(self, clubs: list[dict] | None = None) -> None:
+        self.clubs = CLUBS if clubs is None else clubs
+
     def get_all_clubs(self, include_team_counts=True):
-        return CLUBS
+        return self.clubs
 
 
 class FakeLeagues:
@@ -225,12 +262,17 @@ class FakeSeasons:
         return [self.get_current_season()]
 
 
-def deps(matches=None, fail=False) -> ToolDeps:
+def deps(matches=None, fail=False, *, teams=None, clubs=None, standings_fail=False, match_fail=False) -> ToolDeps:
     return ToolDeps(
-        teams=FakeTeams(),
-        clubs=FakeClubs(),
+        teams=FakeTeams(teams),
+        clubs=FakeClubs(clubs),
         leagues=FakeLeagues(),
-        matches=FakeMatches(default_matches() if matches is None else matches, fail=fail),
+        matches=FakeMatches(
+            default_matches() if matches is None else matches,
+            fail=fail,
+            standings_fail=standings_fail,
+            match_fail=match_fail,
+        ),
         seasons=FakeSeasons(),
     )
 

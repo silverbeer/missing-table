@@ -290,6 +290,19 @@ class FakeMatches:
             out.append(row)
         return out
 
+    def get_match_by_id(
+        self, match_id: int, include_test: bool = False, *, raise_on_error: bool = False
+    ) -> dict | None:
+        """Like the DAO: None for an unknown (or, for a real viewer, test) match."""
+        if self.fail:
+            if raise_on_error:
+                raise RuntimeError("PostgREST down")
+            return None
+        for row in copy.deepcopy(self.rows):
+            if row.get("id") == match_id and (include_test or not row.pop("is_test", False)):
+                return row
+        return None
+
 
 def match_row(match_id: int, match_date: str, **overrides: Any) -> dict:
     """A get_all_matches row: IFA (102) at home to Boston United (100), scraped."""
