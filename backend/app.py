@@ -9546,6 +9546,39 @@ async def get_leaderboards(
     return result.model_dump(mode="json")
 
 
+@app.get("/api/teams/{team_id}/dossier")
+async def get_team_dossier(
+    team_id: int,
+    age_group_id: int | None = None,
+    for_match_id: int | None = None,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """One team at one age group, inside its own conference tables (SB-1780).
+
+    The same result as mt-mcp's get_team_dossier and `mt team dossier`. Logged-in
+    users only: MT is invite-only. `for_match_id` takes the age from that match and
+    says whether the team is playing up. A team with no results is 200 with null
+    stats and `no_results`; an unknown team, age group or match, or neither an age
+    group nor a match, is 400; a failed read is 503.
+    """
+    from mt_ai.tools.schemas import Viewer
+    from mt_tools.team_dossier import get_team_dossier as build_dossier
+
+    result = await asyncio.to_thread(
+        build_dossier,
+        _my_team_deps(),
+        team_id,
+        age_group_id,
+        for_match_id=for_match_id,
+        viewer=Viewer.from_user(current_user),
+    )
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="The team dossier is unavailable right now")
+    return result.model_dump(mode="json")
+
+
 @app.get("/api/admin/coverage")
 async def get_competition_coverage(
     season_id: int | None = None,

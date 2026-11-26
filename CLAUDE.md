@@ -267,6 +267,7 @@ mt match start 1053                    # live scoring: goal, message, halftime, 
 mt team mapping list "NEFC"            # which age groups a team is registered in
 mt team mapping add "NEFC" -a U16 -d Northeast
 mt team guest add "CF Montreal" -a U15 -d "New England" -r "why"  # no table row, results still count (SB-1598), admin
+mt team dossier "IFA" --age U15 [--match 501]  # the team inside its own conference tables, fact ids (SB-1780)
 mt ingest failures                     # what the scraper could not resolve
 mt ingest resolve 1 --note "fixed at the sender"
 mt ingest plan --teams fest.json -o plan.json  # read-only: which tournament names resolve, proposed aliases/teams (SB-1763), admin
@@ -459,7 +460,7 @@ Secrets are managed via Kubernetes Secrets - NEVER committed to git.
 `teams`, `matches`, `seasons`, `age_groups`, `divisions`, `match_types`, `team_match_types`, `user_profiles`, `match_of_the_week`, `tournament_match_of_the_day`, `division_age_groups`, `notification_channels`, `notification_deliveries`, `channel_members`
 
 ### API Routes
-`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/tournaments/{id}/motd`, `/api/notification-channels`, `/api/channels/*`, `/api/leaderboards` (cross-conference stat boards, logged-in), `/api/admin/*` (incl. `/api/admin/coverage`)
+`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/tournaments/{id}/motd`, `/api/notification-channels`, `/api/channels/*`, `/api/leaderboards` (cross-conference stat boards, logged-in), `/api/teams/{id}/dossier` (team inside its own conferences, logged-in), `/api/admin/*` (incl. `/api/admin/coverage`)
 
 ### Authentication Flow
 ```

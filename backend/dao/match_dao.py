@@ -1392,8 +1392,13 @@ class MatchDAO(BaseDAO):
             return None
 
     @dao_cache("matches:by_id:{match_id}:{include_test}")
-    def get_match_by_id(self, match_id: int, include_test: bool = False) -> dict | None:
+    def get_match_by_id(
+        self, match_id: int, include_test: bool = False, *, raise_on_error: bool = False
+    ) -> dict | None:
         """Get a single match by ID with all related data.
+
+        raise_on_error re-raises a failed read instead of returning None, so a
+        caller can tell "no such match" from "could not check" (SB-1780).
 
         include_test gates the SB-591 test partition. The cache key varies by
         include_test so a test match fetched by an admin is never served from
@@ -1513,6 +1518,8 @@ class MatchDAO(BaseDAO):
 
         except Exception:
             logger.exception("Error retrieving match by ID")
+            if raise_on_error:
+                raise
             return None
 
     @invalidates_cache(MATCHES_CACHE_PATTERN, TOURNAMENTS_CACHE_PATTERN)

@@ -1603,6 +1603,17 @@ class MissingTableClient:
             params["season"] = season
         return self._request("GET", "/api/leaderboards", params=params).json()
 
+    def get_team_dossier(
+        self, team_id: int, age_group_id: int | None = None, for_match_id: int | None = None
+    ) -> dict[str, Any]:
+        """One team at one age group, inside its own conference tables (SB-1780)."""
+        params: dict[str, Any] = {}
+        if age_group_id is not None:
+            params["age_group_id"] = age_group_id
+        if for_match_id is not None:
+            params["for_match_id"] = for_match_id
+        return self._request("GET", f"/api/teams/{team_id}/dossier", params=params or None).json()
+
     def get_tournament_motd(
         self, tournament_id: int, date: str | None = None, age_group_id: int | None = None
     ) -> dict[str, Any]:

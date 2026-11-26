@@ -49,6 +49,12 @@ class MatchSource(Protocol):
 
     def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool: ...
 
+    # get_team_dossier's for_match_id (SB-1780). None for an unknown match; with
+    # raise_on_error a failed read raises instead of looking like an unknown match.
+    def get_match_by_id(
+        self, match_id: int, include_test: bool = False, *, raise_on_error: bool = False
+    ) -> dict | None: ...
+
     def get_standings(
         self,
         season_id: int | None = None,
