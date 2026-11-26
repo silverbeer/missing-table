@@ -9520,6 +9520,32 @@ async def get_motw_candidates(
     return result.model_dump(mode="json")
 
 
+@app.get("/api/leaderboards")
+async def get_leaderboards(
+    age_group: str,
+    league: str = "Homegrown",
+    season: str | None = None,
+    limit: int = Query(20, ge=1, le=50),
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Cross-conference stat boards for a league and age group this season (SB-1781).
+
+    The same result as mt-mcp's get_leaderboards and `mt leaders`. Logged-in
+    users only: MT is invite-only, and these name teams. A stat board, not a
+    ranking: conferences only meet at tournaments, and `coverage.note` says so.
+    An age group with nothing played is 200 with empty boards and a `reason`;
+    an unknown league, age group or season is 400; a failed read is 503.
+    """
+    from mt_tools.leaderboards import get_leaderboards as build_leaderboards
+
+    result = await asyncio.to_thread(build_leaderboards, _my_team_deps(), league, age_group, season, limit=limit)
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="Leaderboards are unavailable right now")
+    return result.model_dump(mode="json")
+
+
 @app.get("/api/admin/coverage")
 async def get_competition_coverage(
     season_id: int | None = None,

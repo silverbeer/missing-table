@@ -19,6 +19,7 @@ READ_TOOLS = {
     "get_standings",
     "list_divisions",
     "suggest_motw_candidates",
+    "get_leaderboards",
 }
 MY_TOOLS = {"get_my_team"}
 

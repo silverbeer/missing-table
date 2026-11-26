@@ -224,6 +224,26 @@ class FakeMatches:
             return standings_result([], fixtures=0)
         return copy.deepcopy(self.standings or standings_result([], fixtures=0))
 
+    def get_season_results(
+        self,
+        season_id: int,
+        age_group_id: int,
+        league_ids: list[int] | tuple[int, ...],
+        match_type_ids: list[int] | tuple[int, ...],
+        statuses: tuple[str, ...] = ("completed", "forfeit"),
+        include_test: bool = False,
+    ) -> list[dict]:
+        """Like the DAO, raises on a failed read rather than answering []."""
+        if self.fail:
+            raise RuntimeError("PostgREST down")
+        return [
+            row
+            for row in copy.deepcopy(self.rows)
+            if row.get("age_group_id") == age_group_id
+            and row.get("match_status") in statuses
+            and (include_test or not row.pop("is_test", False))
+        ]
+
     def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool:
         """Like the DAO, raises on a failed read rather than answering False."""
         self.activity_calls.append((team_id, season_id, include_test))

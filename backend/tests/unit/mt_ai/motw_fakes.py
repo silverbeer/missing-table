@@ -171,6 +171,11 @@ class FakeMatches:
             and (age_group_id is None or m["age_group_id"] == age_group_id)
         ]
 
+    def get_season_results(self, season_id, age_group_id, league_ids, match_type_ids, statuses=(), **_):
+        if self.fail:
+            raise RuntimeError("PostgREST down")
+        return [dict(m) for m in self.matches if m["age_group_id"] == age_group_id and m["match_status"] in statuses]
+
     def get_standings(
         self,
         season_id=None,
