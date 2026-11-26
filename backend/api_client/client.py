@@ -1614,6 +1614,10 @@ class MissingTableClient:
             params["for_match_id"] = for_match_id
         return self._request("GET", f"/api/teams/{team_id}/dossier", params=params or None).json()
 
+    def get_matchup(self, match_id: int) -> dict[str, Any]:
+        """Both teams of one match, each inside its own conference tables (SB-1782)."""
+        return self._request("GET", f"/api/matches/{match_id}/matchup").json()
+
     def get_tournament_motd(
         self, tournament_id: int, date: str | None = None, age_group_id: int | None = None
     ) -> dict[str, Any]:

@@ -106,6 +106,7 @@ class TestBuildBoards:
         b = board(build_boards([few, enough]), key)
         assert ranks(b) == [(1, 2)]
         assert b.unranked_count == 1
+        assert b.ranked_count == 1
 
     def test_one_game_and_nothing_conceded_never_tops_fewest_against(self):
         """The case the cut exists for: one clean sheet is not the best defence."""
@@ -169,6 +170,14 @@ class TestBuildBoards:
     def test_limit_keeps_a_tie_at_the_cut(self):
         boards = build_boards([tt(1, w=6), tt(2, w=5, l=1), tt(3, w=5, l=1), tt(4, w=4, l=2)], limit=2)
         assert ranks(board(boards, "pts")) == [(1, 1), (2, 2), (2, 3)]
+
+    def test_ranked_count_is_every_ranked_team_not_just_the_rows_shown(self):
+        """The "of N" behind a rank: a top-2 cut still ranks all four."""
+        teams = [tt(1, w=6), tt(2, w=5, l=1), tt(3, w=5, l=1), tt(4, w=4, l=2), tt(5, w=1)]
+        boards = build_boards(teams, limit=2)
+        assert board(boards, "pts").ranked_count == 4
+        assert board(boards, "unbeaten").ranked_count == 1  # team 1; team 5 is under MIN_GP
+        assert board(boards, "pro_wins").ranked_count == 0  # nobody met a pro academy
 
     def test_tiny_pool(self):
         boards = build_boards([tt(1, w=1)])

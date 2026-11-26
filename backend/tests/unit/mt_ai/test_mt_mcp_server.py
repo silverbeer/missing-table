@@ -24,6 +24,7 @@ READ_TOOLS = {
     "suggest_motw_candidates",
     "get_leaderboards",
     "get_team_dossier",
+    "get_matchup",
 }
 MY_TOOLS = {"get_my_team"}
 ADMIN_TOOLS = {"list_ingest_failures", "resolve_ingest_failure"}

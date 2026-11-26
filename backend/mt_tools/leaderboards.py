@@ -31,8 +31,9 @@ played); wins over pro academies. **Every board ranks only teams with `MIN_GP`
 games**, so a team with one game and none conceded can never top fewest goals
 against. Teams under it are listed once, in the result's `unranked` (top `limit`
 by games played, with `unranked_count`); each board carries only its own
-`unranked_count`. Wins over pro academies lists only teams that played one: a
-team that never met a pro academy is absent from that board, not 0.
+`unranked_count`, and `ranked_count`, the teams it ranks (the "of N"). Wins over
+pro academies lists only teams that played one: a team that never met a pro
+academy is absent from that board, not 0.
 
 Every row carries games played, the team's club id and logo (null when absent),
 and the team's Homegrown conference: the conference it played most League games
@@ -104,6 +105,8 @@ class Board(BaseModel):
     rows: list[LeaderRow]
     # Teams this board would hold but for MIN_GP; listed once, in the result's `unranked`.
     unranked_count: int = 0
+    # Teams the board ranks (MIN_GP games, and on the board at all): the "of N" for a rank.
+    ranked_count: int = 0
 
 
 class LeaderboardsCoverage(BaseModel):
@@ -352,6 +355,7 @@ def build_boards(
                 better=spec.better,
                 rows=_ranked(ranked, spec.value, spec.better == "higher", limit, refs, clubs),
                 unranked_count=len(too_few),
+                ranked_count=len(ranked),
             )
         )
 
@@ -364,6 +368,7 @@ def build_boards(
             better="higher",
             rows=_ranked([t for t in unbeaten if t.team_id in enough], lambda t: t.gp, True, limit, refs, clubs),
             unranked_count=sum(1 for t in unbeaten if t.team_id not in enough),
+            ranked_count=sum(1 for t in unbeaten if t.team_id in enough),
         )
     )
 
@@ -380,6 +385,7 @@ def build_boards(
                 if rank <= limit
             ],
             unranked_count=sum(1 for t in vs_pro if t.team_id not in enough),
+            ranked_count=sum(1 for t in vs_pro if t.team_id in enough),
         )
     )
     return boards

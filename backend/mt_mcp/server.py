@@ -60,6 +60,7 @@ from mt_tools.ingest import (
 from mt_tools.leaderboards import DEFAULT_LIMIT as LEADERS_DEFAULT_LIMIT
 from mt_tools.leaderboards import MAX_LIMIT as LEADERS_MAX_LIMIT
 from mt_tools.leaderboards import LeaderboardsResult, get_leaderboards
+from mt_tools.matchup import MatchupResult, get_matchup
 from mt_tools.motw_candidates import MotwCandidatesResult, suggest_from_deps
 from mt_tools.my_team import MyTeamResult, resolve_my_team
 from mt_tools.team_dossier import TeamDossierResult, get_team_dossier
@@ -88,6 +89,8 @@ Cross-conference stat boards (points, goals, unbeaten): get_leaderboards. State 
 coverage; it is a stat board, not a ranking, because conferences only meet at tournaments.
 Describing one team (a match preview, Match of the Day): get_team_dossier. Cite its fact
 ids, and never say one team is better than another from a different conference.
+Previewing one match (a Fest scouting report): get_matchup, both dossiers side by side.
+Cite its fact ids, and never compare the two teams across conferences.
 """
 
 UNAVAILABLE = "MT could not answer that right now."
@@ -104,6 +107,7 @@ TOOL_TIERS: dict[str, Tier] = {
     "suggest_motw_candidates": "read",
     "get_leaderboards": "read",
     "get_team_dossier": "read",
+    "get_matchup": "read",
     "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
@@ -312,6 +316,25 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
             lambda: get_team_dossier(deps(), team_id, age_group_id, for_match_id=for_match_id, viewer=viewer),
             "get_team_dossier",
         )
+
+    @server.tool(name="get_matchup")
+    async def get_matchup_tool(match_id: int) -> MatchupResult:
+        """Both teams of one match this season, side by side, each measured inside its
+        own tables: "home" and "away" each carry a team dossier (as get_team_dossier
+        returns for this match, so with "context" saying whether the side is playing
+        up) and "badges": stat boards for the team's league at its season age where it
+        is in the top 10 and top third, "rank" of "of" teams with enough games, best first, at most
+        3. Badges are stat boards, not rankings: state "badges_note". "badges" null
+        means MT could not check; [] means none. "match" gives the date, bracket age,
+        tournament, round and "stakes" (group, elimination, none; null outside a
+        tournament). "shares_conference" says whether the teams share a table;
+        "previous_meetings" lists their past results at this age, every season, home
+        team's goals first. A side with "dossier.error" could not be described; say
+        so, the other side still stands. Every claim must cite a fact id (dossier
+        "facts" or a badge "fact_id"). Never compare the two teams across
+        conferences: two conferences share no table."""
+        viewer = Viewer.from_user(_caller().as_user())
+        return await _run(lambda: get_matchup(deps(), match_id, viewer=viewer), "get_matchup")
 
     # --- my tier --------------------------------------------------------------
 

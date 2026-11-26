@@ -634,6 +634,8 @@
               :seasonId="match.season_id"
               :ageGroupId="match.age_group_id"
               :matchTypeId="match.match_type_id"
+              :matchId="match.id"
+              :tournamentId="match.tournament_id ?? null"
             />
           </div>
 

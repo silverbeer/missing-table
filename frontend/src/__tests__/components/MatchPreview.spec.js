@@ -232,3 +232,399 @@ describe('MatchPreview — form rows name their competition (SB-1346)', () => {
     expect(apiRequest.mock.calls[0][0]).not.toContain('match_type_id');
   });
 });
+
+// ─── Scouting tab (SB-1782) ─────────────────────────────────────────────────
+
+const MATCH = 620;
+
+const line = over => ({
+  kind: 'league',
+  competition: 'League',
+  division: { id: 201, name: 'Northeast', league: 'Homegrown' },
+  league: 'Homegrown',
+  position: 4,
+  table_size: 12,
+  played: 8,
+  wins: 5,
+  draws: 1,
+  losses: 2,
+  gf_per_game: 2.25,
+  ga_per_game: 1.0,
+  low_sample: false,
+  no_results: false,
+  ...over,
+});
+
+const dossier = (teamId, name, over = {}) => ({
+  team: {
+    id: teamId,
+    name,
+    club_name: name,
+    logo_url: null,
+    pro_academy: false,
+  },
+  age_group: { id: 15, name: 'U15' },
+  context: {
+    match_id: MATCH,
+    bracket_age_group: { id: 15, name: 'U15' },
+    season_age_group: { id: 15, name: 'U15' },
+    playing_up: false,
+    playing_up_inferred: false,
+    playing_down: false,
+  },
+  conferences: [line()],
+  totals: { played: 8, wins: 5, draws: 1, losses: 2 },
+  key_wins: [],
+  form: [],
+  flags: [],
+  error: null,
+  ...over,
+});
+
+/** A registered team nobody has tracked: MT's default state. */
+const noData = (teamId, name) =>
+  dossier(teamId, name, {
+    conferences: [
+      line({
+        position: null,
+        played: 0,
+        wins: null,
+        draws: null,
+        losses: null,
+        gf_per_game: null,
+        ga_per_game: null,
+        low_sample: true,
+        no_results: true,
+      }),
+    ],
+    totals: null,
+    flags: ['no_results'],
+  });
+
+const badge = over => ({
+  board: 'gf_pg',
+  title: 'Goals for per game',
+  league_id: 1,
+  league: 'Homegrown',
+  age_group: 'U15',
+  rank: 2,
+  of: 134,
+  value: 2.25,
+  fact_id: `t${IFA}:a15:board:1:gf_pg`,
+  text: '…',
+  ...over,
+});
+
+const matchupOf = (over = {}) => ({
+  match: { id: MATCH, date: '2026-11-20', age_group: { id: 15, name: 'U15' } },
+  shares_conference: false,
+  scouting_relevant: true,
+  home: {
+    dossier: dossier(IFA, 'IFA'),
+    badges: [badge()],
+    badges_note: 'A stat board, not a ranking.',
+  },
+  away: {
+    dossier: dossier(NVA, 'Northern Virginia Alliance', {
+      conferences: [
+        line({ division: { id: 202, name: 'Southeast', league: 'Homegrown' } }),
+        line({
+          kind: 'flex',
+          competition: 'Flex',
+          division: { id: 205, name: 'Turnpike', league: 'Flex' },
+          league: 'Flex',
+        }),
+      ],
+    }),
+    badges: [],
+    badges_note: null,
+  },
+  previous_meetings: [],
+  error: null,
+  ...over,
+});
+
+const httpError = status => Object.assign(new Error('boom'), { status });
+
+/** apiRequest routed by URL: the preview and the matchup are separate reads. */
+const routeApi = ({
+  previewData = preview(),
+  matchupData,
+  matchupError,
+} = {}) => {
+  apiRequest.mockImplementation(async url => {
+    if (url.includes('/matchup')) {
+      if (matchupError) throw matchupError;
+      return matchupData;
+    }
+    return previewData;
+  });
+};
+
+const matchupCalls = () =>
+  apiRequest.mock.calls.filter(c => c[0].includes('/matchup'));
+
+const scoutingProps = (over = {}) => ({
+  homeTeamId: IFA,
+  homeTeamName: 'IFA',
+  awayTeamId: NVA,
+  awayTeamName: 'Northern Virginia Alliance',
+  matchId: MATCH,
+  tournamentId: 3,
+  ...over,
+});
+
+const mountScouting = async (opts = {}, props = {}) => {
+  routeApi(opts);
+  const wrapper = mount(MatchPreview, { props: scoutingProps(props) });
+  await flushPromises();
+  return wrapper;
+};
+
+const text = w => w.text().replace(/\s+/g, ' ').trim();
+
+describe('MatchPreview — Scouting tab (SB-1782)', () => {
+  it('leads, and is the default, for a tournament match', async () => {
+    const wrapper = await mountScouting({ matchupData: matchupOf() });
+
+    const tabs = wrapper
+      .findAll('nav button')
+      .map(b => b.attributes('data-testid'));
+    expect(tabs[0]).toBe('tab-scouting');
+    expect(wrapper.find('[data-testid="tab-panel-scouting"]').exists()).toBe(
+      true
+    );
+    expect(matchupCalls()[0][0]).toContain(`/api/matches/${MATCH}/matchup`);
+  });
+
+  it('a league match keeps the old tabs and never reads the matchup', async () => {
+    const wrapper = await mountScouting(
+      {
+        previewData: preview({ home_team_recent: [homeLoss] }),
+        matchupData: matchupOf(), // even one the API calls scouting_relevant
+      },
+      { tournamentId: null }
+    );
+
+    expect(wrapper.find('[data-testid="tab-scouting"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="tab-panel-form"]').exists()).toBe(true);
+    expect(matchupCalls()).toHaveLength(0);
+  });
+
+  it('shows both dossiers: standing, record, per-game rates and badges', async () => {
+    const wrapper = await mountScouting({ matchupData: matchupOf() });
+    const home = wrapper.find('[data-testid="scouting-home"]');
+
+    expect(text(home)).toContain('4th of 12');
+    expect(text(home)).toContain('5-1-2');
+    expect(text(home)).toContain('GF 2.3 · GA 1.0 per game');
+    expect(text(home.find('[data-testid="scouting-badge"]'))).toBe(
+      '2nd in U15 Homegrown goals for per game, of 134 teams'
+    );
+    expect(home.find('[data-testid="scouting-badges-note"]').text()).toContain(
+      'not a ranking'
+    );
+    // The away side has a Flex line too; the home side is Homegrown only.
+    const away = wrapper.find('[data-testid="scouting-away"]');
+    expect(away.find('[data-testid="scouting-conference-flex"]').exists()).toBe(
+      true
+    );
+    expect(home.find('[data-testid="scouting-conference-flex"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('keeps a badge title in its own case but for the first letter', async () => {
+    const data = matchupOf();
+    data.home.badges = [
+      badge({
+        board: 'pts',
+        title: 'Points (W=3, D=1; shootouts count as draws)',
+        rank: 1,
+        fact_id: `t${IFA}:a15:board:1:pts`,
+      }),
+    ];
+    const wrapper = await mountScouting({ matchupData: data });
+    expect(text(wrapper.find('[data-testid="scouting-badge"]'))).toBe(
+      '1st in U15 Homegrown points (W=3, D=1; shootouts count as draws), of 134 teams'
+    );
+  });
+
+  it('a side with no data says so, and never renders 0', async () => {
+    const data = matchupOf();
+    data.away = {
+      dossier: noData(NVA, 'Northern Virginia Alliance'),
+      badges: [],
+      badges_note: null,
+    };
+    const wrapper = await mountScouting({ matchupData: data });
+    const away = wrapper.find('[data-testid="scouting-away"]');
+
+    expect(away.find('[data-testid="scouting-side-empty"]').text()).toContain(
+      'No results tracked this season'
+    );
+    expect(away.find('[data-testid="scouting-line-empty"]').exists()).toBe(
+      true
+    );
+    expect(away.text()).not.toMatch(/\b0\b/);
+    // The other side is untouched.
+    expect(text(wrapper.find('[data-testid="scouting-home"]'))).toContain(
+      '4th of 12'
+    );
+  });
+
+  it('both sides with no data is one honest empty state', async () => {
+    const data = matchupOf();
+    data.home = { dossier: noData(IFA, 'IFA'), badges: [], badges_note: null };
+    data.away = { dossier: noData(NVA, 'NVA'), badges: [], badges_note: null };
+    const wrapper = await mountScouting({ matchupData: data });
+
+    expect(wrapper.find('[data-testid="scouting-empty"]').text()).toContain(
+      'No results tracked for either team this season'
+    );
+  });
+
+  it('labels a playing-up team and a small sample', async () => {
+    const data = matchupOf();
+    data.home.dossier = dossier(IFA, 'IFA', {
+      age_group: { id: 14, name: 'U14' },
+      context: {
+        match_id: MATCH,
+        bracket_age_group: { id: 15, name: 'U15' },
+        season_age_group: { id: 14, name: 'U14' },
+        playing_up: true,
+        playing_up_inferred: true,
+        playing_down: false,
+      },
+      flags: ['low_sample', 'playing_up', 'playing_up_inferred'],
+    });
+    const wrapper = await mountScouting({ matchupData: data });
+    const labels = wrapper
+      .find('[data-testid="scouting-home"]')
+      .findAll('[data-testid="scouting-label"]')
+      .map(l => l.text());
+
+    expect(labels).toContain('Playing up from U14 (inferred)');
+    expect(labels).toContain('Small sample');
+  });
+
+  it('marks a pro academy upset', async () => {
+    const data = matchupOf();
+    data.home.dossier.key_wins = [
+      {
+        match_id: 9,
+        score: '3-2',
+        opponent: { id: 10, name: 'Pro FC' },
+        opponent_position: null,
+        kind: 'pro_academy_upset',
+      },
+    ];
+    const wrapper = await mountScouting({ matchupData: data });
+    expect(wrapper.find('[data-testid="scouting-upset"]').exists()).toBe(true);
+  });
+
+  it('a failed matchup (5xx) shows a retry, and the other tabs still work', async () => {
+    const wrapper = await mountScouting({
+      previewData: preview({
+        home_team_recent: [homeLoss],
+        head_to_head: [homeLoss],
+      }),
+      matchupError: httpError(503),
+    });
+
+    expect(wrapper.find('[data-testid="scouting-error"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="scouting-retry"]').exists()).toBe(true);
+
+    await wrapper.find('[data-testid="tab-form"]').trigger('click');
+    expect(wrapper.findAll('[data-testid="home-recent-match"]')).toHaveLength(
+      1
+    );
+    await wrapper.find('[data-testid="tab-h2h"]').trigger('click');
+    expect(wrapper.findAll('[data-testid="h2h-match"]')).toHaveLength(1);
+  });
+
+  it('a network failure (no status) offers a retry', async () => {
+    const wrapper = await mountScouting({
+      matchupError: new Error('Network error'),
+    });
+    expect(wrapper.find('[data-testid="scouting-retry"]').exists()).toBe(true);
+  });
+
+  it('a refused matchup (4xx) drops Scouting, with no retry, and picks the usual tab', async () => {
+    const wrapper = await mountScouting({
+      previewData: preview({ head_to_head: [homeLoss] }),
+      matchupError: httpError(400),
+    });
+
+    expect(wrapper.find('[data-testid="tab-scouting"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="scouting-retry"]').exists()).toBe(false);
+    // No form, no common opponents: the usual choice lands on Head-to-Head.
+    expect(wrapper.find('[data-testid="tab-panel-h2h"]').exists()).toBe(true);
+  });
+
+  it('drops a late answer for the previous match', async () => {
+    const pending = {};
+    apiRequest.mockImplementation(
+      url =>
+        new Promise(resolve => {
+          pending[url] = resolve;
+        })
+    );
+    const wrapper = mount(MatchPreview, { props: scoutingProps() });
+    const first = Object.keys(pending).find(u =>
+      u.includes(`/${MATCH}/matchup`)
+    );
+    await wrapper.setProps({ matchId: 621 });
+    const second = Object.keys(pending).find(u => u.includes('/621/matchup'));
+
+    const fresh = matchupOf();
+    fresh.home.dossier.team.name = 'Match B home';
+    pending[second](fresh);
+    await flushPromises();
+    const stale = matchupOf();
+    stale.home.dossier.team.name = 'Match A home';
+    pending[first](stale);
+    await flushPromises();
+
+    expect(
+      wrapper
+        .find(
+          '[data-testid="scouting-home"] [data-testid="scouting-team-name"]'
+        )
+        .text()
+    ).toBe('Match B home');
+  });
+
+  it("never shows the previous match's preview while the next one loads", async () => {
+    const wrapper = await mountScouting({
+      previewData: preview({ home_team_recent: [homeLoss] }),
+      matchupData: matchupOf(),
+    });
+    await wrapper.find('[data-testid="tab-form"]').trigger('click');
+    expect(wrapper.findAll('[data-testid="home-recent-match"]')).toHaveLength(
+      1
+    );
+
+    apiRequest.mockImplementation(() => new Promise(() => {})); // match B never answers
+    await wrapper.setProps({ matchId: 621, homeTeamId: 77 });
+    await wrapper.find('[data-testid="tab-form"]').trigger('click');
+
+    expect(wrapper.findAll('[data-testid="home-recent-match"]')).toHaveLength(
+      0
+    );
+    expect(wrapper.find('[data-testid="preview-loading"]').exists()).toBe(true);
+  });
+
+  it('keeps Common Opponents and Head-to-Head empty states unchanged', async () => {
+    const wrapper = await mountScouting({ matchupData: matchupOf() });
+    expect(wrapper.find('[data-testid="tab-common"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="tab-h2h"]').exists()).toBe(false);
+    await wrapper.find('[data-testid="tab-form"]').trigger('click');
+    expect(wrapper.find('[data-testid="form-empty"]').exists()).toBe(true);
+  });
+
+  it('does not read the matchup without a match id', async () => {
+    await mountPreview(preview());
+    expect(matchupCalls()).toHaveLength(0);
+  });
+});
