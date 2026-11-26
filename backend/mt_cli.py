@@ -1862,6 +1862,92 @@ def coverage(
         )
 
 
+LEADER_BOARDS = ("pts", "ppg", "gf", "gf_pg", "ga", "ga_pg", "gd", "gd_pg", "unbeaten", "pro_wins")
+
+
+def _leader_cells(row: dict[str, Any]) -> list[str]:
+    team = row.get("team") or {}
+    conference = row.get("conference") or "[yellow]no conference[/yellow]"
+    value = "" if row.get("value") is None else str(row["value"])
+    if row.get("pro_games") is not None:
+        value += f" of {row['pro_games']}"
+    return [
+        "" if row.get("rank") is None else str(row["rank"]),
+        str(team.get("name") or "?"),
+        conference,
+        str(row.get("gp", 0)),
+        f"{row.get('w', 0)}-{row.get('d', 0)}-{row.get('l', 0)}",
+        value,
+    ]
+
+
+@app.command("leaders")
+def leaders(
+    age_group: str = typer.Argument(..., help="Age group, e.g. U15"),
+    league: str = typer.Option("Homegrown", "--league", "-l", help="League (its Flex is included)"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+    limit: int = typer.Option(20, "--limit", "-n", min=1, max=50, help="Top N per board"),
+    board: str = typer.Option(None, "--board", "-b", help=f"One board: {', '.join(LEADER_BOARDS)}"),
+    as_json: bool = typer.Option(False, "--json", help="Print the raw result"),
+):
+    """Cross-conference stat boards for a league and age group (SB-1781).
+
+    A stat board, not a ranking: conferences only meet at tournaments.
+    """
+    if board is not None and board not in LEADER_BOARDS:
+        _fail(f"--board must be one of {', '.join(LEADER_BOARDS)}")
+    client, _ = get_client()
+    result = _api(client.get_leaderboards, age_group, league=league, season=season, limit=limit)
+    if as_json:
+        console.print_json(data=result)
+        return
+
+    # The denominator and the caveat come first (CLAUDE.md rule 3).
+    cov = result.get("coverage") or {}
+    season_name = (result.get("season") or {}).get("name", "?")
+    console.print(f"[bold]{result.get('league')} {age_group.upper()} · {season_name}[/bold]")
+    console.print(f"[dim]{cov.get('matches', 0)} matches · {cov.get('note', '')}[/dim]")
+    if result.get("reason"):
+        console.print(f"[yellow]{result['reason']}[/yellow]")
+        return
+
+    for b in result.get("boards") or []:
+        if board is not None and b.get("key") != board:
+            continue
+        table = Table(title=f"{b.get('title')} · {b.get('key')}")
+        table.add_column("#", style="dim", no_wrap=True)
+        table.add_column("Team", style="white")
+        table.add_column("Conference", style="cyan")
+        table.add_column("GP", justify="right")
+        table.add_column("W-D-L", justify="right", style="dim")
+        table.add_column("Value", justify="right", style="bold")
+        for row in b.get("rows") or []:
+            table.add_row(*_leader_cells(row))
+        unranked = f" · {b['unranked_count']} unranked" if b.get("unranked_count") else ""
+        if not b.get("rows"):
+            console.print(f"[dim]{b.get('title')}: nobody ranked yet{unranked}.[/dim]")
+            continue
+        table.caption = unranked.lstrip(" ·") or None
+        console.print(table)
+
+    # Listed once, not per board: early in a season that is most teams.
+    unranked_rows = result.get("unranked") or []
+    if unranked_rows:
+        console.print(
+            f"\n[dim]Unranked: under {cov.get('min_gp', '?')} games "
+            f"({len(unranked_rows)} of {result.get('unranked_count', len(unranked_rows))}, most games first)[/dim]"
+        )
+        table = Table(style="dim")
+        table.add_column("Team")
+        table.add_column("Conference")
+        table.add_column("GP", justify="right")
+        table.add_column("W-D-L", justify="right")
+        for row in unranked_rows:
+            _, name, conference, gp, record, _ = _leader_cells(row)
+            table.add_row(name, conference, gp, record, style="dim")
+        console.print(table)
+
+
 @ingest_app.command("failures")
 def ingest_failures(
     since: str = typer.Option(None, "--since", help="ISO timestamp; only names seen since then"),

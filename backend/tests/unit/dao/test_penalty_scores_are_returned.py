@@ -20,7 +20,8 @@ from dao import match_dao
 READ_PATHS = [
     "get_match_by_external_id",
     "get_match_by_teams_and_date",
-    "get_all_matches",
+    # get_all_matches and get_season_results flatten through it (SB-1781).
+    "_flatten_match",
     "get_matches_by_team",
     "get_match_by_id",
     "get_live_matches",
@@ -30,7 +31,8 @@ READ_PATHS = [
 
 def _flattened_keys(func_name: str) -> list[set[str]]:
     """Key sets of every dict literal in a function that carries home_score."""
-    source = inspect.getsource(getattr(match_dao.MatchDAO, func_name))
+    func = getattr(match_dao.MatchDAO, func_name, None) or getattr(match_dao, func_name)
+    source = inspect.getsource(func)
     tree = ast.parse(textwrap.dedent(source))
     found = []
     for node in ast.walk(tree):

@@ -57,6 +57,9 @@ from mt_tools.ingest import (
     list_ingest_failures,
     resolve_ingest_failure,
 )
+from mt_tools.leaderboards import DEFAULT_LIMIT as LEADERS_DEFAULT_LIMIT
+from mt_tools.leaderboards import MAX_LIMIT as LEADERS_MAX_LIMIT
+from mt_tools.leaderboards import LeaderboardsResult, get_leaderboards
 from mt_tools.motw_candidates import MotwCandidatesResult, suggest_from_deps
 from mt_tools.my_team import MyTeamResult, resolve_my_team
 
@@ -80,6 +83,8 @@ value as zero.
 Match of the Week ideas: suggest_motw_candidates. Every claim about a candidate must
 come from one of its facts; a fact with confirmed=false may only be stated as
 unconfirmed.
+Cross-conference stat boards (points, goals, unbeaten): get_leaderboards. State its
+coverage; it is a stat board, not a ranking, because conferences only meet at tournaments.
 """
 
 UNAVAILABLE = "MT could not answer that right now."
@@ -94,6 +99,7 @@ TOOL_TIERS: dict[str, Tier] = {
     "get_standings": "read",
     "list_divisions": "read",
     "suggest_motw_candidates": "read",
+    "get_leaderboards": "read",
     "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
@@ -249,6 +255,34 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
         return await _run(
             lambda: suggest_from_deps(deps(), week, limit=limit, pool=pool, age_group=age_group),
             "suggest_motw_candidates",
+        )
+
+    @server.tool(name="get_leaderboards")
+    async def get_leaderboards_tool(
+        age_group: str,
+        league: str = "Homegrown",
+        season: str | None = None,
+        limit: Annotated[int, Field(ge=1, le=LEADERS_MAX_LIMIT)] = LEADERS_DEFAULT_LIMIT,
+    ) -> LeaderboardsResult:
+        """Season stat boards for one league (with its Flex) at one age group, across
+        every conference: points and points per game (W=3, D=1; a level score is a
+        draw even when a Flex shootout decided it), goals for, goals
+        against (fewest), goal difference, each total and per game; unbeaten; wins
+        over pro academies. Counts completed/forfeit League + Flex results of the
+        season (default current; a name like "2026-2027"). age_group like "U15".
+        Ties share a rank. Every board ranks only teams with coverage.min_gp games;
+        teams under it are listed once, in "unranked" (most games first, at most
+        `limit`), of "unranked_count", and each board has its own "unranked_count".
+        league is a top-level league (Homegrown, Academy). "no_conference" marks a
+        team with no Homegrown conference (Flex only): name it as such. A team
+        missing from "pro_wins" never played a pro academy: not 0 wins. This is a
+        stat board, not a ranking: conferences only meet at tournaments. Always
+        state coverage.note. "rows" [] with "reason" means nothing played yet;
+        null "boards" with "error" means MT could not check."""
+        _caller()
+        return await _run(
+            lambda: get_leaderboards(deps(), league, age_group, season, limit=limit),
+            "get_leaderboards",
         )
 
     # --- my tier --------------------------------------------------------------

@@ -181,6 +181,62 @@ SCORE_GRACE = timedelta(hours=3)
 KICKOFF_HORIZON_DAYS = 14
 
 
+# PostgREST caps a response at max_rows (1000); a season read pages under it.
+_SEASON_PAGE = 1000
+
+
+def _age_group_or_side(age_group_id: int) -> str:
+    """PostgREST `or`: the match, or either side of it, is at the age group."""
+    a = int(age_group_id)
+    return f"age_group_id.eq.{a},home_age_group_id.eq.{a},away_age_group_id.eq.{a}"
+
+
+def _flatten_match(match: dict) -> dict:
+    """A match row with its embeds, as the flat dict get_all_matches returns."""
+    return {
+        "id": match["id"],
+        "match_date": match["match_date"],
+        "scheduled_kickoff": match.get("scheduled_kickoff"),
+        "home_team_id": match["home_team_id"],
+        "away_team_id": match["away_team_id"],
+        "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
+        "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
+        "home_team_club": match["home_team"].get("club") if match.get("home_team") else None,
+        "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
+        "home_score": match["home_score"],
+        "away_score": match["away_score"],
+        # A Flex draw is decided on penalties, and the pair is stored;
+        # leaving it out of the flatten is why the page showed a draw
+        # and why the ingest re-wrote it every run (SB-1026).
+        "home_penalty_score": match.get("home_penalty_score"),
+        "away_penalty_score": match.get("away_penalty_score"),
+        "season_id": match["season_id"],
+        "season_name": match["season"]["name"] if match.get("season") else "Unknown",
+        "season_start_date": match["season"].get("start_date") if match.get("season") else None,
+        "age_group_id": match["age_group_id"],
+        "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
+        "home_age_group_id": match.get("home_age_group_id"),
+        "away_age_group_id": match.get("away_age_group_id"),
+        "match_type_id": match["match_type_id"],
+        "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
+        "division_id": match.get("division_id"),
+        "division_name": match["division"]["name"] if match.get("division") else "Unknown",
+        "league_id": match["division"]["league_id"] if match.get("division") else None,
+        "league_name": match["division"]["leagues"]["name"]
+        if match.get("division") and match["division"].get("leagues")
+        else "Unknown",
+        "division": match.get("division"),  # Include full division object with leagues
+        "match_status": match.get("match_status"),
+        "scoring_mode": match.get("scoring_mode", "manual"),
+        "created_by": match.get("created_by"),
+        "updated_by": match.get("updated_by"),
+        "source": match.get("source", "manual"),
+        "match_id": match.get("match_id"),  # External match identifier
+        "created_at": match["created_at"],
+        "updated_at": match["updated_at"],
+    }
+
+
 class MatchDAO(BaseDAO):
     """Data Access Object for match and league data using normalized schema."""
 
@@ -620,59 +676,66 @@ class MatchDAO(BaseDAO):
                 ]
 
             # Flatten the response for easier use
-            matches = []
-            for match in filtered_matches:
-                flat_match = {
-                    "id": match["id"],
-                    "match_date": match["match_date"],
-                    "scheduled_kickoff": match.get("scheduled_kickoff"),
-                    "home_team_id": match["home_team_id"],
-                    "away_team_id": match["away_team_id"],
-                    "home_team_name": match["home_team"]["name"] if match.get("home_team") else "Unknown",
-                    "away_team_name": match["away_team"]["name"] if match.get("away_team") else "Unknown",
-                    "home_team_club": match["home_team"].get("club") if match.get("home_team") else None,
-                    "away_team_club": match["away_team"].get("club") if match.get("away_team") else None,
-                    "home_score": match["home_score"],
-                    "away_score": match["away_score"],
-                    # A Flex draw is decided on penalties, and the pair is stored;
-                    # leaving it out of the flatten is why the page showed a draw
-                    # and why the ingest re-wrote it every run (SB-1026).
-                    "home_penalty_score": match.get("home_penalty_score"),
-                    "away_penalty_score": match.get("away_penalty_score"),
-                    "season_id": match["season_id"],
-                    "season_name": match["season"]["name"] if match.get("season") else "Unknown",
-                    "season_start_date": match["season"].get("start_date") if match.get("season") else None,
-                    "age_group_id": match["age_group_id"],
-                    "age_group_name": match["age_group"]["name"] if match.get("age_group") else "Unknown",
-                    "home_age_group_id": match.get("home_age_group_id"),
-                    "away_age_group_id": match.get("away_age_group_id"),
-                    "match_type_id": match["match_type_id"],
-                    "match_type_name": match["match_type"]["name"] if match.get("match_type") else "Unknown",
-                    "division_id": match.get("division_id"),
-                    "division_name": match["division"]["name"] if match.get("division") else "Unknown",
-                    "league_id": match["division"]["league_id"] if match.get("division") else None,
-                    "league_name": match["division"]["leagues"]["name"]
-                    if match.get("division") and match["division"].get("leagues")
-                    else "Unknown",
-                    "division": match.get("division"),  # Include full division object with leagues
-                    "match_status": match.get("match_status"),
-                    "scoring_mode": match.get("scoring_mode", "manual"),
-                    "created_by": match.get("created_by"),
-                    "updated_by": match.get("updated_by"),
-                    "source": match.get("source", "manual"),
-                    "match_id": match.get("match_id"),  # External match identifier
-                    "created_at": match["created_at"],
-                    "updated_at": match["updated_at"],
-                }
-                matches.append(flat_match)
-
-            return matches
+            return [_flatten_match(match) for match in filtered_matches]
 
         except Exception:
             logger.exception("Error querying matches")
             if raise_on_error:
                 raise
             return []
+
+    def get_season_results(
+        self,
+        season_id: int,
+        age_group_id: int,
+        league_ids: list[int] | tuple[int, ...],
+        match_type_ids: list[int] | tuple[int, ...],
+        statuses: tuple[str, ...] = ("completed", "forfeit"),
+        include_test: bool = False,
+    ) -> list[dict]:
+        """A season's results at one age group across whole leagues (SB-1781).
+
+        `get_all_matches` reads one response, and PostgREST caps a response at
+        max_rows (1000): a league-wide season is more than that, so this filters
+        in the database (league through the division embed, match type, status)
+        and pages with `.range()`. Rows are in `get_all_matches`' flat shape.
+
+        A match is read when it or either side is at the age group: a side that
+        played up into another age group's match keeps its own age (SB-1444), and
+        the caller decides per side (`effective_side_age_groups`).
+
+        Paging stops on an empty page, not a short one: a server whose max_rows is
+        below the page size returns short pages that are not the last.
+
+        Raises on a database error: "could not read" must not look like "no results".
+        """
+        rows: list[dict] = []
+        while True:
+            query = (
+                self.client.table(MATCHES_READ_RELATION)
+                .select("""
+                    *,
+                    home_team:teams!matches_home_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
+                    away_team:teams!matches_away_team_id_fkey(id, name, club:clubs(id, name, logo_url)),
+                    season:seasons(id, name, start_date),
+                    age_group:age_groups(id, name),
+                    match_type:match_types(id, name),
+                    division:divisions!inner(id, name, league_id, leagues!divisions_league_id_fkey(id, name))
+                """)
+                .eq("season_id", season_id)
+                .or_(_age_group_or_side(age_group_id))
+                .in_("division.league_id", list(league_ids))
+                .in_("match_type_id", list(match_type_ids))
+                .in_("match_status", list(statuses))
+            )
+            if not include_test:
+                query = query.eq("is_test", False)
+            page = (
+                query.order("match_date").order("id").range(len(rows), len(rows) + _SEASON_PAGE - 1).execute()
+            ).data or []
+            if not page:
+                return [_flatten_match(match) for match in rows]
+            rows.extend(page)
 
     def _season_id_by_name(self, season_name: str) -> int | None:
         """Resolve a season name to its id, or None when unknown."""

@@ -19,6 +19,7 @@ This section documents the system architecture, design decisions, and technical 
 | **[Clubs Architecture](../CLUBS_ARCHITECTURE.md)** | Clubs, teams, leagues separation | 🟡 Intermediate |
 | **[Featured matches](featured-matches.md)** | Match of the Week and tournament Match of the Day: tables, endpoints, rules | 🟢 Beginner |
 | **[Standings](standings.md)** | League / qualifying / all views, and why a combined table states its coverage | 🟡 Intermediate |
+| **[Leaderboards](leaderboards.md)** | Cross-conference stat boards (points, goals, unbeaten, wins over pro academies): counting rules, MIN_GP, not a ranking | 🟢 Beginner |
 | **[MLS NEXT Qualification — facts](mls-next-qualification-facts.md)** | Short answers: Fest, Flex, MLS NEXT Cup routes, each fact CONFIRMED / INFERRED / UNKNOWN with source. Agents answer from this. | 🟢 Beginner |
 | **[MLS NEXT Qualification 2026–27](mls-next-qualification-2026-27.md)** | Full research analysis: qualification matrix, U15 Northeast, worked Flex group (SB-1544). Evidence: [sources.md](../research/notes/mls-next-qualification-2026-27/sources.md) | 🟡 Intermediate |
 | **[Qualification data model](mls-next-qualification-data-model.md)** | Proposed entities for versioned, sourced rules + feature priorities | 🟡 Intermediate |

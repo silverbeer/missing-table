@@ -1594,6 +1594,15 @@ class MissingTableClient:
             params["week"] = week
         return self._request("GET", "/api/admin/motw/candidates", params=params).json()
 
+    def get_leaderboards(
+        self, age_group: str, league: str = "Homegrown", season: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        """Cross-conference stat boards for a league and age group (SB-1781)."""
+        params: dict[str, Any] = {"age_group": age_group, "league": league, "limit": limit}
+        if season:
+            params["season"] = season
+        return self._request("GET", "/api/leaderboards", params=params).json()
+
     def get_tournament_motd(
         self, tournament_id: int, date: str | None = None, age_group_id: int | None = None
     ) -> dict[str, Any]:

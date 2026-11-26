@@ -37,6 +37,16 @@ class MatchSource(Protocol):
         raise_on_error: bool = False,
     ) -> list[dict]: ...
 
+    def get_season_results(
+        self,
+        season_id: int,
+        age_group_id: int,
+        league_ids: list[int] | tuple[int, ...],
+        match_type_ids: list[int] | tuple[int, ...],
+        statuses: tuple[str, ...] = ("completed", "forfeit"),
+        include_test: bool = False,
+    ) -> list[dict]: ...
+
     def team_has_matches_in_season(self, team_id: int, season_id: int, include_test: bool = False) -> bool: ...
 
     def get_standings(
