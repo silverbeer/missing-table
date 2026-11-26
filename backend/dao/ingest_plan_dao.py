@@ -768,7 +768,7 @@ class IngestPlanDAO(BaseDAO):
             names = {(name_key(action["external_name"]), name_key(action.get("league"))) for action in applied}
             open_rows = [
                 row
-                for row in self.ingest_failures_dao.open_failures(limit=_PAGE)
+                for row in self.ingest_failures_dao.open_failures(limit=_PAGE, kinds=["team"])
                 if row.get("kind") == "team" and (name_key(row.get("raw_name")), name_key(row.get("league"))) in names
             ]
             if not open_rows:

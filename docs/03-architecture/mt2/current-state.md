@@ -99,7 +99,7 @@ flowchart LR
 | Reference | leagues, divisions, age-groups, seasons, current-season, match-types |
 | Players | `/api/players/{user_id}/profile`, `/api/roster/{id}/stats`, `/api/me/player-stats` |
 | Tournaments | `/api/tournaments`, `/api/tournaments/{id}`, `/api/tournaments/{id}/matches` (paged), `/api/tournaments/{id}/filters` |
-| Agent | `/api/agent/match-summary`, `/api/agent/matches`, `/api/agent/audit/*` — used by the scraper agent |
+| Agent | `/api/agent/match-summary`, `/api/agent/matches`, `/api/agent/season-matches` (reconcile, SB-1787), `/api/agent/audit/*` — used by the scraper agent |
 
 **There is no public text search** over teams, clubs or players. The only server-side
 free-text search is admin-only (`GET /api/admin/players?search=`); otherwise lookups

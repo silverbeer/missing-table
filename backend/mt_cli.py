@@ -2058,18 +2058,54 @@ def leaders(
         console.print(table)
 
 
+# The ingest_failures kinds that are feed-vs-person conflicts rather than
+# names (SB-1787). Mirrors CONFLICT_KINDS in dao/ingest_failures_dao.py: the
+# CLI is an HTTP client and does not import the DAO layer.
+_CONFLICT_KINDS = "score_locked,scraped_overrode_manual"
+
+
 @ingest_app.command("failures")
 def ingest_failures(
     since: str = typer.Option(None, "--since", help="ISO timestamp; only names seen since then"),
     limit: int = typer.Option(50, "--limit", "-l", help="How many to show"),
+    conflicts: bool = typer.Option(
+        False, "--conflicts", help="Matches where the feed disagreed with a person's result, instead"
+    ),
 ):
-    """Names the ingest could not resolve, and what each one cost."""
+    """Names the ingest could not resolve, and what each one cost.
+
+    --conflicts lists the feed-vs-person disagreements instead (SB-1787): a
+    locked result the feed tried to change, or a person's score the feed
+    replaced. One row per match; the sample says what differed.
+    """
     client, _ = get_client()
-    payload = _api(client.get_ingest_failures, since=since, limit=limit)
+    kind = _CONFLICT_KINDS if conflicts else None
+    payload = _api(client.get_ingest_failures, since=since, limit=limit, kind=kind)
     rows = payload.get("failures") or []
 
     if not rows:
-        console.print("[green]Nothing unresolved.[/green]")
+        console.print("[green]No open conflicts.[/green]" if conflicts else "[green]Nothing unresolved.[/green]")
+        return
+
+    if conflicts:
+        table = Table(title="Feed conflicts")
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Kind", style="dim")
+        table.add_column("Match", style="white")
+        table.add_column("What differed", style="white")
+        table.add_column("Times", justify="right", style="yellow")
+        table.add_column("Last seen", style="magenta")
+        for row in rows:
+            table.add_row(
+                str(row.get("id", "?")),
+                str(row.get("kind", "?")),
+                str(row.get("raw_name", "?")),
+                str(row.get("sample") or "—"),
+                str(row.get("match_count", 0)),
+                str(row.get("last_seen", "?"))[:10],
+            )
+        console.print(table)
+        console.print("[dim]Close one with [/dim][cyan]mt ingest resolve <id>[/cyan]")
         return
 
     table = Table(title="Ingest failures")

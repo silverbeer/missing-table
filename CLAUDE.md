@@ -176,9 +176,12 @@ A loading skeleton is not an empty state. It promises data that is not coming.
    disagree with the scraped final score, the scraped score stands as the result and the user
    events stand as who did what. A manual entry never rewrites a scraped score, and a re-scrape
    never wipes goal attribution. Surface the disagreement rather than silently resolving it.
+   Exception: a row an admin has locked (`score_locked`) keeps its result; the feed's disagreement
+   is recorded as a conflict.
 6. **Provenance is queryable.** Every record carries whether it came from the scraper or a user,
    and which user. Needed for the conflict rule above, for the audit trail on rosters of minors,
-   and for coverage numbers.
+   and for coverage numbers. Known gap: a person's edit of a *scraped* row's score carries no
+   provenance yet (`updated_by` is not reliable for it), tracked in SB-1794.
 
 ### Testing
 

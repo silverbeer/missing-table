@@ -1662,11 +1662,19 @@ class MissingTableClient:
 
     # Ingest failures
 
-    def get_ingest_failures(self, since: str | None = None, limit: int = 200) -> dict[str, Any]:
-        """Names the match ingest could not resolve (admin or service account)."""
+    def get_ingest_failures(
+        self, since: str | None = None, limit: int = 200, kind: str | None = None
+    ) -> dict[str, Any]:
+        """Names the match ingest could not resolve (admin or service account).
+
+        `kind` (comma-separated) returns only those kinds — the conflict kinds
+        (SB-1787) are left out unless named.
+        """
         params: dict[str, Any] = {"limit": limit}
         if since:
             params["since"] = since
+        if kind:
+            params["kind"] = kind
         response = self._request("GET", "/api/admin/ingest-failures", params=params)
         return response.json()
 
@@ -1677,6 +1685,28 @@ class MissingTableClient:
             f"/api/admin/ingest-failures/{failure_id}",
             json_data={"note": note},
         )
+        return response.json()
+
+    def get_agent_season_matches(
+        self,
+        season_id: int,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        league_ids: list[int] | None = None,
+        page: int = 0,
+        page_size: int | None = None,
+    ) -> dict[str, Any]:
+        """One page of a season's matches for the reconcile (service account). Stop at an empty page."""
+        params: dict[str, Any] = {"season_id": season_id, "page": page}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        if league_ids:
+            params["league_ids"] = ",".join(str(i) for i in league_ids)
+        if page_size:
+            params["page_size"] = page_size
+        response = self._request("GET", "/api/agent/season-matches", params=params)
         return response.json()
 
     # A plan reads every team once and an apply re-checks and writes each

@@ -29,6 +29,8 @@ def _dao(rpc_data=None, rpc_error=None, table_data=None, table_error=None, count
     table = MagicMock()
     for method in ("select", "update", "in_", "gte", "is_", "order", "limit"):
         getattr(table, method).return_value = table
+    # open_failures leaves the conflict kinds out with not_.in_ (SB-1787).
+    table.not_ = table
     table.execute.return_value = MagicMock(data=table_data, count=count)
     if table_error:
         table.execute.side_effect = table_error
