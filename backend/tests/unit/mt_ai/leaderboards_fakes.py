@@ -24,7 +24,8 @@ LEAGUES = [
 ]
 PRO_CLUB, TEST_CLUB = 50, 99
 CLUBS = [
-    *({"id": i, "name": f"Club {i}", "is_test": False, "pro_academy": False} for i in range(1, 20)),
+    {"id": 1, "name": "Club 1", "is_test": False, "pro_academy": False, "logo_url": "https://logos/club1.png"},
+    *({"id": i, "name": f"Club {i}", "is_test": False, "pro_academy": False} for i in range(2, 20)),
     {"id": PRO_CLUB, "name": "Pro Academy FC", "is_test": False, "pro_academy": True},
     {"id": TEST_CLUB, "name": "TSC Club", "is_test": True, "pro_academy": False},
 ]

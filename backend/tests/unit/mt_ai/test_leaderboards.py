@@ -301,6 +301,19 @@ class TestGetLeaderboards:
         flex_only = next(r for r in pts.rows if r.team.id == 7)
         assert flex_only.no_conference and flex_only.gp == 12
 
+    def test_rows_carry_the_club_id_and_logo_null_when_absent(self):
+        got = get_leaderboards(deps(full_season()), "Homegrown", "U15")
+        rows = {r.team.id: r for r in board(got.boards, "pts").rows}
+        assert (rows[1].club_id, rows[1].club_logo_url) == (1, "https://logos/club1.png")
+        assert (rows[2].club_id, rows[2].club_logo_url) == (2, None)
+        early = get_leaderboards(deps(), "Homegrown", "U15")
+        first = next(r for r in early.unranked if r.team.id == 1)
+        assert first.club_logo_url == "https://logos/club1.png"
+
+    def test_pure_rows_without_club_lookups_are_null(self):
+        rows = build_boards([tt(1, w=6)])[0].rows
+        assert (rows[0].club_id, rows[0].club_logo_url) == (None, None)
+
     def test_early_season_everyone_is_listed_unranked_once(self):
         got = get_leaderboards(deps(), "Homegrown", "U15", limit=3)
         assert all(b.rows == [] for b in got.boards)

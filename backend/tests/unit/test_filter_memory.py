@@ -105,6 +105,13 @@ class TestFilterMemoryEndpoint:
         assert response.status_code == 200
         save.assert_called_once_with("u-1", "matches", body)
 
+    def test_ranking_view_is_accepted(self):
+        # The Ranking tab's filter panel (SB-1785) remembers its open state.
+        body = {"panel_open": False, "saved_at": SAVED_AT}
+        response, save = self._put("ranking", body)
+        assert response.status_code == 200
+        save.assert_called_once_with("u-1", "ranking", body)
+
     def test_unknown_view_is_422(self):
         response, save = self._put("tournaments", {"saved_at": SAVED_AT})
         assert response.status_code == 422

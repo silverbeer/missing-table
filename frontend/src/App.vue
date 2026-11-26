@@ -311,6 +311,11 @@
             <TournamentMatchCenter />
           </div>
 
+          <!-- Ranking: cross-conference leaderboards (SB-1785) -->
+          <div v-if="currentTab === 'ranking'" class="p-4">
+            <RankingView @navigate-to-team="handleNavigateToTeam" />
+          </div>
+
           <!-- QoP Rankings -->
           <div v-if="currentTab === 'qop'" class="p-4">
             <QoPStandings />
@@ -508,6 +513,10 @@ const TournamentMatchCenter = lazyView(
   () => import('./components/TournamentMatchCenter.vue'),
   'TournamentMatchCenter'
 );
+const RankingView = lazyView(
+  () => import('./components/ranking/RankingView.vue'),
+  'RankingView'
+);
 const QoPStandings = lazyView(
   () => import('./components/QoPStandings.vue'),
   'QoPStandings'
@@ -543,6 +552,7 @@ export default {
     TeamRosterRouter,
     AdminPanel,
     TournamentMatchCenter,
+    RankingView,
     QoPStandings,
     VersionFooter,
     WhatsNewView,
@@ -662,6 +672,7 @@ export default {
       { id: 'table', name: 'Table', requiresAuth: true },
       { id: 'scores', name: 'Matches', requiresAuth: true },
       { id: 'match-center', name: 'Tournaments', requiresAuth: true },
+      { id: 'ranking', name: 'Ranking', requiresAuth: true },
       // Hidden pending a rethink (SB-1226). May return as an opt-in profile
       // switch for users following U13/U15 MLS Next Homegrown teams.
       { id: 'qop', name: 'QoP', requiresAuth: true, hidden: true },

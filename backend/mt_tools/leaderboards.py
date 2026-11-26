@@ -34,9 +34,10 @@ by games played, with `unranked_count`); each board carries only its own
 `unranked_count`. Wins over pro academies lists only teams that played one: a
 team that never met a pro academy is absent from that board, not 0.
 
-Every row carries games played and the team's Homegrown conference: the
-conference it played most League games in. A team with only Flex games has none;
-it is shown with `no_conference`, never dropped.
+Every row carries games played, the team's club id and logo (null when absent),
+and the team's Homegrown conference: the conference it played most League games
+in. A team with only Flex games has none; it is shown with `no_conference`,
+never dropped.
 """
 
 from collections import Counter
@@ -44,7 +45,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from fractions import Fraction
-from typing import Literal
+from typing import Literal, NamedTuple
 
 import structlog
 from pydantic import BaseModel
@@ -79,6 +80,10 @@ Better = Literal["higher", "lower"]
 class LeaderRow(BaseModel):
     rank: int | None  # null: in `unranked`, under MIN_GP games
     team: TeamRef
+    # The team's club, so a client can show its logo and filter by it without
+    # loading every team and club. Null when the team has no club or no logo.
+    club_id: int | None = None
+    club_logo_url: str | None = None
     conference: str | None = None
     no_conference: bool = False
     gp: int
@@ -280,11 +285,26 @@ BOARDS: tuple[BoardSpec, ...] = (
 BOARD_KEYS = (*(b.key for b in BOARDS), "unbeaten", "pro_wins")
 
 
-def _row(team: TeamTally, rank: int | None, value: Value | None, refs: dict[int, TeamRef], **extra) -> LeaderRow:
+class TeamClub(NamedTuple):
+    club_id: int | None
+    logo_url: str | None
+
+
+def _row(
+    team: TeamTally,
+    rank: int | None,
+    value: Value | None,
+    refs: dict[int, TeamRef],
+    clubs: dict[int, TeamClub],
+    **extra,
+) -> LeaderRow:
     conference = conference_of(team)
+    club = clubs.get(team.team_id)
     return LeaderRow(
         rank=rank,
         team=refs.get(team.team_id) or TeamRef(id=team.team_id, name=team.name),
+        club_id=club.club_id if club else None,
+        club_logo_url=club.logo_url if club else None,
         conference=conference,
         no_conference=conference is None,
         gp=team.gp,
@@ -300,9 +320,9 @@ def _by_name(teams: Iterable[TeamTally]) -> list[TeamTally]:
     return sorted(teams, key=lambda t: (t.name.casefold(), t.team_id))
 
 
-def _ranked(teams: list[TeamTally], spec_value, higher: bool, limit: int, refs) -> list[LeaderRow]:
+def _ranked(teams: list[TeamTally], spec_value, higher: bool, limit: int, refs, clubs) -> list[LeaderRow]:
     return [
-        _row(t, rank, spec_value(t), refs)
+        _row(t, rank, spec_value(t), refs, clubs)
         for rank, t in rank_rows(_by_name(teams), spec_value, higher=higher)
         if rank <= limit
     ]
@@ -314,9 +334,11 @@ def build_boards(
     limit: int = DEFAULT_LIMIT,
     min_gp: int = MIN_GP,
     refs: dict[int, TeamRef] | None = None,
+    clubs: dict[int, TeamClub] | None = None,
 ) -> list[Board]:
     """Every board from the teams' tallies. Top `limit` by rank, so a tie at the cut stays."""
     refs = refs or {}
+    clubs = clubs or {}
     played = [t for t in teams if t.gp > 0]
     ranked, too_few = split_min_gp(played, min_gp)
     enough = {t.team_id for t in ranked}
@@ -328,7 +350,7 @@ def build_boards(
                 title=spec.title,
                 variant=spec.variant,
                 better=spec.better,
-                rows=_ranked(ranked, spec.value, spec.better == "higher", limit, refs),
+                rows=_ranked(ranked, spec.value, spec.better == "higher", limit, refs, clubs),
                 unranked_count=len(too_few),
             )
         )
@@ -340,7 +362,7 @@ def build_boards(
             title=f"Unbeaten (no losses, {min_gp}+ games; by games played)",
             variant="total",
             better="higher",
-            rows=_ranked([t for t in unbeaten if t.team_id in enough], lambda t: t.gp, True, limit, refs),
+            rows=_ranked([t for t in unbeaten if t.team_id in enough], lambda t: t.gp, True, limit, refs, clubs),
             unranked_count=sum(1 for t in unbeaten if t.team_id not in enough),
         )
     )
@@ -353,7 +375,7 @@ def build_boards(
             variant="total",
             better="higher",
             rows=[
-                _row(t, rank, t.pro_w, refs, pro_games=t.pro_gp)
+                _row(t, rank, t.pro_w, refs, clubs, pro_games=t.pro_gp)
                 for rank, t in rank_rows(_by_name(t for t in vs_pro if t.team_id in enough), lambda t: t.pro_w)
                 if rank <= limit
             ],
@@ -369,6 +391,7 @@ def unranked_rows(
     limit: int = DEFAULT_LIMIT,
     min_gp: int = MIN_GP,
     refs: dict[int, TeamRef] | None = None,
+    clubs: dict[int, TeamClub] | None = None,
 ) -> tuple[list[LeaderRow], int]:
     """(the first `limit` teams under `min_gp`, most games first; how many there are).
 
@@ -376,9 +399,10 @@ def unranked_rows(
     most teams, ten times over.
     """
     refs = refs or {}
+    clubs = clubs or {}
     _, too_few = split_min_gp((t for t in teams if t.gp > 0), min_gp)
     ordered = sorted(too_few, key=lambda t: (-t.gp, t.name.casefold(), t.team_id))
-    return [_row(t, None, None, refs) for t in ordered[:limit]], len(too_few)
+    return [_row(t, None, None, refs, clubs) for t in ordered[:limit]], len(too_few)
 
 
 def coverage_note(
@@ -483,6 +507,12 @@ def _pro_team_ids(index: TeamIndex) -> frozenset[int]:
     )
 
 
+def _team_club(index: TeamIndex, team_id: int) -> TeamClub:
+    club_id = index.teams[team_id].get("club_id")
+    club = index.clubs.get(club_id) if club_id is not None else None
+    return TeamClub(club_id, (club or {}).get("logo_url") or None)
+
+
 def get_leaderboards(
     deps: ToolDeps,
     league: str = "Homegrown",
@@ -537,6 +567,7 @@ def get_leaderboards(
         team_id: TeamRef(id=team_id, name=t.name, club_name=index.club_name(index.teams[team_id]))
         for team_id, t in counted.teams.items()
     }
+    clubs = {team_id: _team_club(index, team_id) for team_id in counted.teams}
     teams = [t for t in counted.teams.values() if t.gp > 0]
     conferences = {conference_of(t) for t in teams} - {None}
     without = sum(1 for t in teams if conference_of(t) is None)
@@ -563,12 +594,12 @@ def get_leaderboards(
         teams_without_conference=without,
         competitions_absent=absent,
     )
-    unranked, unranked_count = unranked_rows(teams, limit=limit, refs=refs)
+    unranked, unranked_count = unranked_rows(teams, limit=limit, refs=refs, clubs=clubs)
     return LeaderboardsResult(
         league=str(league_row.get("name")),
         age_group=age,
         season=season_ref,
-        boards=build_boards(teams, limit=limit, refs=refs),
+        boards=build_boards(teams, limit=limit, refs=refs, clubs=clubs),
         unranked=unranked,
         unranked_count=unranked_count,
         coverage=coverage,
