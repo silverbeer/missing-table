@@ -112,3 +112,54 @@ season, a match the team is not in, an age that contradicts the match's
 recorded side age, or neither an age nor a match is 400 (`invalid_args`). A
 failed read — the match lookup included (`get_match_by_id(raise_on_error=True)`)
 — is 503 with a generic message.
+
+## Matchup: both sides of one match (SB-1782)
+
+Fest matches pair teams from different conferences, so a match preview's Common
+Opponents and Head-to-Head tabs are mostly empty. The matchup puts the two
+dossiers side by side for the preview's **Scouting** tab.
+
+| Surface | Call |
+|---|---|
+| API | `GET /api/matches/{match_id}/matchup` — logged-in users only |
+| mt-mcp | `get_matchup` (read tier) |
+| Code | `backend/mt_tools/matchup.py` — `get_matchup(deps, match_id, *, viewer)` |
+| UI | `MatchPreview.vue` Scouting tab, one `match/ScoutingDossierColumn.vue` per side |
+
+- **Sides.** `home` and `away` are each `{dossier, badges, badges_note}`, the
+  dossier being `get_team_dossier(..., for_match_id=match_id)`, so it carries
+  the side's season age and playing up. One side's dossier error is that side's
+  `dossier.error`: it never fails the call or blanks the other side.
+- **Badges.** The stat boards ([leaderboards.md](leaderboards.md)) of each
+  top-level league the team is registered in at its **season age** (Flex counts
+  as Homegrown; test leagues are skipped), read once per (league, age) for the
+  call. A badge is a board where the team ranks at or above
+  `min(10, ranked_count // 3)` — the top 10 and the top third, so never "8th of
+  8" — with `of` the board's `ranked_count`. A 0 on a count board (points,
+  goals for, unbeaten, wins over pro academies) is no badge. At most 3, best rank
+  first. Fact id `t<team>:a<age>:board:<league_id>:<key>`. Text reads "2nd in U15
+  Homegrown goals for per game, of 134 teams" (the board title keeps its case but
+  the first letter). `badges_note` is the boards' coverage note — a stat board,
+  not a ranking. `badges` null means the boards could not be read; [] means the
+  team is on none, or its league has no boards (the boards refused it as
+  invalid arguments).
+- **`shares_conference`** — whether the dossiers share a division id; null when
+  either dossier failed. **`scouting_relevant`** — a tournament match, or two
+  teams known not to share a conference — for the Match of the Day agent. The UI
+  reads the matchup **only for a tournament match**, and then leads with
+  Scouting and opens on it; a league match keeps the old tabs and makes no
+  matchup call.
+- **`match.stakes`** — null outside a tournament (or for an unknown round);
+  `group` for `group_stage`; `none` for `showcase`, `consolation`,
+  `third_place`, `placement_final`; `elimination` for every other knockout round.
+- **`previous_meetings`** — played matches between the two teams at the
+  match's age group, every season, newest first, this match's home team's goals
+  first. Null when the read failed.
+
+An unknown match, or one from another season, is 400; a failed match read is
+503. The Scouting tab has its own loading, error and empty ("No results tracked
+for either team this season") states, so a failed matchup never blanks Recent
+Form, Common Opponents or Head-to-Head. A 5xx or network failure offers a retry;
+a 4xx (a past-season match, say) drops the Scouting tab and the usual tab choice
+applies. Each read carries a sequence number, so a late answer for a previous
+match is dropped, and a new match clears the last one's preview and matchup.

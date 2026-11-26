@@ -2,7 +2,7 @@
   <div class="match-preview bg-slate-800 rounded-lg p-3">
     <!-- Loading -->
     <div
-      v-if="loading"
+      v-if="loading && !scoutingTab"
       class="flex flex-col items-center justify-center py-12"
       data-testid="preview-loading"
     >
@@ -14,7 +14,7 @@
 
     <!-- Error -->
     <div
-      v-else-if="error"
+      v-else-if="error && !scoutingTab"
       class="flex flex-col items-center justify-center py-12 text-center"
       data-testid="preview-error"
     >
@@ -33,14 +33,14 @@
     </div>
 
     <!-- Content -->
-    <div v-else-if="preview" data-testid="preview-content">
+    <div v-else-if="preview || scoutingTab" data-testid="preview-content">
       <!-- Tab bar -->
       <div class="border-b border-slate-600 mb-4">
         <nav class="flex space-x-1" aria-label="Match preview sections">
           <button
             v-for="tab in tabs"
             :key="tab.id"
-            @click="activeTab = tab.id"
+            @click="pickTab(tab.id)"
             :data-testid="`tab-${tab.id}`"
             :class="[
               'py-2 px-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
@@ -64,8 +64,75 @@
         </nav>
       </div>
 
+      <!-- ── Scouting (SB-1782) ── -->
+      <div v-if="activeTab === 'scouting'" data-testid="tab-panel-scouting">
+        <div
+          v-if="matchupLoading"
+          class="flex flex-col items-center justify-center py-10"
+          data-testid="scouting-loading"
+        >
+          <div
+            class="w-8 h-8 border-2 border-slate-500 border-t-blue-400 rounded-full animate-spin mb-3"
+          ></div>
+          <p class="text-slate-400 text-sm">Loading scouting report...</p>
+        </div>
+        <div
+          v-else-if="matchupError || !matchup"
+          class="flex flex-col items-center justify-center py-10 text-center"
+          data-testid="scouting-error"
+        >
+          <p class="text-slate-400 text-sm mb-3">
+            {{ matchupError || 'The scouting report is unavailable.' }}
+          </p>
+          <button
+            @click="fetchMatchup"
+            class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium transition-colors"
+            data-testid="scouting-retry"
+          >
+            Retry
+          </button>
+        </div>
+        <div
+          v-else-if="scoutingEmpty"
+          class="flex flex-col items-center py-10 text-slate-500"
+          data-testid="scouting-empty"
+        >
+          <p class="text-sm">No results tracked for either team this season.</p>
+        </div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <ScoutingDossierColumn
+            :side="matchup.home"
+            :teamName="homeTeamName"
+            role="home"
+          />
+          <ScoutingDossierColumn
+            :side="matchup.away"
+            :teamName="awayTeamName"
+            role="away"
+          />
+        </div>
+      </div>
+
+      <!-- The preview's own tabs, while it loads or after it failed -->
+      <div
+        v-else-if="loading || error || !preview"
+        class="flex flex-col items-center justify-center py-10 text-center"
+        :data-testid="loading ? 'preview-loading' : 'preview-error'"
+      >
+        <p class="text-slate-400 text-sm mb-3">
+          {{ loading ? 'Loading match preview...' : error }}
+        </p>
+        <button
+          v-if="!loading"
+          @click="fetchPreview"
+          class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+
       <!-- ── Recent Form ── -->
-      <div v-if="activeTab === 'form'" data-testid="tab-panel-form">
+      <div v-else-if="activeTab === 'form'" data-testid="tab-panel-form">
         <!-- Both teams empty -->
         <div
           v-if="
@@ -485,6 +552,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
+import ScoutingDossierColumn from './match/ScoutingDossierColumn.vue';
 
 // ─── Template helpers ─────────────────────────────────────────────────────────
 
@@ -582,6 +650,10 @@ const props = defineProps({
    * and Flex form only; the server decides which types qualify (SB-1346).
    */
   matchTypeId: { type: Number, default: null },
+  /** The previewed match; with tournamentId, the matchup is read too (SB-1782). */
+  matchId: { type: Number, default: null },
+  /** Set for a tournament match: the Scouting tab leads, and is read. */
+  tournamentId: { type: Number, default: null },
 });
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -591,6 +663,42 @@ const preview = ref(null);
 const loading = ref(false);
 const error = ref(null);
 const activeTab = ref('form');
+const matchup = ref(null);
+const matchupLoading = ref(false);
+const matchupError = ref(null);
+// Once the user picks a tab, a late response never moves them.
+const userPicked = ref(false);
+
+function pickTab(id) {
+  userPicked.value = true;
+  activeTab.value = id;
+}
+
+// The API refused the matchup (4xx: a past-season match, say). Not a blip, so
+// no retry: the Scouting tab goes and the usual tab choice applies.
+const matchupRefused = ref(false);
+
+// Bumped on every read, so a late answer for a previous match is dropped.
+let previewSeq = 0;
+let matchupSeq = 0;
+
+/**
+ * Scouting leads for a tournament match: Fest teams come from different
+ * conferences, so Common Opponents and Head-to-Head are mostly empty. It shows
+ * from the start, loading or failed. A league match keeps the old tabs and
+ * never reads the matchup.
+ */
+const scoutingTab = computed(
+  () =>
+    props.matchId != null && props.tournamentId != null && !matchupRefused.value
+);
+
+const sideHasNoData = side =>
+  !!side?.dossier && !side.dossier.error && side.dossier.totals == null;
+
+const scoutingEmpty = computed(
+  () => sideHasNoData(matchup.value?.home) && sideHasNoData(matchup.value?.away)
+);
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
@@ -607,7 +715,11 @@ const activeTab = ref('form');
 const tabs = computed(() => {
   const commonCount = preview.value?.common_opponents?.length ?? 0;
   const h2hCount = preview.value?.head_to_head?.length ?? 0;
-  const out = [{ id: 'form', label: 'Recent Form', count: null }];
+  const out = [];
+  if (scoutingTab.value) {
+    out.push({ id: 'scouting', label: 'Scouting', count: null });
+  }
+  out.push({ id: 'form', label: 'Recent Form', count: null });
   if (commonCount > 0) {
     out.push({ id: 'common', label: 'Common Opponents', count: commonCount });
   }
@@ -644,7 +756,25 @@ const h2hStats = computed(() => {
 
 // ─── Data fetching ───────────────────────────────────────────────────────────
 
+/** The tab with the most content: Recent Form, else Common Opponents, else Head-to-Head. */
+function autoTab() {
+  if (!preview.value) {
+    activeTab.value = 'form';
+    return;
+  }
+  const { home_team_recent, away_team_recent, common_opponents } =
+    preview.value;
+  if (home_team_recent.length > 0 || away_team_recent.length > 0) {
+    activeTab.value = 'form';
+  } else if (common_opponents.length > 0) {
+    activeTab.value = 'common';
+  } else {
+    activeTab.value = 'h2h';
+  }
+}
+
 async function fetchPreview() {
+  const seq = ++previewSeq;
   loading.value = true;
   error.value = null;
   try {
@@ -656,6 +786,7 @@ async function fetchPreview() {
 
     const url = `${getApiBaseUrl()}/api/matches/preview/${props.homeTeamId}/${props.awayTeamId}?${params}`;
     const data = await authStore.apiRequest(url);
+    if (seq !== previewSeq) return; // a previous match's answer
     // Normalize to guarantee expected arrays are always present
     preview.value = {
       home_team_id: data?.home_team_id ?? props.homeTeamId,
@@ -677,22 +808,55 @@ async function fetchPreview() {
       away_qop_rank_change: data?.away_qop_rank_change ?? null,
     };
 
-    // Auto-select the tab with the most content
-    const { home_team_recent, away_team_recent, common_opponents } =
-      preview.value;
-    const hasForm = home_team_recent.length > 0 || away_team_recent.length > 0;
-    if (hasForm) {
-      activeTab.value = 'form';
-    } else if (common_opponents.length > 0) {
-      activeTab.value = 'common';
-    } else {
-      activeTab.value = 'h2h';
-    }
+    // The user's pick, or a leading Scouting tab, stands.
+    if (!userPicked.value && !scoutingTab.value) autoTab();
   } catch (err) {
+    if (seq !== previewSeq) return;
     error.value = err.message || 'Failed to load match preview';
   } finally {
-    loading.value = false;
+    if (seq === previewSeq) loading.value = false;
   }
+}
+
+async function fetchMatchup() {
+  const seq = ++matchupSeq;
+  if (!scoutingTab.value) {
+    matchup.value = null;
+    matchupLoading.value = false;
+    return;
+  }
+  matchupLoading.value = true;
+  matchupError.value = null;
+  try {
+    const url = `${getApiBaseUrl()}/api/matches/${props.matchId}/matchup`;
+    const data = await authStore.apiRequest(url);
+    if (seq !== matchupSeq) return; // a previous match's answer
+    matchup.value = data;
+  } catch (err) {
+    if (seq !== matchupSeq) return;
+    matchup.value = null;
+    if (err?.status >= 400 && err?.status < 500) {
+      matchupRefused.value = true;
+      if (!userPicked.value) autoTab();
+    } else {
+      matchupError.value = 'The scouting report is unavailable right now.';
+    }
+  } finally {
+    if (seq === matchupSeq) matchupLoading.value = false;
+  }
+}
+
+/** Both reads at once; each owns its loading and error, so one never blanks the other. */
+function fetchAll() {
+  // A new match: nothing of the last one may show, or decide this one's tabs.
+  userPicked.value = false;
+  preview.value = null;
+  error.value = null;
+  matchup.value = null;
+  matchupError.value = null;
+  matchupRefused.value = false;
+  activeTab.value = scoutingTab.value ? 'scouting' : 'form';
+  return Promise.allSettled([fetchPreview(), fetchMatchup()]);
 }
 
 // Refetch when key props change
@@ -703,10 +867,12 @@ watch(
     props.seasonId,
     props.ageGroupId,
     props.matchTypeId,
+    props.matchId,
+    props.tournamentId,
   ],
-  () => fetchPreview(),
+  () => fetchAll(),
   { immediate: false }
 );
 
-onMounted(fetchPreview);
+onMounted(fetchAll);
 </script>

@@ -36,6 +36,8 @@ at the cut is kept.
   null, most games first, at most `limit`) with the full `unranked_count`. Each
   board carries only its own `unranked_count`. Early in a season that is most
   teams, and listing them on all ten boards flooded MT AI's context and the CLI.
+- Each board's `ranked_count` is every team it ranks, not just the `limit`
+  shown: the "of N" behind a rank (SB-1782).
 - Per-game values are compared exactly (fractions), so 2/3 and 4/6 tie; the
   `value` shown is rounded to two places.
 - A team that never played a pro academy is **absent** from `pro_wins` and is

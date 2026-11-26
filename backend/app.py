@@ -9651,6 +9651,30 @@ async def get_team_dossier(
     return result.model_dump(mode="json")
 
 
+@app.get("/api/matches/{match_id}/matchup")
+async def get_matchup(
+    match_id: int,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """Both teams of one match, each inside its own conference tables (SB-1782).
+
+    The same result as mt-mcp's get_matchup: the two team dossiers side by side,
+    stat-board badges at each team's season age, and previous meetings. Logged-in
+    users only: MT is invite-only. One side's dossier error is that side's
+    `dossier.error`, not a failed call. An unknown match or one from another
+    season is 400; a failed match read is 503.
+    """
+    from mt_ai.tools.schemas import Viewer
+    from mt_tools.matchup import get_matchup as build_matchup
+
+    result = await asyncio.to_thread(build_matchup, _my_team_deps(), match_id, viewer=Viewer.from_user(current_user))
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="The matchup is unavailable right now")
+    return result.model_dump(mode="json")
+
+
 @app.get("/api/admin/coverage")
 async def get_competition_coverage(
     season_id: int | None = None,
