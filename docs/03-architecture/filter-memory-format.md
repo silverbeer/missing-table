@@ -71,6 +71,12 @@ One of:
 Ids, not names: names are display text and are renamed; the combined label
 ("League + Flex") is built from the API and is not a key.
 
+### `ranking`
+
+Web only, from SB-1785. The Ranking tab stores only `panel_open` (whether its
+filter panel is expanded). Its age group and league are not remembered yet, so
+it writes no `filters`.
+
 ## Rules for every client
 
 1. **Send only your own fields.** The server merges `filters` key by key

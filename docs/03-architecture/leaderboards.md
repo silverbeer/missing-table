@@ -13,6 +13,7 @@ conferences, they do not say who is stronger. Every response says so in
 | mt-mcp | `get_leaderboards` (read tier) |
 | CLI | `mt leaders U15 -l Homegrown [--season 2025-2026] [-n 10] [--board ppg] [--json]` — coverage first, then boards, then the unranked list once (dim) |
 | Code | `backend/mt_tools/leaderboards.py` — pure counting and ranking, plus `get_leaderboards(deps, ...)` |
+| Web | **Ranking** tab → Leaderboards (SB-1785) — see [Ranking tab](#ranking-tab) |
 
 ## Boards
 
@@ -70,7 +71,9 @@ one, so a server with a lower `max_rows` cannot truncate it silently.
 
 ## Conference
 
-Every row carries GP, W-D-L and the team's Homegrown conference: the League
+Every row carries GP, W-D-L, the team's `club_id` and `club_logo_url` (null
+when the team has no club or the club no logo; SB-1785, so a client needs no
+team or club lookup to draw a logo) and the team's Homegrown conference: the League
 division it played most League games in (ties alphabetical). A team with Flex
 games but no Homegrown League games has none: it is shown with
 `no_conference: true`, never dropped, and counted in
@@ -84,3 +87,39 @@ the note says "No Flex results at U13."), and the note. An age group with
 nothing played is **200** with every board's `rows: []`, `unranked: []` and a
 `reason`. An unknown or child league, an unknown age group or season is 400
 (`invalid_args`); a failed read is 503 with a generic message.
+
+## Ranking tab
+
+The web UI (SB-1785) is a top-level **Ranking** tab, signed-in only, after
+Tournaments. Leaderboards is its first view; Power Rating will join it as a
+second sub-tab, and the sub-nav stays hidden until then. No `/ranking` deep link.
+
+| File | Role |
+|---|---|
+| `frontend/src/components/ranking/RankingView.vue` | Tab shell, sub-tabs |
+| `frontend/src/components/ranking/LeaderboardsPanel.vue` | Filters (U15/U16/U17/U19, Homegrown), fetch, loading / empty / error states |
+| `frontend/src/components/ranking/LeaderboardCard.vue` | One board: coverage, rows |
+| `frontend/src/components/ranking/UnrankedList.vue` | Teams under `min_gp`, once, below the boards |
+
+- Calls `GET /api/leaderboards?league=&age_group=&limit=20` with no season (the
+  current one). A filter change refetches; an older answer that lands late is
+  dropped.
+- Shows the per-game and record boards only, in this order: `ppg`, `gf_pg`,
+  `ga_pg`, `gd_pg`, `unbeaten`, `pro_wins`. Totals stay in the API and CLI.
+- **Every card leads with `coverage.note` verbatim**, under a one-line
+  denominator: "84 U15 Homegrown teams · 8 conferences · min 6 GP".
+- Ranks are the API's; a shared rank shows as `T1`. Per-game values to two
+  places, `gd_pg` signed, `unbeaten` as W-D-L, `pro_wins` as "2 of 3". A
+  missing value is "—", and a board with no rows says "No team qualifies yet",
+  never zeros. `no_conference` rows carry a "No Homegrown conference" badge.
+- `reason`, or no rows anywhere, is "No results yet" plus the reason; a failed
+  read shows the API's message and Retry (which also reloads the league list
+  if that failed too).
+- Logos come from each row's `club_logo_url`; a team without one shows its
+  name alone.
+- A team click emits the same `navigate-to-team` payload shape as the Table:
+  team, `club_id`, age group and season from the response, league id from the
+  (cached) `/api/leagues` list. `divisionId` is null — Matches ignores it when
+  a team is selected (SB-1116).
+- Below `sm` a board picker shows one card at a time; wider, the cards are a
+  grid (two columns, three at `xl`).

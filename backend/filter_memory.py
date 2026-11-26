@@ -17,7 +17,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-View = Literal["table", "matches"]
+View = Literal["table", "matches", "ranking"]
 
 MAX_KEYS = 16
 MAX_LIST = 50
