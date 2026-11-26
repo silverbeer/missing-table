@@ -28,6 +28,17 @@ DEFAULT_SOURCE = "match-scraper"
 # resolve-by-league migration has not reached this database yet (SB-1748).
 _FUNCTION_NOT_FOUND = "PGRST202"
 
+# Kinds that record a disagreement between the feed and a person rather than a
+# name that could not be resolved (SB-1787). The match was not dropped — it
+# landed, or the row it would have changed was left alone — so these rows are
+# not counted as matches lost.
+SCORE_LOCKED = "score_locked"
+SCRAPED_OVERRODE_MANUAL = "scraped_overrode_manual"
+CONFLICT_KINDS = frozenset({SCORE_LOCKED, SCRAPED_OVERRODE_MANUAL})
+# The source a conflict row is recorded under, whoever sent the message: one
+# disagreement about one match is one row.
+CONFLICT_SOURCE = "mt-worker"
+
 
 class IngestFailuresDAO(BaseDAO):
     """Read and write the ingest_failures table."""
@@ -76,6 +87,39 @@ class IngestFailuresDAO(BaseDAO):
         except Exception:
             logger.exception("Could not record ingest failure", kind=kind, raw_name=raw_name)
             return None
+
+    def resolved_with_sample(
+        self,
+        kind: str,
+        raw_name: str,
+        sample: str,
+        *,
+        league: str | None = None,
+        source: str | None = None,
+    ) -> bool:
+        """Whether this row is closed and last recorded exactly this sample (SB-1787).
+
+        A conflict row (CONFLICT_KINDS) a person has closed should stay closed
+        while the feed keeps saying the same thing; record() would reopen it.
+        The row is found by the same identity record() upserts on.
+
+        False when there is no such row, it is open, or the read fails — the
+        caller then records, and a duplicate finding beats a lost one.
+        """
+        try:
+            query = (
+                self.client.table("ingest_failures")
+                .select("sample, resolved_at")
+                .eq("kind", kind)
+                .ilike("raw_name", raw_name)
+                .eq("source", source or DEFAULT_SOURCE)
+            )
+            query = query.is_("league", "null") if league is None else query.eq("league", league)
+            rows = query.limit(1).execute().data or []
+        except Exception:
+            logger.exception("Could not read ingest failure", kind=kind, raw_name=raw_name)
+            return False
+        return bool(rows) and rows[0].get("resolved_at") is not None and rows[0].get("sample") == sample
 
     def resolve(self, kind: str, raw_name: str, *, source: str | None = None) -> int:
         """Close any open rows for a name that now resolves.
@@ -219,17 +263,33 @@ class IngestFailuresDAO(BaseDAO):
             logger.exception("Could not count notified ingest failures")
             return 0
 
-    def open_failures(self, since: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+    def open_failures(
+        self,
+        since: str | None = None,
+        limit: int = 200,
+        *,
+        kinds: list[str] | None = None,
+        include_conflicts: bool = False,
+    ) -> list[dict[str, Any]]:
         """Unresolved rows, newest first.
 
         `since` filters on last_seen, which is what a scraper run wants: the
         names that cost it matches during the run it just finished, not every
         name that has ever been wrong.
+
+        Conflict rows (CONFLICT_KINDS, SB-1787) are left out unless asked for:
+        they are not dropped matches, and match-scraper sums `match_count` over
+        this list as "rejected by MT". `kinds` returns only those kinds,
+        conflict kinds included; `include_conflicts` returns every kind.
         """
         try:
             query = self.client.table("ingest_failures").select("*").is_("resolved_at", "null")
             if since:
                 query = query.gte("last_seen", since)
+            if kinds:
+                query = query.in_("kind", list(kinds))
+            elif not include_conflicts:
+                query = query.not_.in_("kind", sorted(CONFLICT_KINDS))
             response = query.order("last_seen", desc=True).limit(limit).execute()
             return response.data or []
         except Exception:

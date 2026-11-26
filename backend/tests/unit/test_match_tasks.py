@@ -656,6 +656,7 @@ def ingest():
     task._match_type_dao = _match_type_dao_stub()
     task._ingest_failures_dao = MagicMock()
     task._ingest_failures_dao.record.return_value = {"id": 1, "match_count": 1, "should_alert": True}
+    task._ingest_failures_dao.resolved_with_sample.return_value = False
     task._resolved_names = set()
     task._ensured_mappings = set()
     task._known_tournaments = {}
@@ -2074,3 +2075,293 @@ class TestIngestFallbackLookup:
 
         assert _run(ingest, external_match_id=None)["status"] == "skipped"
         ingest._dao.create_match.assert_not_called()
+
+
+# ── a person's result against the feed (SB-1787) ─────────────────────
+
+
+def _scored_row(**overrides):
+    """A completed league match as the worker's lookup flattens it."""
+    row = {
+        "id": 4060,
+        "match_id": MATCH["external_match_id"],
+        "home_team_id": IFA["id"],
+        "away_team_id": OPPONENT["id"],
+        "match_status": "completed",
+        "home_score": 2,
+        "away_score": 1,
+        "home_penalty_score": None,
+        "away_penalty_score": None,
+        "scheduled_kickoff": None,
+        "match_date": MATCH["match_date"],
+        "match_type_id": 1,
+        "division_id": NORTHEAST["id"],
+        "source": "match-scraper",
+        "updated_by": None,
+        "score_locked": False,
+    }
+    row.update(overrides)
+    return row
+
+
+def _recorded(ingest, kind):
+    """The ingest_failures records of one kind, as (raw_name, kwargs)."""
+    return [(c.args[1], c.kwargs) for c in ingest._ingest_failures_dao.record.call_args_list if c.args[0] == kind]
+
+
+class TestScoreLockedHoldsTheResult:
+    """matches.score_locked existed, and nothing read it (SB-1787)."""
+
+    def test_a_different_score_on_a_locked_row_is_not_an_update(self, task):
+        existing = _scored_row(score_locked=True)
+        new_data = {"home_score": 3, "away_score": 1, "match_status": "completed", "match_date": MATCH["match_date"]}
+        assert task._check_needs_update(existing, new_data, IFA["id"], OPPONENT["id"], 1, NORTHEAST["id"]) is False
+
+    def test_a_home_away_swap_on_a_locked_row_is_not_an_update(self, task):
+        # Swapping the teams under a held 2-1 would make it the other side's win.
+        existing = _scored_row(score_locked=True)
+        new_data = {"home_score": 1, "away_score": 2, "match_status": "completed", "match_date": MATCH["match_date"]}
+        assert task._check_needs_update(existing, new_data, OPPONENT["id"], IFA["id"], 1, NORTHEAST["id"]) is False
+
+    def test_a_locked_row_still_follows_a_new_date(self, task):
+        existing = _scored_row(score_locked=True)
+        new_data = {"home_score": 3, "away_score": 1, "match_status": "completed", "match_date": "2026-09-12"}
+        assert task._check_needs_update(existing, new_data, IFA["id"], OPPONENT["id"], 1, NORTHEAST["id"]) is True
+
+        task._update_match_scores(existing, new_data, home_team_id=OPPONENT["id"], away_team_id=IFA["id"])
+
+        payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert payload == {"match_date": "2026-09-12"}
+
+    def test_a_locked_rows_shootout_and_status_are_not_written(self, task):
+        existing = _scored_row(score_locked=True, match_status="tbd", home_score=1, away_score=1)
+        new_data = {
+            "home_score": 1,
+            "away_score": 1,
+            "home_penalty_score": 4,
+            "away_penalty_score": 3,
+            "match_status": "completed",
+            "match_date": "2026-09-12",
+        }
+        task._update_match_scores(existing, new_data)
+        payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert set(payload) == {"match_date"}
+
+    def test_the_ingest_holds_the_score_and_records_the_disagreement(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+
+        result = _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        assert result["status"] == "skipped"
+        ingest._dao.client.table("matches").update.assert_not_called()
+        [(raw_name, kwargs)] = _recorded(ingest, "score_locked")
+        assert raw_name == "match 4060"
+        assert (kwargs["league"], kwargs["source"]) == (None, "mt-worker")
+        assert "score 2-1 → 3-1" in kwargs["sample"]
+        assert MATCH["match_date"] in kwargs["sample"]
+
+    def test_a_held_status_is_named_in_the_record(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(
+            score_locked=True, match_status="tbd", home_score=None, away_score=None
+        )
+
+        _run(ingest, home_score=0, away_score=0, match_status="completed")
+
+        [(_, kwargs)] = _recorded(ingest, "score_locked")
+        assert "score —-— → 0-0" in kwargs["sample"]
+        assert "status tbd → completed" in kwargs["sample"]
+
+    def test_a_swapped_feed_is_compared_in_mts_orientation(self, ingest):
+        # The feed has the sides the other way round and the same result: only
+        # home/away disagrees, not the score.
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+
+        _run(
+            ingest,
+            home_team=MATCH["away_team"],
+            away_team=MATCH["home_team"],
+            home_score=1,
+            away_score=2,
+            match_status="completed",
+        )
+
+        [(_, kwargs)] = _recorded(ingest, "score_locked")
+        assert f"home/away {IFA['id']}/{OPPONENT['id']} → {OPPONENT['id']}/{IFA['id']}" in kwargs["sample"]
+        assert "score" not in kwargs["sample"].split(": ", 1)[1]
+
+    def test_a_swapped_feed_with_a_different_result_names_the_score_in_mts_orientation(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+
+        _run(ingest, home_team=MATCH["away_team"], away_team=MATCH["home_team"], home_score=3, away_score=0)
+
+        [(_, kwargs)] = _recorded(ingest, "score_locked")
+        assert "score 2-1 → 0-3" in kwargs["sample"]
+
+    def test_nothing_is_recorded_when_the_write_fails(self, ingest):
+        # Recorded after processing: a failed write is retried, and recording
+        # first would count one disagreement once per attempt.
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+        ingest._dao.client.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+
+        with pytest.raises(Exception, match="Failed to update"):
+            _run(ingest, home_score=3, away_score=1, match_status="completed", match_date="2026-09-12")
+
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_a_closed_conflict_with_the_same_detail_stays_closed(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+        ingest._ingest_failures_dao.resolved_with_sample.return_value = True
+
+        _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        ingest._ingest_failures_dao.record.assert_not_called()
+        args, kwargs = ingest._ingest_failures_dao.resolved_with_sample.call_args
+        assert args[:2] == ("score_locked", "match 4060")
+        assert "score 2-1 → 3-1" in args[2]
+        assert kwargs == {"league": None, "source": "mt-worker"}
+
+    def test_one_disagreement_is_one_row_whoever_sends_it(self, ingest):
+        # Keyed on kind + match: a second sender or league spelling must add to
+        # the same row, not open another.
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+        _run(ingest, home_score=3, away_score=1, match_status="completed", source="match-scraper")
+        _run(ingest, home_score=3, away_score=1, match_status="completed", source="match-scraper-agent")
+
+        keys = {(raw, kw["league"], kw["source"]) for raw, kw in _recorded(ingest, "score_locked")}
+        assert keys == {("match 4060", None, "mt-worker")}
+
+    @pytest.mark.parametrize("status", ["scheduled", "tbd", "completed"])
+    def test_a_feed_status_without_a_score_is_not_a_disagreement(self, ingest, status):
+        # Before it has a result the feed says scheduled/tbd; that says nothing
+        # about a locked one.
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+
+        _run(ingest, match_status=status)
+
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_a_locked_row_with_no_status_names_only_the_score(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True, match_status=None)
+
+        _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        [(_, kwargs)] = _recorded(ingest, "score_locked")
+        assert "score 2-1 → 3-1" in kwargs["sample"]
+        assert "status" not in kwargs["sample"]
+
+    def test_a_swapped_locked_rows_kickoff_is_read_at_its_own_home(self, task):
+        # The row's home side (IFA, Pacific here) keeps playing at home; the
+        # feed's home side is the away team.
+        zones = {IFA["id"]: "America/Los_Angeles", OPPONENT["id"]: "America/New_York"}
+        task._club_dao.get_club_for_team.side_effect = lambda team_id: {"id": team_id, "timezone": zones[team_id]}
+        existing = _scored_row(score_locked=True)
+        new_data = {"match_date": MATCH["match_date"], "match_time": "09:00", "home_score": 1, "away_score": 2}
+
+        assert task._check_needs_update(existing, new_data, OPPONENT["id"], IFA["id"], 1, NORTHEAST["id"]) is True
+        assert task._club_dao.get_club_for_team.call_args.args == (IFA["id"],)
+
+        task._update_match_scores(existing, new_data, home_team_id=OPPONENT["id"], away_team_id=IFA["id"])
+
+        payload = task._dao.client.table("matches").update.call_args[0][0]
+        assert payload == {"scheduled_kickoff": "2026-09-05T16:00:00+00:00"}
+
+    def test_a_feed_that_agrees_with_a_locked_row_records_nothing(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(score_locked=True)
+
+        result = _run(ingest, home_score=2, away_score=1, match_status="completed")
+
+        assert result["status"] == "skipped"
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_an_unlocked_row_takes_the_feeds_score_as_before(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row()
+
+        result = _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        assert result["status"] == "updated"
+        payload = ingest._dao.client.table("matches").update.call_args[0][0]
+        assert (payload["home_score"], payload["away_score"]) == (3, 1)
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+
+class TestScrapedScoreOverPersonsScoreIsRecorded:
+    """Scraped data wins on results; the disagreement is surfaced, not only logged (SB-1787)."""
+
+    def test_a_score_on_a_row_a_person_entered_is_overwritten_and_recorded(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(source="manual")
+
+        result = _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        assert result["status"] == "updated"
+        payload = ingest._dao.client.table("matches").update.call_args[0][0]
+        assert (payload["home_score"], payload["away_score"]) == (3, 1)
+        [(raw_name, kwargs)] = _recorded(ingest, "scraped_overrode_manual")
+        assert raw_name == "match 4060"
+        assert "score 2-1 → 3-1" in kwargs["sample"]
+
+    def test_updated_by_alone_is_not_the_signal(self, ingest):
+        # The legacy sync endpoint stamps updated_by for the scraper, and a
+        # kickoff edit sets it for good: neither says whose the score is.
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(updated_by="a-user-uuid")
+
+        assert _run(ingest, home_score=3, away_score=1, match_status="completed")["status"] == "updated"
+
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_a_closed_override_with_the_same_detail_stays_closed(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(source="manual")
+        ingest._ingest_failures_dao.resolved_with_sample.return_value = True
+
+        _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_an_adopted_hand_entered_row_is_recorded(self, ingest):
+        # Adoption stamps source='match-scraper' before the update, so the
+        # row's source alone no longer says a person entered it.
+        ingest._dao.get_match_by_teams_and_date.return_value = _scored_row(source="manual", match_id=None)
+        ingest._dao.update_match_external_id.return_value = True
+
+        _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        [(_, kwargs)] = _recorded(ingest, "scraped_overrode_manual")
+        assert "score 2-1 → 3-1" in kwargs["sample"]
+
+    def test_the_feed_correcting_its_own_score_records_nothing(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row()
+
+        _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_filling_an_empty_score_on_a_persons_row_replaces_nothing(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(
+            source="manual", match_status="tbd", home_score=None, away_score=None
+        )
+
+        result = _run(ingest, home_score=3, away_score=1, match_status="completed")
+
+        assert result["status"] == "updated"
+        ingest._ingest_failures_dao.record.assert_not_called()
+
+    def test_a_replaced_shootout_is_named(self, task):
+        existing = _scored_row(home_score=1, away_score=1, home_penalty_score=5, away_penalty_score=4)
+        written = {"home_score": 1, "away_score": 1, "home_penalty_score": 3, "away_penalty_score": 4}
+        assert task._overridden_score(existing, written) == "shootout 5-4 → 3-4"
+
+    def test_rewriting_the_same_score_replaces_nothing(self, task):
+        assert task._overridden_score(_scored_row(), {"home_score": 2, "away_score": 1}) is None
+
+
+class TestCompletedStillRefusesPostponed:
+    """No void/postpone path for a played match (SB-1136, unchanged by SB-1787)."""
+
+    def test_a_postponed_message_leaves_a_completed_persons_row_alone(self, ingest):
+        ingest._dao.get_match_by_external_id.return_value = _scored_row(source="manual")
+
+        result = _run(ingest, match_status="postponed")
+
+        assert result["status"] == "skipped"
+        ingest._ingest_failures_dao.record.assert_not_called()

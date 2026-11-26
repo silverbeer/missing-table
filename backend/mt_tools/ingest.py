@@ -12,6 +12,7 @@ from typing import Any, Literal, Protocol
 import structlog
 from pydantic import BaseModel
 
+from dao.ingest_failures_dao import CONFLICT_KINDS
 from mt_ai.tools.schemas import ToolError
 
 logger = structlog.get_logger()
@@ -48,7 +49,14 @@ def last_seen_before(last_seen: str | None, cutoff: datetime) -> bool:
 
 
 class IngestSource(Protocol):
-    def open_failures(self, since: str | None = None, limit: int = 200) -> list[dict[str, Any]]: ...
+    def open_failures(
+        self,
+        since: str | None = None,
+        limit: int = 200,
+        *,
+        kinds: list[str] | None = None,
+        include_conflicts: bool = False,
+    ) -> list[dict[str, Any]]: ...
 
     def get(self, failure_id: int) -> dict[str, Any] | None: ...
 
@@ -106,12 +114,20 @@ def _cutoff(now: datetime | None) -> tuple[int, datetime]:
 
 
 def list_ingest_failures(
-    source: IngestSource, since: str | None = None, limit: int = 50, now: datetime | None = None
+    source: IngestSource,
+    since: str | None = None,
+    limit: int = 50,
+    now: datetime | None = None,
+    conflicts: bool = False,
 ) -> IngestFailuresResult:
+    """Open rows, newest first. `conflicts` lists the feed-vs-person conflicts (SB-1787) instead."""
     days, cutoff = _cutoff(now)
     limit = max(1, min(limit, MAX_LIMIT))
     try:
-        rows = source.open_failures(since=since, limit=limit)
+        if conflicts:
+            rows = source.open_failures(since=since, limit=limit, kinds=sorted(CONFLICT_KINDS))
+        else:
+            rows = source.open_failures(since=since, limit=limit)
     except Exception:
         logger.exception("list_ingest_failures failed")
         return IngestFailuresResult(
@@ -123,7 +139,8 @@ def list_ingest_failures(
     return IngestFailuresResult(
         failures=failures,
         count=len(failures),
-        matches_dropped=sum(f.match_count for f in failures),
+        # A conflict row (SB-1787) cost no match: it landed, or was held.
+        matches_dropped=sum(f.match_count for f in failures if f.kind not in CONFLICT_KINDS),
         stale_count=sum(1 for f in failures if f.stale),
         stale_after_days=days,
         since=since,

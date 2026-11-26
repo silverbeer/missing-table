@@ -26,9 +26,9 @@ from celery_tasks.tournament_filing import (
 )
 from celery_tasks.validation_tasks import validate_match_data
 from dao.club_dao import ClubDAO
-from dao.ingest_failures_dao import IngestFailuresDAO
+from dao.ingest_failures_dao import CONFLICT_SOURCE, SCORE_LOCKED, SCRAPED_OVERRODE_MANUAL, IngestFailuresDAO
 from dao.league_dao import LeagueDAO
-from dao.match_dao import MatchDAO, SupabaseConnection
+from dao.match_dao import FEED_SOURCES, MatchDAO, SupabaseConnection
 from dao.match_type_dao import MatchTypeDAO
 from dao.season_dao import SeasonDAO
 from dao.team_dao import TeamDAO
@@ -42,11 +42,6 @@ logger = get_logger(__name__)
 # The zone a zone-less match_time is read in when nothing better is known.
 DEFAULT_KICKOFF_TZ = "America/New_York"
 
-# The matches.source values the scraper writes. The live sender is
-# match-scraper-agent; match-scraper is the older one and the default for a
-# message that names none. Rows with either belong to the feed when a
-# tournament message re-files them (SB-1747).
-FEED_SOURCES = frozenset({"match-scraper", "match-scraper-agent"})
 
 # How long a worker trusts that a tournament it has seen still exists. Short
 # enough that a deleted tournament becomes a recorded failure rather than a
@@ -65,6 +60,11 @@ KNOWN_LEAGUES_SECONDS = 600
 # in between is thousands of calls that can only fail. Short enough that
 # closing starts by itself once the migration lands.
 RESOLVE_BY_LEAGUE_RETRY_SECONDS = 600
+
+
+def _pair(pair: tuple[Any, Any]) -> str:
+    """A score pair for a conflict line: "3-1", with "—" for a missing side."""
+    return "-".join("—" if v is None else str(v) for v in pair)
 
 
 class DatabaseTask(Task):
@@ -563,6 +563,145 @@ class DatabaseTask(Task):
         """
         return (existing_match.get("source") or "match-scraper") in FEED_SOURCES
 
+    @staticmethod
+    def _score_locked(existing_match: dict[str, Any]) -> bool:
+        """Whether a person locked this match's result against the feed (SB-1787).
+
+        A locked row keeps its scores, shootout, status and home/away
+        assignment whatever a message says. Home/away is held with the score:
+        swapping the teams under a held 3-1 would turn it into the other
+        side's win. Date, kickoff and filing still follow the feed.
+        """
+        return bool(existing_match.get("score_locked"))
+
+    @staticmethod
+    def _person_sourced(source: str | None) -> bool:
+        """Whether a row with this source is one a person entered (SB-1787).
+
+        Read from the row's source as it was *before* this message: adopting a
+        hand-entered row stamps it 'match-scraper', and after that the row is
+        the feed's. A row with no source is the feed's, as in _feed_owns_filing.
+
+        updated_by is deliberately not the signal. The legacy sync endpoint
+        stamps it for the scraper's own service account, and any edit — a
+        kickoff time — sets it for good, so it does not say whose the score is.
+        The known gap: a person who edits a *scraped* row's score through an
+        edit endpoint is not distinguishable from the feed until matches carry
+        a provenance column for the score itself.
+        """
+        return (source or "match-scraper") not in FEED_SOURCES
+
+    def _held_by_lock(
+        self, existing_match: dict[str, Any], new_data: dict[str, Any], home_team_id: int, away_team_id: int
+    ) -> list[str]:
+        """What this message would have changed on a score-locked row, as "what MT → feed".
+
+        Empty when the row is not locked, or the feed agrees with it.
+
+        When the feed has the sides the other way round, its score is turned to
+        MT's orientation before comparing: a locked 2-1 that the feed sends as
+        a swapped 1-2 is a disagreement about home/away only, not the score.
+        """
+        if not self._score_locked(existing_match):
+            return []
+
+        held: list[str] = []
+        new_score = (new_data.get("home_score"), new_data.get("away_score"))
+        new_pens = self._read_shootout(new_data)
+
+        existing_sides = (existing_match.get("home_team_id"), existing_match.get("away_team_id"))
+        if existing_sides != (home_team_id, away_team_id):
+            held.append(f"home/away {existing_sides[0]}/{existing_sides[1]} → {home_team_id}/{away_team_id}")
+            if existing_sides == (away_team_id, home_team_id):
+                new_score = (new_score[1], new_score[0])
+                new_pens = (new_pens[1], new_pens[0])
+
+        existing_score = (existing_match.get("home_score"), existing_match.get("away_score"))
+        if None not in new_score and new_score != existing_score:
+            held.append(f"score {_pair(existing_score)} → {_pair(new_score)}")
+
+        existing_pens = (existing_match.get("home_penalty_score"), existing_match.get("away_penalty_score"))
+        if new_pens != (None, None) and new_pens != existing_pens:
+            held.append(f"shootout {_pair(existing_pens)} → {_pair(new_pens)}")
+
+        # A status is only a disagreement when the feed has a result behind
+        # it. Without a score the feed's scheduled/tbd says nothing about a
+        # locked result — it is what the feed says before it has one.
+        new_status = self._incoming_status(existing_match, new_data)
+        existing_status = existing_match.get("match_status")
+        if (
+            None not in new_score
+            and existing_status is not None
+            and new_status not in (None, "scheduled", "tbd")
+            and new_status != existing_status
+        ):
+            held.append(f"status {existing_status} → {new_status}")
+
+        return held
+
+    @staticmethod
+    def _overridden_score(existing_match: dict[str, Any], written: dict[str, Any]) -> str | None:
+        """The score or shootout a write replaced, as "what: before → after", or None.
+
+        Filling a score that was empty replaces nothing, and neither does
+        writing the value already there.
+        """
+        changes = []
+        for home_key, away_key, label in (
+            ("home_score", "away_score", "score"),
+            ("home_penalty_score", "away_penalty_score", "shootout"),
+        ):
+            if home_key not in written and away_key not in written:
+                continue
+            before = (existing_match.get(home_key), existing_match.get(away_key))
+            after = (written.get(home_key, before[0]), written.get(away_key, before[1]))
+            if before == (None, None) or before == after:
+                continue
+            changes.append(f"{label} {_pair(before)} → {_pair(after)}")
+        return "; ".join(changes) or None
+
+    def _record_conflict(
+        self,
+        kind: str,
+        existing_match: dict[str, Any],
+        detail: str,
+        *,
+        league: str | None,
+        source: str,
+        sample: str,
+    ) -> None:
+        """Record a feed-vs-person disagreement where an admin will see it (SB-1787).
+
+        In ingest_failures, one row per match per kind ("match <id>"), so a
+        match re-sent every night is one finding with a count. Recording never
+        fails the task — IngestFailuresDAO.record swallows its own errors.
+
+        A row an admin has closed is not reopened by the same disagreement: the
+        feed re-sends a locked match every night, and a closed finding that
+        reopens every morning trains people to ignore the list. A *different*
+        detail — the feed's score moved again — reopens it.
+        """
+        raw_name = f"match {existing_match.get('id')}"
+        full_sample = f"{sample}: {detail}"
+        # Keyed on kind + match alone: the message's league label and sender
+        # go into neither, so two senders or spellings cannot split one
+        # disagreement into two rows. Both are in the log line.
+        if self.ingest_failures_dao.resolved_with_sample(
+            kind, raw_name, full_sample, league=None, source=CONFLICT_SOURCE
+        ):
+            logger.info("Conflict already closed by a person", kind=kind, match_id=existing_match.get("id"))
+            return
+        logger.warning(
+            "Feed disagrees with a person's result",
+            kind=kind,
+            match_id=existing_match.get("id"),
+            external_match_id=existing_match.get("match_id"),
+            detail=detail,
+            league=league,
+            source=source,
+        )
+        self.ingest_failures_dao.record(kind, raw_name, league=None, source=CONFLICT_SOURCE, sample=full_sample)
+
     # Statuses a person sets. The scraper derives status from date and score,
     # and says postponed only for a fixture parked on the feed's placeholder
     # date (SB-1136) — it can never say one was played-but-void or cancelled.
@@ -669,6 +808,13 @@ class DatabaseTask(Task):
                 logger.debug(f"tournament filing changed: {tournament_updates}")
                 return True
 
+        # A locked row's result is not the feed's to change (SB-1787): the
+        # home/away, status, score and shootout checks below are skipped.
+        # The kickoff is read in the row's own home club's zone: its home/away
+        # is held, so the feed's home side is not the one playing at home.
+        if self._score_locked(existing_match):
+            return self._dated_or_kicked_off(existing_match, new_data, existing_match.get("home_team_id"))
+
         # Check home/away team swap
         if existing_match.get("home_team_id") != home_team_id or existing_match.get("away_team_id") != away_team_id:
             logger.debug(
@@ -712,6 +858,10 @@ class DatabaseTask(Task):
                 logger.debug(f"Penalty shootout changed: {existing_pens} → {new_pens}")
                 return True
 
+        return self._dated_or_kicked_off(existing_match, new_data, home_team_id)
+
+    def _dated_or_kicked_off(self, existing_match: dict[str, Any], new_data: dict[str, Any], home_team_id: int) -> bool:
+        """Whether the feed moves the match's date or sets/changes its kickoff."""
         # Check if match_date changed (rescheduled match)
         new_date = self._incoming_date(existing_match, new_data)
         if new_date:
@@ -784,35 +934,40 @@ class DatabaseTask(Task):
                     update_data.update(tournament_updates)
                     logger.info(f"Match {match_id} tournament filing corrected: {tournament_updates}")
 
+            # A locked row keeps its result: home/away, scores, shootout and
+            # status are not written (SB-1787).
+            locked = self._score_locked(existing_match)
+
             # Correct home/away team swap if team IDs differ
-            if home_team_id is not None and home_team_id != existing_match.get("home_team_id"):
+            if not locked and home_team_id is not None and home_team_id != existing_match.get("home_team_id"):
                 update_data["home_team_id"] = home_team_id
                 logger.info(
                     f"Match {match_id} home_team_id corrected: {existing_match.get('home_team_id')} → {home_team_id}"
                 )
-            if away_team_id is not None and away_team_id != existing_match.get("away_team_id"):
+            if not locked and away_team_id is not None and away_team_id != existing_match.get("away_team_id"):
                 update_data["away_team_id"] = away_team_id
                 logger.info(
                     f"Match {match_id} away_team_id corrected: {existing_match.get('away_team_id')} → {away_team_id}"
                 )
 
-            # Update scores if provided
-            if new_data.get("home_score") is not None:
-                update_data["home_score"] = new_data["home_score"]
-            if new_data.get("away_score") is not None:
-                update_data["away_score"] = new_data["away_score"]
+            if not locked:
+                # Update scores if provided
+                if new_data.get("home_score") is not None:
+                    update_data["home_score"] = new_data["home_score"]
+                if new_data.get("away_score") is not None:
+                    update_data["away_score"] = new_data["away_score"]
 
-            # Update the penalty shootout, both columns together (SB-1020).
-            home_pens, away_pens = self._read_shootout(new_data)
-            if home_pens is not None and away_pens is not None:
-                update_data["home_penalty_score"] = home_pens
-                update_data["away_penalty_score"] = away_pens
+                # Update the penalty shootout, both columns together (SB-1020).
+                home_pens, away_pens = self._read_shootout(new_data)
+                if home_pens is not None and away_pens is not None:
+                    update_data["home_penalty_score"] = home_pens
+                    update_data["away_penalty_score"] = away_pens
 
-            # Update status if provided, unless a person's postponed/cancelled
-            # still stands (SB-1135)
-            new_status = self._incoming_status(existing_match, new_data)
-            if new_status:
-                update_data["match_status"] = new_status
+                # Update status if provided, unless a person's postponed/cancelled
+                # still stands (SB-1135)
+                new_status = self._incoming_status(existing_match, new_data)
+                if new_status:
+                    update_data["match_status"] = new_status
 
             # Update match_date if changed (rescheduled match)
             new_date = self._incoming_date(existing_match, new_data)
@@ -821,9 +976,10 @@ class DatabaseTask(Task):
                 logger.info(f"Match {match_id} rescheduled: {existing_match.get('match_date')} → {new_date}")
 
             # Update scheduled_kickoff if the feed gives one and it differs
-            new_kickoff = self._resolve_kickoff(
-                new_data, home_team_id if home_team_id is not None else existing_match.get("home_team_id")
-            )
+            # A locked row keeps its home side, so its kickoff is read in that
+            # side's club zone, not the feed's home side's (SB-1787).
+            kickoff_home = existing_match.get("home_team_id") if locked or home_team_id is None else home_team_id
+            new_kickoff = self._resolve_kickoff(new_data, kickoff_home)
             if new_kickoff and new_kickoff != existing_match.get("scheduled_kickoff"):
                 update_data["scheduled_kickoff"] = new_kickoff
 
@@ -1110,6 +1266,9 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
         external_match_id = match_data.get("external_match_id")
         existing_match = None
         adopted = False
+        # The row's owner before this message: adoption below re-stamps a
+        # hand-entered row as the feed's (SB-1787).
+        source_before: str | None = None
 
         # First try: Look up by external ID (fast path for previously scraped matches)
         if external_match_id:
@@ -1117,6 +1276,8 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
             logger.debug(
                 f"Lookup by external_match_id '{external_match_id}': {'found' if existing_match else 'not found'}"
             )
+            if existing_match:
+                source_before = existing_match.get("source")
 
         # Second try: Fallback to lookup by teams + date + age_group (for manually-entered matches)
         if not existing_match:
@@ -1149,6 +1310,7 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                     existing_match = None
 
             if existing_match:
+                source_before = existing_match.get("source")
                 logger.info(
                     f"Found manually-entered match via fallback lookup: "
                     f"{home_team_name} vs {away_team_name} on {match_data['match_date']}"
@@ -1177,6 +1339,12 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
 
         # Step 4: Insert or update match
         if existing_match:
+            # A locked result is held (SB-1787). What the feed said is worked
+            # out against the row as read, and recorded once the message has
+            # been processed — not before, or every autoretry of a failed
+            # write would count the same disagreement again.
+            held = self._held_by_lock(existing_match, match_data, home_team["id"], away_team["id"])
+
             # Check if this is a score update
             needs_update = self._check_needs_update(
                 existing_match,
@@ -1207,6 +1375,22 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
 
                 if success:
                     written = success if isinstance(success, dict) else {}
+                    # Scraped data wins on results, but a person's score it
+                    # replaced is surfaced, not just logged (SB-1787). Whose
+                    # score it was is the row's source before this message;
+                    # once adopted the row is the feed's, so an adoption that
+                    # carried no score leaves nothing to compare later.
+                    if self._person_sourced(source_before):
+                        overridden = self._overridden_score(existing_match, written)
+                        if overridden:
+                            self._record_conflict(
+                                SCRAPED_OVERRODE_MANUAL,
+                                existing_match,
+                                overridden,
+                                league=league_name,
+                                source=source,
+                                sample=sample,
+                            )
                     alert_if_new_final_score(existing_match, {**existing_match, **written})
                     result = {
                         "db_id": existing_match["id"],
@@ -1227,6 +1411,16 @@ def process_match_data(self: DatabaseTask, match_data: dict[str, Any]) -> dict[s
                     "status": "skipped",
                     "message": f"Match unchanged: {home_team_name} vs {away_team_name}",
                 }
+
+            if held:
+                self._record_conflict(
+                    SCORE_LOCKED,
+                    existing_match,
+                    "held " + "; ".join(held),
+                    league=league_name,
+                    source=source,
+                    sample=sample,
+                )
         else:
             logger.info(f"Creating new match (MLS ID: {external_match_id}): {home_team_name} vs {away_team_name}")
 

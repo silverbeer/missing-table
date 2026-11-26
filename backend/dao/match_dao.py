@@ -181,8 +181,30 @@ SCORE_GRACE = timedelta(hours=3)
 KICKOFF_HORIZON_DAYS = 14
 
 
+# The matches.source values the scraper writes. The live sender is
+# match-scraper-agent; match-scraper is the older one and the default for a
+# message that names none. A row with any other source was entered by a person
+# (SB-1747, SB-1787).
+FEED_SOURCES = frozenset({"match-scraper", "match-scraper-agent"})
+
 # PostgREST caps a response at max_rows (1000); a season read pages under it.
 _SEASON_PAGE = 1000
+
+# Rows per page of GET /api/agent/season-matches (SB-1787): the default, and the
+# most a caller may ask for — one PostgREST response at most.
+AGENT_SEASON_PAGE = 500
+AGENT_SEASON_PAGE_MAX = _SEASON_PAGE
+
+# What the reconcile reads of each match. Explicit rather than `*`: nothing
+# that names a user leaves this method.
+_AGENT_SEASON_COLUMNS = (
+    "id, match_id, match_date, match_status, home_team_id, away_team_id, "
+    "home_score, away_score, home_penalty_score, away_penalty_score, "
+    "division_id, source, score_locked, "
+    "home_team:teams!matches_home_team_id_fkey(name), "
+    "away_team:teams!matches_away_team_id_fkey(name), "
+    "match_type:match_types(name)"
+)
 
 
 def _age_group_or_side(age_group_id: int) -> str:
@@ -303,6 +325,9 @@ class MatchDAO(BaseDAO):
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
                     "match_id": match.get("match_id"),
+                    # A person locked the score; the ingest holds the feed's
+                    # score and status for it (SB-1787).
+                    "score_locked": bool(match.get("score_locked")),
                     # Tournament filing. Left out, an unchanged tournament
                     # rescrape reads as changed and is re-written every run
                     # (SB-1747) — the same trap as the shootout above.
@@ -395,6 +420,9 @@ class MatchDAO(BaseDAO):
                     "updated_by": match.get("updated_by"),
                     "source": match.get("source", "manual"),
                     "match_id": match.get("match_id"),
+                    # A person locked the score; the ingest holds the feed's
+                    # score and status for it (SB-1787).
+                    "score_locked": bool(match.get("score_locked")),
                     # Tournament filing. Left out, an unchanged tournament
                     # rescrape reads as changed and is re-written every run
                     # (SB-1747) — the same trap as the shootout above.
@@ -2562,6 +2590,92 @@ class MatchDAO(BaseDAO):
             count=len(results),
         )
         return results
+
+    def get_agent_season_matches(
+        self,
+        season_id: int,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        league_ids: list[int] | None = None,
+        page: int = 0,
+        page_size: int = AGENT_SEASON_PAGE,
+        include_test: bool = False,
+    ) -> list[dict]:
+        """One page of a season's matches for the reconcile (SB-1787).
+
+        match-scraper's reconcile compares past MT matches with the official
+        feed and resends what differs. It needs every match in the window, not
+        one team's, so this pages: page `n` is rows `n * page_size` onwards in
+        (match_date, id) order. The caller asks for pages 0, 1, 2… and stops at
+        the first **empty** page — not a short one — and reads every page
+        before sending a change, because a re-dated match moves between pages.
+
+        A page is filled with `.range()` until it holds `page_size` rows or the
+        database has no more, so a server whose max_rows is below the page size
+        still returns full pages and the offsets of later pages stay right.
+
+        `league_ids` keeps matches whose division is in one of those leagues;
+        that leaves out tournament and other division-less matches, which have
+        no league. Every status is returned, cancelled included: whether a
+        difference is worth resending is the reconcile's call.
+
+        `entered_by_person` is whether `source` is outside FEED_SOURCES — the
+        row was entered by a person, the same test the ingest worker uses.
+        updated_by is not the signal (the legacy sync endpoint stamps it for the
+        scraper, and any edit sets it for good) and is not returned. A person
+        who edits a *scraped* row's score is not visible here until a score
+        provenance column exists.
+
+        Raises on a database error: "could not read" must not look like "no
+        matches", or the reconcile would conclude MT is missing the season.
+        """
+        page_size = max(1, min(int(page_size), AGENT_SEASON_PAGE_MAX))
+        start = max(0, int(page)) * page_size
+
+        columns = _AGENT_SEASON_COLUMNS + (
+            ", division:divisions!inner(league_id)" if league_ids else ", division:divisions(league_id)"
+        )
+
+        rows: list[dict] = []
+        while len(rows) < page_size:
+            query = self.client.table(MATCHES_READ_RELATION).select(columns).eq("season_id", season_id)
+            if league_ids:
+                query = query.in_("division.league_id", list(league_ids))
+            if not include_test:
+                query = query.eq("is_test", False)
+            if start_date:
+                query = query.gte("match_date", start_date)
+            if end_date:
+                query = query.lte("match_date", end_date)
+            offset = start + len(rows)
+            chunk = (query.order("match_date").order("id").range(offset, start + page_size - 1).execute()).data or []
+            if not chunk:
+                break
+            rows.extend(chunk)
+
+        return [
+            {
+                "id": m["id"],
+                "match_id": m.get("match_id"),
+                "match_date": m.get("match_date"),
+                "match_status": m.get("match_status"),
+                "home_team_id": m.get("home_team_id"),
+                "home_team_name": (m.get("home_team") or {}).get("name"),
+                "away_team_id": m.get("away_team_id"),
+                "away_team_name": (m.get("away_team") or {}).get("name"),
+                "home_score": m.get("home_score"),
+                "away_score": m.get("away_score"),
+                "home_penalty_score": m.get("home_penalty_score"),
+                "away_penalty_score": m.get("away_penalty_score"),
+                "division_id": m.get("division_id"),
+                "league_id": (m.get("division") or {}).get("league_id"),
+                "match_type": (m.get("match_type") or {}).get("name"),
+                "source": m.get("source"),
+                "entered_by_person": (m.get("source") or "match-scraper") not in FEED_SOURCES,
+                "score_locked": bool(m.get("score_locked")),
+            }
+            for m in rows[:page_size]
+        ]
 
     def cancel_match(
         self,

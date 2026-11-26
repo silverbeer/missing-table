@@ -4,7 +4,7 @@ import hashlib
 import os
 from collections import Counter
 from contextlib import AsyncExitStack, asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -116,10 +116,10 @@ from dao.audit_dao import AuditDAO
 from dao.club_dao import ClubDAO
 from dao.coverage_dao import CoverageDAO
 from dao.exceptions import DuplicateRecordError
-from dao.ingest_failures_dao import IngestFailuresDAO
+from dao.ingest_failures_dao import CONFLICT_KINDS, IngestFailuresDAO
 from dao.league_dao import LeagueDAO
 from dao.lineup_dao import LineupDAO
-from dao.match_dao import UNSET, MatchDAO
+from dao.match_dao import AGENT_SEASON_PAGE, AGENT_SEASON_PAGE_MAX, UNSET, MatchDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
 from dao.match_event_dao import MatchEventDAO
 from dao.match_type_dao import MatchTypeDAO
@@ -7796,6 +7796,8 @@ from mt_tools.ingest import last_seen_before as _last_seen_before
 async def get_ingest_failures(
     since: str | None = None,
     limit: int = 200,
+    kind: str | None = None,
+    include_conflicts: bool = False,
     current_user: dict[str, Any] = Depends(require_admin_or_service_account),
 ):
     """Names the match ingest could not resolve, newest first (SB-829).
@@ -7813,6 +7815,12 @@ async def get_ingest_failures(
             scraper run passes the time it started, so it reports what this
             run cost rather than every name that has ever been wrong.
         limit: Maximum rows (default 200).
+        kind: Comma-separated kinds to return only those, e.g.
+            "score_locked,scraped_overrode_manual" for the conflicts alone.
+        include_conflicts: Return every kind. Without it, or `kind`, the
+            conflict kinds (SB-1787) are left out: they are not dropped
+            matches, and match-scraper reports `match_count` over this list
+            as "rejected by MT".
 
     Each row carries `stale`: true when it has not been seen for
     `stale_after_days`. That is a hint for de-emphasising a row, not a
@@ -7821,7 +7829,10 @@ async def get_ingest_failures(
     call: PATCH /api/admin/ingest-failures/{id}.
     """
     try:
-        failures = ingest_failures_dao.open_failures(since=since, limit=limit)
+        kinds = [k.strip() for k in kind.split(",") if k.strip()] if kind else None
+        failures = ingest_failures_dao.open_failures(
+            since=since, limit=limit, kinds=kinds, include_conflicts=include_conflicts
+        )
         stale_after = ingest_failure_stale_after_days()
         cutoff = datetime.now(UTC) - timedelta(days=stale_after)
 
@@ -7832,7 +7843,8 @@ async def get_ingest_failures(
         return {
             "failures": failures,
             "count": len(failures),
-            "matches_dropped": sum(f.get("match_count", 0) for f in failures),
+            # A conflict row (SB-1787) cost no match: it landed, or was held.
+            "matches_dropped": sum(f.get("match_count", 0) for f in failures if f.get("kind") not in CONFLICT_KINDS),
             "stale_count": len(stale),
             "stale_after_days": stale_after,
             "since": since,
@@ -8703,6 +8715,66 @@ async def get_agent_matches(
     except Exception as e:
         logger.error("agent_matches_failed", error=str(e), team=team, season=season)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/api/agent/season-matches")
+async def get_agent_season_matches(
+    season_id: int = Query(..., description="Season id"),
+    start_date: date | None = Query(None, description="On or after this date (YYYY-MM-DD)"),
+    end_date: date | None = Query(None, description="On or before this date (YYYY-MM-DD)"),
+    league_ids: str | None = Query(None, description="Comma-separated league ids, e.g. '1,2'"),
+    page: int = Query(0, ge=0, description="0-based page number"),
+    page_size: int = Query(AGENT_SEASON_PAGE, ge=1, le=AGENT_SEASON_PAGE_MAX, description="Rows per page"),
+    current_user: dict[str, Any] = Depends(require_admin_or_service_account),
+):
+    """A season's matches, one page at a time, for match-scraper's reconcile (SB-1787).
+
+    Page contract: rows are in (match_date, id) order; page `n` starts at row
+    `n * page_size`. Ask for page 0, 1, 2… and stop at the first page whose
+    `matches` is empty — a short page is not proof of the last one. Read
+    every page before sending any change: a correction that moves a match's
+    date moves it between pages, so sending while paging can skip or repeat
+    rows.
+
+    Each row carries what the reconcile compares (scores, shootout, status,
+    date, home/away) and what decides whether a correction may land:
+    `score_locked`, `source`, and `entered_by_person` (source is not one the
+    feed writes). updated_by is not returned.
+
+    Admins and service accounts with manage_matches only: a whole season
+    across leagues is not a team or club manager's read.
+
+    A database error is a 500, never an empty page: an empty answer would read
+    as "MT has none of these matches" and the reconcile would resend a season.
+    """
+    parsed_league_ids: list[int] | None = None
+    if league_ids:
+        try:
+            parsed_league_ids = [int(part) for part in league_ids.split(",") if part.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail="league_ids must be comma-separated integers") from None
+
+    try:
+        matches = match_dao.get_agent_season_matches(
+            season_id=season_id,
+            start_date=start_date.isoformat() if start_date else None,
+            end_date=end_date.isoformat() if end_date else None,
+            league_ids=parsed_league_ids,
+            page=page,
+            page_size=page_size,
+            include_test=viewer_sees_test_content(current_user),
+        )
+    except Exception as e:
+        logger.error("agent_season_matches_failed", error=str(e), season_id=season_id, page=page)
+        raise HTTPException(status_code=500, detail="Could not read season matches") from e
+
+    return {
+        "season_id": season_id,
+        "page": page,
+        "page_size": page_size,
+        "count": len(matches),
+        "matches": matches,
+    }
 
 
 @app.patch("/api/agent/matches/cancel")

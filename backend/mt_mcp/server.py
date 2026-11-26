@@ -338,13 +338,20 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
     # --- admin tier -----------------------------------------------------------
 
     @server.tool(name="list_ingest_failures")
-    async def list_ingest_failures_tool(since: str | None = None, limit: int = 50) -> IngestFailuresResult:
+    async def list_ingest_failures_tool(
+        since: str | None = None, limit: int = 50, conflicts: bool = False
+    ) -> IngestFailuresResult:
         """Admin. Names the match ingest could not resolve (team, division, league),
         open ones only, newest first; one row per name with the matches it cost.
         `since` (ISO 8601) limits to names seen since then. `stale` means unseen for
-        a while: a hint to de-emphasise, never proof it is fixed."""
+        a while: a hint to de-emphasise, never proof it is fixed. `conflicts` lists
+        instead the matches where the feed disagreed with a person's result
+        (score_locked, scraped_overrode_manual), one row per match."""
         _caller()
-        return await _run(lambda: list_ingest_failures(ingest(), since=since, limit=limit), "list_ingest_failures")
+        return await _run(
+            lambda: list_ingest_failures(ingest(), since=since, limit=limit, conflicts=conflicts),
+            "list_ingest_failures",
+        )
 
     @server.tool(name="resolve_ingest_failure")
     async def resolve_ingest_failure_tool(

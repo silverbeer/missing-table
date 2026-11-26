@@ -496,9 +496,109 @@ Match 4060 match_type corrected: League → Flex
 **Matches somebody entered by hand are exempt.** The correction is gated on
 `matches.source`: the feed re-files what it owns, and a friendly deliberately
 recorded against a league fixture's external id keeps its competition. Scores
-and status are *not* gated — scraped data still wins on results. Adopting a
-manual match (populating its `match_id`) sets `source = 'match-scraper'`, after
-which the feed owns its filing too.
+and status are *not* gated by source — scraped data still wins on results —
+except on a score-locked row (below). Adopting a manual match (populating its
+`match_id`) sets `source = 'match-scraper'`, after which the feed owns its
+filing too.
+
+### A person's result against the feed (SB-1787)
+
+Two cases are recorded in `ingest_failures` rather than only logged, one row
+per match per kind (`raw_name` is `match <id>`, `sample` says what differed,
+`match_count` how many messages said it). The row is keyed on kind and match
+alone — `league` is null and `source` is always `mt-worker` — so a second
+sender or league spelling adds to the same row instead of opening another. They are not dropped matches, so
+they are **left out of `/api/admin/ingest-failures` by default** — match-scraper
+sums `match_count` over that list as "rejected by MT", and its report stays
+right without any change there. List them on their own:
+
+```bash
+mt ingest failures --conflicts
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API/api/admin/ingest-failures?kind=score_locked,scraped_overrode_manual"
+```
+
+(`include_conflicts=true` returns every kind; the mt-mcp `list_ingest_failures`
+tool takes `conflicts=true`.) Neither kind closes by itself — close one with
+`mt ingest resolve <id>` once someone has looked. A closed row stays closed
+while the feed keeps sending the same thing; only a different detail (the
+feed's score moved again) reopens it.
+
+| Kind | When | What the worker does |
+|------|------|----------------------|
+| `score_locked` | the row has `score_locked = true` and the message's score, shootout, status or home/away differs | **holds** all four; date, kickoff and filing still follow the feed. Recorded after the message is processed, so an autoretry does not count it twice |
+| `scraped_overrode_manual` | the row was a person's before this message (`source` not in `FEED_SOURCES`, read before adoption) and the feed's score or shootout replaces a different, non-empty one | writes the feed's score (rule 5) and records what it replaced |
+
+Home/away is held with the score on a locked row: swapping the teams under a
+held 3-1 would turn it into the other side's win. A feed that only has the
+sides the other way round is compared in MT's orientation, so a locked 2-1
+sent as a swapped 1-2 is recorded as a home/away disagreement, not a score
+one. Filling a score that was empty replaces nothing and is not recorded.
+
+**`score_locked` is SQL-only until SB-1794** — there is no UI or endpoint to
+set it; today it is set in the database by hand.
+
+A status counts as a disagreement only when the feed also carries a score:
+its `scheduled`/`tbd` for a locked match is what it says before it has a
+result, not a claim about one. A locked row keeps its home side, so its
+kickoff is read in that side's club timezone even when the feed has the
+sides swapped.
+
+**Known gaps in "a person's score".** The signal is the row's `source`, not
+`updated_by`: the legacy sync endpoint stamps `updated_by` for the scraper's
+own service account, and any edit (a kickoff time) sets it for good. So:
+
+- A person who edits the score of a **scraped** row through an edit endpoint
+  is not distinguishable from the feed, and a later feed score over it is not
+  recorded. That needs a provenance column for the score itself.
+- Adoption re-stamps a hand-entered row as `match-scraper`. The adopting
+  message is compared against the person's score; if it carried no score,
+  nothing is kept, and a later feed score over the person's is not recorded.
+
+There is still no void path: a `postponed` message never moves a `completed`
+or `forfeit` row (SB-1136).
+
+> **Deploy order:** apply `20261126120000_ingest_failures_conflict_kinds.sql`
+> (`./scripts/db_tools.sh migrate prod`) **before** the worker image with this
+> code is deployed. Until it is applied the record call fails the `kind`
+> CHECK and is only logged — the match is still processed as described, but
+> every conflict in that window is silently lost.
+
+### Reconcile read: `GET /api/agent/season-matches`
+
+match-scraper's `reconcile` compares past MT matches with the official feed and
+resends what differs through the normal queue. It reads MT one page at a time
+(admin, or a service account with `manage_matches` — not team or club
+managers, unlike the other `/api/agent/*` reads):
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "$API/api/agent/season-matches?season_id=5&start_date=2026-09-01&end_date=2026-11-30&league_ids=1,2&page=0&page_size=500"
+```
+
+| Param | |
+|-------|-|
+| `season_id` | required |
+| `start_date`, `end_date` | optional, `YYYY-MM-DD`, inclusive |
+| `league_ids` | optional, comma-separated; keeps matches whose division is in those leagues, which leaves out tournament matches |
+| `page` | 0-based, default 0 |
+| `page_size` | default 500, max 1000 |
+
+**Page contract:** rows are ordered by `(match_date, id)`; page `n` starts at
+row `n * page_size`. Ask for pages 0, 1, 2… and stop at the first page whose
+`matches` is **empty** — a short page is not proof of the last one. **Read
+every page before sending any change**: a correction that re-dates a match
+moves it between pages, so sending while paging can skip or repeat rows. A
+database error is a 500, never an empty page; a malformed date is a 422.
+
+Each row: `id`, `match_id` (external), `match_date`, `match_status`,
+`home_team_id`/`home_team_name`, `away_team_id`/`away_team_name`,
+`home_score`/`away_score`, `home_penalty_score`/`away_penalty_score`,
+`division_id`, `league_id`, `match_type`, `source`, `entered_by_person`
+(`source` is not one the feed writes — the worker's test; `updated_by` is not
+returned) and `score_locked`. Every
+status is returned, `cancelled` included; an unplayed match's scores are
+`null`, not `0`.
 
 ### Tournament matches
 
