@@ -22,6 +22,8 @@ READ_TOOLS = {
     "get_leaderboards",
     "get_team_dossier",
     "get_matchup",
+    "get_power_rating",
+    "get_power_rating_team",
 }
 MY_TOOLS = {"get_my_team"}
 

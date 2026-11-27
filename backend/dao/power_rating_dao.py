@@ -11,6 +11,11 @@ The engine (`mt_tools.power_rating`) is pure. This module is the two ends of it:
 - **Storing.** `write_run` writes a run, its ratings and its deltas. Only the
   latest run of a (season, age group, league) keeps deltas: older runs' are
   deleted once the new run is in.
+- **Serving** (SB-1808). `run_payload` is a run with its ratings and conference
+  names, cached in Redis by run id: a written run never changes, and the worker
+  that writes runs cannot clear the API's cache (`caching.md`), so the key is the
+  run id and `latest_run` stays uncached. The team reads (`runs`,
+  `team_ratings`, `team_deltas`, `matches_by_ids`) are small and uncached.
 
 ## Mapping (design "What counts")
 
@@ -51,7 +56,7 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from dao.base_dao import MATCHES_READ_RELATION, BaseDAO
+from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, cache_get, cache_set
 from dao.side_age_groups import effective_side_age_groups
 from mt_tools import power_rating as engine
 from mt_tools.power_rating import MasseyResult, PowerRatingResult, RatedMatch
@@ -77,6 +82,23 @@ NO_SCORE = "no_score"
 # Rows per insert. PostgREST takes larger bodies, but a run is ~6.5k delta rows.
 _WRITE_BATCH = 1000
 _PAGE = 1000
+
+# The run as served: everything but the fingerprint and parameters.
+_RUN_COLUMNS = (
+    "id, season_id, age_group_id, league_id, computed_at, through_date, params_version, "
+    "matches_counted, matches_excluded, national, publication_reason"
+)
+_RATING_COLUMNS = (
+    "team_id, rating, rank, island, conference_division_id, conference_rank, mp, w, d, l, xconf_mp, sos, tier, badges"
+)
+_DELTA_COLUMNS = (
+    "match_id, team_id, opponent_id, rating_before, opponent_before, expected, result, k, margin_mult, delta"
+)
+_SCORE_COLUMNS = (
+    "id, match_date, home_team_id, away_team_id, home_score, away_score, home_penalty_score, away_penalty_score"
+)
+# A run's payload never changes once complete; a week is long enough to matter, short enough to expire.
+RUN_PAYLOAD_TTL = 7 * 86400
 
 # What the tournament read takes of each match. Explicit, not `*`: no user columns.
 _TOURNAMENT_COLUMNS = (
@@ -517,3 +539,82 @@ class PowerRatingDAO(BaseDAO):
             except Exception:
                 logger.exception("power_rating_old_deltas_not_deleted", run_id=run_id)
         return run_id
+
+    # --- serving (SB-1808) --------------------------------------------------------
+
+    def run_payload(self, run_id: int) -> dict | None:
+        """A run, its ratings and its conferences' names, cached by run id. None for no such run.
+
+        A run is written row first, then ratings, so a reader can catch it with
+        none of them (all ratings go in one insert: under `_WRITE_BATCH` teams).
+        Such a payload is returned but not cached, so the next read sees it whole.
+        """
+        key = f"mt:dao:power_rating:run:{int(run_id)}"
+        cached = cache_get(key)
+        if cached is not None:
+            return cached
+        rows = self.client.table(RUNS).select(_RUN_COLUMNS).eq("id", run_id).limit(1).execute().data
+        if not rows:
+            return None
+        ratings: list[dict] = []
+        while True:
+            page = (
+                self.client.table(RATINGS)
+                .select(_RATING_COLUMNS)
+                .eq("run_id", run_id)
+                .order("team_id")
+                .range(len(ratings), len(ratings) + _PAGE - 1)
+                .execute()
+            ).data or []
+            ratings.extend(page)
+            if len(page) < _PAGE:
+                break
+        division_ids = sorted({r["conference_division_id"] for r in ratings if r.get("conference_division_id")})
+        conferences: dict[str, str] = {}
+        if division_ids:
+            divisions = self.client.table("divisions").select("id, name").in_("id", division_ids).execute().data
+            # JSON keys are strings: the cached copy and the fresh one must look alike.
+            conferences = {str(d["id"]): d["name"] for d in divisions or []}
+        payload = {"run": rows[0], "ratings": ratings, "conferences": conferences}
+        if ratings or not rows[0].get("matches_counted"):
+            cache_set(key, payload, RUN_PAYLOAD_TTL)
+        return payload
+
+    def runs(self, season_id: int, age_group_id: int, league_id: int) -> list[dict]:
+        """Every run of a scope, oldest first (id, computed_at, through_date)."""
+        return (
+            self.client.table(RUNS)
+            .select("id, computed_at, through_date")
+            .eq("season_id", season_id)
+            .eq("age_group_id", age_group_id)
+            .eq("league_id", league_id)
+            .order("computed_at")
+            .order("id")
+            .execute()
+        ).data or []
+
+    def team_ratings(self, team_id: int, run_ids: Iterable[int]) -> list[dict]:
+        """One team's rating rows in the given runs; a run it was not rated in has none."""
+        ids = list(run_ids)
+        if not ids:
+            return []
+        return (
+            self.client.table(RATINGS)
+            .select("run_id, rating, rank, conference_rank, mp")
+            .eq("team_id", team_id)
+            .in_("run_id", ids)
+            .execute()
+        ).data or []
+
+    def team_deltas(self, run_id: int, team_id: int) -> list[dict]:
+        """One team's per-match rating changes in a run (only the latest run keeps any)."""
+        return (
+            self.client.table(DELTAS).select(_DELTA_COLUMNS).eq("run_id", run_id).eq("team_id", team_id).execute()
+        ).data or []
+
+    def matches_by_ids(self, match_ids: Iterable[int]) -> list[dict]:
+        """Date and score of the given matches, for "why it moved"."""
+        ids = sorted(set(match_ids))
+        if not ids:
+            return []
+        return self.client.table(MATCHES_READ_RELATION).select(_SCORE_COLUMNS).in_("id", ids).execute().data or []

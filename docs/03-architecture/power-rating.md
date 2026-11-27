@@ -367,6 +367,50 @@ for logged-in users. It shares `mt_tools.power_rating` with the mt-mcp tool `get
   An unknown age group or league returns 400, and a failed read 503 (CLAUDE.md rule 1).
 - `rank_change_7d` is null, not 0, when there was no run a week earlier. Absent is never zero.
 
+### Built (SB-1808)
+
+| Piece | Where |
+|---|---|
+| Read model | `backend/mt_tools/power_rating_read.py`: pure `build_rankings` / `build_team` over stored rows, and `get_power_rating` / `get_power_rating_team`, which gather through `ToolDeps.power_rating` (the `PowerRatingDAO`) |
+| API | `GET /api/rankings?age_group=&league=Homegrown&season=&view=&conference=` and `GET /api/rankings/teams/{team_id}?age_group=&league=&season=`, logged-in (`get_current_user_required`) |
+| mt-mcp | `get_power_rating`, `get_power_rating_team`, read tier (MT AI sees both) |
+| CLI | `mt rankings U17 [-l Homegrown] [--view conference] [-c Northeast] [--json]`; `mt rankings team "IFA" --age U15` |
+
+How the reads behave:
+- **Views.** `view` defaults to `national` when the run is national, otherwise `conference`.
+  A `national` request on a non-national run gets the conference lists, `view: "conference"`
+  and `publication.reason`. `tiers` is non-empty, and rows carry a `tier`, in the national view
+  only. In the national view, a ranked team outside the main island has `rank: null` and
+  `comparable_nationally: false`. In the conference view `rank` is null and rows are ordered by
+  conference, then `conference_rank`. `conferences` lists every conference in the run, which is
+  what `conference=` accepts (case-insensitive); anything else is 400.
+- **Movement** compares the latest run with the run users saw 7 days before it was computed
+  (`run_as_of(latest.computed_at − 7 days)`, reported as `movement_since`). It is measured from
+  the latest run rather than from "now", so a run's payload never changes. `rank_change_7d` is in
+  the view's places (national rank, or conference rank when the team kept its conference), up is
+  positive. `rating_change_7d` is the difference of the rounded ratings, so it matches the
+  numbers shown. Both are null when there is no such run or the team was not in it.
+- **Coverage.** `teams_in_pool` counts the teams the run rated (at least one rated match). The
+  note states it, the matches counted, and how many teams have the 6 matches needed to be ranked.
+- **Rows.** `rating` is rounded to an integer. `club_id`, `club_logo_url` and `pro_academy` come
+  from the team's club (`clubs.pro_academy`), as the leaderboards rows do. Test teams are never
+  shown. `unranked` lists teams under 6 matches, most matches first, with `needed: 6`.
+- **No run** (an age group before its first run) is 200: `teams: []`, `run: null`, `reason`.
+  A team with no rated match in the latest run is 200 with `in_run: false` and a `reason`.
+- **Team panel.** `biggest_movers` is the 3 largest |delta| matches of the latest run, with the
+  opponent, the score from the team's side (and shoot-out penalties, the match being rated a
+  draw), the expected share of the points and the delta. `deltas` is every rated match, oldest
+  first. `history` is one point per ISO week: the last run that week that rated the team. `sos`
+  is ranked toughest first among nationally ranked teams in a national run, otherwise within
+  the team's conference, because separate islands are not on one scale. An unranked team gets
+  its SOS rating with no rank.
+- **Caching.** `PowerRatingDAO.run_payload` (the run, its ratings, its conferences' names) is
+  cached in Redis under `mt:dao:power_rating:run:<id>` for 7 days. A written run never changes,
+  so nothing has to clear the key. `latest_run` and `run_as_of` stay uncached: they are how a
+  new run becomes visible without the worker touching the API's Redis. A run caught between its
+  row and its ratings (a counted run with no ratings yet) is served but not cached. The team
+  reads are small and uncached.
+
 ## UI (Ranking tab → Power Rating)
 
 **Row:**

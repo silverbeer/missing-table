@@ -72,6 +72,7 @@ CACHE_TYPES = frozenset(
         "matches",
         "players",
         "playoffs",
+        "power_rating",
         "qop",
         "roster",
         "seasons",
