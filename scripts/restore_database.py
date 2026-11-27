@@ -146,6 +146,8 @@ RESTORATION_ORDER = [
     "division_guests",  # teams, divisions, age_groups, seasons
     "qop_snapshots",  # divisions, age_groups
     "qop_rankings",  # qop_snapshots, teams
+    "power_rating_runs",  # seasons, age_groups, leagues (SB-1807)
+    "power_ratings",  # power_rating_runs, teams, divisions
     # 4. Team management
     "team_manager_assignments",
     # 5. Players (may depend on teams)

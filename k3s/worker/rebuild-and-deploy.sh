@@ -146,6 +146,10 @@ restart_deployment() {
     # like a local dev loop.
     for d in "${deployments[@]}"; do
         log_warning "$d consumes matches.prod against the CLOUD Supabase — restarting PRODUCTION ingest"
+        # It also runs the only Celery beat (SB-1807). A restart at the moment a
+        # scheduled task is due skips that run; the Power Rating has an admin
+        # trigger for exactly that.
+        log_info "$d also runs Celery beat (nightly Power Rating, 10:00 UTC)"
     done
     echo ""
 

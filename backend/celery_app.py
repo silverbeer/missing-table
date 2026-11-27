@@ -20,6 +20,7 @@ Usage:
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 from kombu import Exchange, Queue
 
 # Celery broker and result backend configuration
@@ -30,6 +31,23 @@ BROKER_URL = os.getenv(
     os.getenv("RABBITMQ_URL", "amqp://admin:admin123@localhost:5672//"),  # pragma: allowlist secret
 )
 RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+
+# MT Power Rating (SB-1807). Its own queue so the prod worker consumes it
+# explicitly (`--queues=matches.prod,power_rating`); the worker runs the beat
+# embedded, single replica (k3s/worker/deployment-prod.yaml).
+POWER_RATING_QUEUE = "power_rating"
+
+# Celery beat. Nothing here runs unless a beat process does: the k3s prod
+# worker starts one with `--beat`.
+BEAT_SCHEDULE = {
+    # Design default 10:00 UTC; move to just after the nightly reconcile
+    # (SB-1787) once that schedule is fixed.
+    "power-rating-nightly": {
+        "task": "power_rating.recompute_all",
+        "schedule": crontab(hour=10, minute=0),
+        "options": {"queue": POWER_RATING_QUEUE},
+    },
+}
 
 # Create Celery app instance
 app = Celery(
@@ -64,6 +82,7 @@ app.conf.update(
     task_routes={
         "celery_tasks.match_tasks.*": {"queue": "match_processing"},
         "celery_tasks.validation_tasks.*": {"queue": "validation"},
+        "power_rating.*": {"queue": POWER_RATING_QUEUE},
     },
     # Queue configuration
     task_queues=(
@@ -74,7 +93,10 @@ app.conf.update(
         # bypass the fanout exchange and publish here. Worker must consume both until
         # all pods are switched back to using the matches-fanout exchange.
         Queue("matches.prod"),
+        Queue(POWER_RATING_QUEUE),
     ),
+    # Scheduled tasks (Celery beat)
+    beat_schedule=BEAT_SCHEDULE,
     # Monitoring
     task_send_sent_event=True,  # Enable task-sent events
     worker_send_task_events=True,  # Enable worker task events

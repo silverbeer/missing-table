@@ -86,6 +86,8 @@ EXCLUDED_TABLES = {
     # not state — losing it loses nothing a user or the app needs
     "live_chat_signals",  # Realtime doorbell (SB-1329): one timestamp per match,
     # no content — rewritten by the next chat message
+    "power_rating_match_deltas",  # Power Rating (SB-1807): derived from the run and
+    # its matches, latest run only, rebuilt on every run
     # FreeRADIUS tables were dropped in migration 20260404201640_drop_radius_tables.sql
 }
 
@@ -120,6 +122,10 @@ TABLES_TO_BACKUP = [
     # cannot be scraped again
     "qop_snapshots",
     "qop_rankings",
+    # MT Power Rating (SB-1807): what MT published about teams, run by run; not
+    # reproducible once the parameters change. Deltas are excluded (derived)
+    "power_rating_runs",  # seasons, age_groups, leagues
+    "power_ratings",  # power_rating_runs, teams, divisions
     # Team management
     "team_manager_assignments",
     # Players
@@ -177,6 +183,7 @@ TABLES_TO_BACKUP = [
     # - schema_version: internal tracking, recreated by migrations
     # - ingest_failures, push_send_log: diagnostics, regenerated or disposable
     # - live_chat_signals: Realtime doorbell, no content
+    # - power_rating_match_deltas: derived, rebuilt on every Power Rating run
     # - rad* tables: FreeRADIUS protocol tables, not application data
     #
     # backend/tests/unit/test_backup_coverage.py fails CI when a migration
