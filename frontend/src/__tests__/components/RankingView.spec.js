@@ -140,3 +140,20 @@ describe('Ranking tab in App', () => {
     expect(tabs(w).some(b => b.text() === 'Ranking')).toBe(false);
   });
 });
+
+describe('Ranking tab — Power Rating coming soon (SB-1803)', () => {
+  it('announces the Power Rating without promising a date', async () => {
+    const { default: RankingView } =
+      await import('@/components/ranking/RankingView.vue');
+    const w = mount(RankingView, {
+      global: { stubs: { LeaderboardsPanel: true } },
+    });
+    const note = w.get('[data-testid="power-rating-coming-soon"]');
+    expect(note.text()).toContain('Coming soon');
+    expect(note.text()).toContain('Power Rating');
+    expect(note.text()).toContain('U15 to U19');
+    expect(note.text()).toContain('MLS NEXT Fest');
+    expect(note.text()).not.toMatch(/\bgames?\b/i);
+    expect(note.text()).not.toMatch(/\b(19|20)\d\d\b|Dec(ember)?\s+\d/);
+  });
+});
