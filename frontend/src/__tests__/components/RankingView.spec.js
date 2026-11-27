@@ -157,3 +157,53 @@ describe('Ranking tab — Power Rating coming soon (SB-1803)', () => {
     expect(note.text()).not.toMatch(/\b(19|20)\d\d\b|Dec(ember)?\s+\d/);
   });
 });
+
+describe('Ranking tab — Power Rating preview gate (SB-1809)', () => {
+  const STUBS = {
+    LeaderboardsPanel: { template: '<div data-testid="leaderboards-stub" />' },
+    PowerRatingPanel: { template: '<div data-testid="power-rating-stub" />' },
+  };
+
+  const mountView = async () => {
+    const { default: RankingView } =
+      await import('@/components/ranking/RankingView.vue');
+    return mount(RankingView, { global: { stubs: STUBS } });
+  };
+
+  it('shows a non-admin today’s tab: no sub-nav, no Power Rating, the note', async () => {
+    mockAuthStore = signedIn();
+    const w = await mountView();
+    expect(w.find('[data-testid="ranking-subnav"]').exists()).toBe(false);
+    expect(w.find('[data-testid="power-rating-stub"]').exists()).toBe(false);
+    expect(w.text()).not.toContain('Preview');
+    expect(w.find('[data-testid="power-rating-coming-soon"]').exists()).toBe(
+      true
+    );
+  });
+
+  it('offers an admin "Power Rating · Preview", opening on Leaderboards', async () => {
+    mockAuthStore = signedIn();
+    mockAuthStore.isAdmin = { value: true };
+    const w = await mountView();
+    const buttons = w.get('[data-testid="ranking-subnav"]').findAll('button');
+    expect(buttons.map(b => b.text())).toEqual([
+      'Leaderboards',
+      'Power Rating Preview',
+    ]);
+    expect(
+      buttons[1].find('[data-testid="power-rating-preview-chip"]').exists()
+    ).toBe(true);
+    expect(w.find('[data-testid="leaderboards-stub"]').exists()).toBe(true);
+    expect(w.find('[data-testid="power-rating-coming-soon"]').exists()).toBe(
+      true
+    );
+
+    await buttons[1].trigger('click');
+    expect(w.find('[data-testid="power-rating-stub"]').exists()).toBe(true);
+    expect(w.find('[data-testid="leaderboards-stub"]').exists()).toBe(false);
+    // The preview replaces the announcement on its own sub-tab.
+    expect(w.find('[data-testid="power-rating-coming-soon"]').exists()).toBe(
+      false
+    );
+  });
+});
