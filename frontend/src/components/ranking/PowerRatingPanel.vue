@@ -131,8 +131,23 @@
                 :row="row"
                 :rank="row.rank"
                 :movement-since="result.movement_since"
-                @select-team="navigateToTeam"
-              />
+                :expanded="openTeamId === row.team_id"
+                :panel-id="whyId(row)"
+                @toggle="toggleTeam"
+              >
+                <PowerRatingTeamPanel
+                  :id="whyId(row)"
+                  :team-id="row.team_id"
+                  :team-name="row.team"
+                  :age-group="result.age_group || selectedAgeGroup"
+                  :league="result.league || LEAGUE"
+                  :season="result.season"
+                  :pro-academy="row.pro_academy"
+                  :cache="teamCache"
+                  @view-matches="navigateToTeam(row)"
+                  @close="openTeamId = null"
+                />
+              </PowerRatingRow>
             </ol>
           </div>
         </template>
@@ -176,8 +191,23 @@
               :row="row"
               :rank="row.conference_rank"
               :movement-since="result.movement_since"
-              @select-team="navigateToTeam"
-            />
+              :expanded="openTeamId === row.team_id"
+              :panel-id="whyId(row)"
+              @toggle="toggleTeam"
+            >
+              <PowerRatingTeamPanel
+                :id="whyId(row)"
+                :team-id="row.team_id"
+                :team-name="row.team"
+                :age-group="result.age_group || selectedAgeGroup"
+                :league="result.league || LEAGUE"
+                :season="result.season"
+                :pro-academy="row.pro_academy"
+                :cache="teamCache"
+                @view-matches="navigateToTeam(row)"
+                @close="openTeamId = null"
+              />
+            </PowerRatingRow>
           </ol>
         </template>
       </section>
@@ -219,6 +249,7 @@ import { filterSummary } from '@/utils/filterSummary';
 import { formatUpdated, groupByTier } from '@/utils/powerRating';
 import FilterPanel from '../ui/FilterPanel.vue';
 import PowerRatingRow from './PowerRatingRow.vue';
+import PowerRatingTeamPanel from './PowerRatingTeamPanel.vue';
 
 // The Power Rating covers Homegrown U15 to U19 (power-rating.md "Scope").
 const AGE_GROUPS = ['U15', 'U16', 'U17', 'U19'];
@@ -243,6 +274,15 @@ const error = ref('');
 // For the ids in a team click; the rankings answer carries names only.
 // Optional: a failed read leaves the navigation with a filter fewer.
 const lookups = ref({ ageGroups: [], leagues: [], seasons: [] });
+
+// The one row whose "why" panel is open (SB-1810), and the team answers
+// already read this session, so reopening a team is not a request.
+const openTeamId = ref(null);
+const teamCache = new Map();
+const whyId = row => `pr-why-${row.team_id}`;
+const toggleTeam = row => {
+  openTeamId.value = openTeamId.value === row.team_id ? null : row.team_id;
+};
 
 const pillClass = active => [
   'px-4 py-2 text-sm rounded-lg font-medium transition-colors',
@@ -373,7 +413,13 @@ const navigateToTeam = row => {
   });
 };
 
-watch([selectedAgeGroup, selectedView], fetchRankings);
+watch([selectedAgeGroup, selectedView], () => {
+  openTeamId.value = null;
+  fetchRankings();
+});
+watch(selectedConference, () => {
+  openTeamId.value = null;
+});
 
 onMounted(() => {
   fetchRankings();

@@ -2,14 +2,19 @@
   <!--
     One Power Rating row (SB-1809). Conference, MP and the record sit under
     the name so the rating column always has room at 360px (SB-1795); the
-    name clamps to two lines rather than pushing it off screen.
+    name clamps to two lines rather than pushing it off screen. Tapping it
+    opens the team's "why" panel (the default slot) inline beneath it
+    (SB-1810); Escape closes it and returns focus to the row.
   -->
-  <li>
+  <li @keydown.esc="expanded && close()">
     <button
+      ref="rowButton"
       type="button"
       class="w-full flex items-center gap-2 py-2 text-left hover:bg-surface-alt rounded focus:outline-none focus:bg-surface-alt"
+      :aria-expanded="expanded ? 'true' : 'false'"
+      :aria-controls="panelId"
       data-testid="pr-row"
-      @click="$emit('select-team', row)"
+      @click="$emit('toggle', row)"
     >
       <span
         class="w-8 shrink-0 text-right text-sm tabular-nums text-fg-muted"
@@ -65,11 +70,12 @@
         >
       </span>
     </button>
+    <slot v-if="expanded" />
   </li>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import ClubLogo from '../shared/ClubLogo.vue';
 import {
   BADGES,
@@ -83,9 +89,29 @@ const props = defineProps({
   /** The rank shown: national in the national view, conference otherwise. */
   rank: { type: Number, default: null },
   movementSince: { type: Object, default: null },
+  expanded: { type: Boolean, default: false },
+  /** The id of the panel this row opens, for aria-controls. */
+  panelId: { type: String, default: null },
 });
 
-defineEmits(['select-team']);
+const emit = defineEmits(['toggle']);
+const rowButton = ref(null);
+
+const close = () => emit('toggle', props.row);
+
+// Closing from inside the panel (Escape, Close) would drop focus on the
+// page; hand it back to the row.
+watch(
+  () => props.expanded,
+  (open, was) => {
+    if (was && !open) {
+      nextTick(() => {
+        const active = document.activeElement;
+        if (!active || active === document.body) rowButton.value?.focus();
+      });
+    }
+  }
+);
 
 const MOVEMENT_CLASS = {
   up: 'text-green-600 dark:text-green-400',
