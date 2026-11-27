@@ -167,6 +167,17 @@ class TestBuildBoards:
         # Team 4 played a pro academy but has too few games; team 3 never did.
         assert pro.unranked_count == 1
 
+    def test_a_pro_academy_is_off_the_pro_board_even_with_wins_over_pros(self):
+        """SB-1819: CF Montreal beating other pro academies is not the upset this board shows."""
+        teams = [
+            tt(1, w=6, pro_gp=2, pro_w=1),
+            tt(2, w=7, pro_gp=7, pro_w=7, is_pro=True),
+        ]
+        pro = board(build_boards(teams), "pro_wins")
+        assert [r.team.id for r in pro.rows] == [1]
+        assert pro.ranked_count == 1
+        assert pro.unranked_count == 0
+
     def test_limit_keeps_a_tie_at_the_cut(self):
         boards = build_boards([tt(1, w=6), tt(2, w=5, l=1), tt(3, w=5, l=1), tt(4, w=4, l=2)], limit=2)
         assert ranks(board(boards, "pts")) == [(1, 1), (2, 2), (2, 3)]
@@ -260,6 +271,7 @@ class TestTally:
     def test_pro_academy_games(self):
         t = tally([result(1, 8, 2, 0, TURNPIKE), result(8, 1, 1, 0, TURNPIKE)], U15, pro_team_ids={8}).teams
         assert (t[1].pro_gp, t[1].pro_w) == (2, 1)
+        assert (t[1].is_pro, t[8].is_pro) == (False, True)
 
     def test_a_hidden_team_has_no_line_but_its_opponent_keeps_the_game(self):
         t = tally([result(1, 9, 2, 0)], U15, visible=lambda team_id: team_id != 9).teams

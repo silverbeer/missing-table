@@ -156,6 +156,8 @@ class TeamTally:
     ga: int = 0
     pro_gp: int = 0
     pro_w: int = 0
+    # The team is itself a pro academy: off the "wins over pro academies" board (SB-1819).
+    is_pro: bool = False
     # Homegrown division name → League games played in it.
     divisions: Counter = field(default_factory=Counter)
 
@@ -211,7 +213,9 @@ def tally(
             if side_age != age_group_id:
                 out.sides_other_age_group += 1
                 continue
-            t = out.teams.setdefault(team_id, TeamTally(team_id=team_id, name=name or str(team_id)))
+            t = out.teams.setdefault(
+                team_id, TeamTally(team_id=team_id, name=name or str(team_id), is_pro=team_id in pro_team_ids)
+            )
             t.gp += 1
             t.gf += gf
             t.ga += ga
@@ -372,7 +376,9 @@ def build_boards(
         )
     )
 
-    vs_pro = [t for t in played if t.pro_gp > 0]
+    # Non-pro teams that met a pro academy. A pro academy beating another pro
+    # academy is not the upset this board exists to show (SB-1819).
+    vs_pro = [t for t in played if t.pro_gp > 0 and not t.is_pro]
     boards.append(
         Board(
             key="pro_wins",
