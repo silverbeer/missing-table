@@ -184,12 +184,17 @@ describe('LeaderboardsPanel (SB-1785)', () => {
     }
   });
 
-  it('puts the coverage note and denominator on every card', async () => {
+  it('states the coverage note and denominator once, above the boards (SB-1817)', async () => {
     routeApi();
     const w = await mountPanel();
     const notes = w.findAll('[data-testid="board-coverage-note"]');
-    expect(notes).toHaveLength(6);
-    for (const n of notes) expect(n.text()).toBe(NOTE);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].text()).toBe(NOTE);
+    expect(w.findAll('[data-testid="board-coverage"]')).toHaveLength(1);
+    // Cards carry only their title now.
+    expect(w.get('[data-testid="board-ppg"]').text()).not.toContain(
+      'conferences'
+    );
     expect(w.get('[data-testid="board-coverage"]').text()).toBe(
       '84 U15 Homegrown teams · 8 conferences · min 6 matches'
     );
