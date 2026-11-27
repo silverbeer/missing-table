@@ -58,8 +58,33 @@ describe('every other status is unchanged', () => {
   it('ignores the scoring mode on a finished match', () => {
     // scoring_mode stays 'live' after the whistle — it is provenance, not
     // state. It must not turn "Final" into "Live".
+    // SB-1801 adds a quiet "· Scored live" note after it; the status itself
+    // is still Final and never pulses.
     const w = label({ status: 'completed', scoringMode: 'live' });
-    expect(w.text()).toBe('Final');
+    expect(w.text().startsWith('Final')).toBe(true);
+    expect(w.text()).not.toMatch(/^Live/);
     expect(w.classes()).not.toContain('animate-pulse');
+  });
+});
+
+describe('a finished match (SB-1801)', () => {
+  it('says it was scored live when it was', () => {
+    const w = label({ status: 'completed', scoringMode: 'live' });
+    expect(w.text()).toContain('Final');
+    expect(w.find('[data-testid="scored-live"]').text()).toContain(
+      'Scored live'
+    );
+  });
+
+  it('stays plain Final when it was entered by hand or the mode is absent', () => {
+    expect(label({ status: 'completed', scoringMode: 'manual' }).text()).toBe(
+      'Final'
+    );
+    expect(label({ status: 'completed' }).text()).toBe('Final');
+  });
+
+  it('never names a person or a role', () => {
+    const t = label({ status: 'completed', scoringMode: 'live' }).text();
+    expect(t).not.toMatch(/manager|admin|by /i);
   });
 });

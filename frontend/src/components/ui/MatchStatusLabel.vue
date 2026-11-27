@@ -9,7 +9,15 @@
     data-testid="match-status-label"
     :data-status="status"
     :data-missing-result="missingResult ? 'true' : 'false'"
-    >{{ label }}</span
+    >{{ label
+    }}<span
+      v-if="wasLiveScored"
+      class="font-normal text-fg-muted"
+      data-testid="scored-live"
+      title="Someone followed this match in Missing Table as it happened"
+    >
+      · Scored live</span
+    ></span
   >
 </template>
 
@@ -93,4 +101,14 @@ const tone = computed(() => {
 });
 
 const isLive = isLiveScored;
+
+// SB-1801: a finished match that was live scored says so. Fans seeing the
+// feature work is its best advert. No name, no role: in prod most live
+// scoring is done by admins, so "by a team manager" would be untrue.
+const wasLiveScored = computed(
+  () =>
+    props.status === 'completed' &&
+    props.scoringMode === 'live' &&
+    !missingResult.value
+);
 </script>
