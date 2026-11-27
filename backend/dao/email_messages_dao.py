@@ -6,6 +6,8 @@ find_thread_id_by_in_reply_to.
 
 Phase 2 surface (admin API): list_by_thread, insert_outbound,
 get_latest_inbound_for_thread.
+
+Delivery status (SB-1821): record_reply_sent.
 """
 
 from __future__ import annotations
@@ -195,3 +197,21 @@ class EmailMessagesDAO(BaseDAO):
             sent_by_user_id=sent_by_user_id,
         )
         return row
+
+    @invalidates_cache(EMAIL_MESSAGES_CACHE_PATTERN)
+    def record_reply_sent(self, row_id: str, resend_email_id: str, sent_at: str) -> dict[str, Any]:
+        """Store the Resend email id on an outbound reply and mark it 'sent'
+        (SB-1821). Delivery webhooks find the reply by this id.
+
+        A separate update rather than part of insert_outbound, so a database
+        without the delivery columns still saves the reply. Returns the
+        fields written; raises on failure (the caller treats it as best effort).
+        """
+        update: dict[str, Any] = {
+            "resend_email_id": resend_email_id,
+            "email_status": "sent",
+            "email_status_at": sent_at,
+            "email_status_detail": None,
+        }
+        self.client.table("email_messages").update(update).eq("id", row_id).eq("direction", "outbound").execute()
+        return update

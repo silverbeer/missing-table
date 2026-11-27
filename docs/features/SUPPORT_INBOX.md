@@ -206,7 +206,7 @@ An invitation's `status` of `pending` means "not redeemed yet" — it says nothi
 
 **Rules the handler keeps:**
 
-- **Unknown email id → 200 `ignored`.** Support replies, password resets and pre-SB-1814 invites all produce events too. Resend auto-disables an endpoint that keeps failing, so nothing routine may be a 4xx/5xx.
+- **Unknown email id → 200 `ignored`.** Password resets, and invites or replies sent before tracking existed, all produce events too. Resend auto-disables an endpoint that keeps failing, so nothing routine may be a 4xx/5xx.
 - **Precedence, not arrival order.** `sent` < `delayed` < `delivered` < (`bounced` | `complained` | `failed` | `suppressed`). A status only replaces a lower one: `delivered` never overwrites `bounced`, a `complained` after `delivered` wins, and the first final outcome stays. A retried event (same svix-id) is therefore a no-op.
 - **Compare-and-set write.** The update matches the status that was read and the current `resend_email_id`, so concurrent events or a resend in flight cannot clobber each other.
 - **Logs mask the recipient** (`_mask` → `pat***@example.com`) and never include the payload.
@@ -214,6 +214,18 @@ An invitation's `status` of `pending` means "not redeemed yet" — it says nothi
 **Deploy order.** Run `migrate prod` before ticking the new events in Resend: the webhook looks invitations up by `resend_email_id`, and a lookup against a database without the column is a 500 that Resend retries. The send path is tolerant either way — recording the id is best effort and never fails an invite.
 
 **Known gap.** If Resend's `email.sent` / `email.delivered` reaches the webhook before the send call has returned and the id has been stored (a sub-second race), that event is ignored and the invite stays at **Sending…**. Resend → Emails is the source of truth if a chip looks stuck.
+
+### Support reply delivery status (SB-1821)
+
+The same tracking covers admin replies sent from the Support Inbox. In the thread view, each outbound (Support) bubble carries the same chip under it — **Sending…**, **Delayed**, **Delivered**, **Bounced**, **Failed**, **Suppressed**, **Spam complaint** — with the bounce reason in its tooltip. An untracked reply (sent before SB-1821, or one whose id could not be recorded) shows nothing; inbound messages never carry a chip. The chip lives in `frontend/src/utils/emailDelivery.js`, shared with Admin → Invites.
+
+- **Capture.** `send_admin_reply` (`backend/services/email_outbound.py`) keeps the id Resend returns. The reply row is inserted exactly as before; a separate best-effort `EmailMessagesDAO.record_reply_sent` then stores `resend_email_id`, `email_status='sent'` and `email_status_at`. If that update fails (e.g. the columns are not migrated yet) the reply is still saved and the thread still transitions — it just shows no status. Nothing is recorded when Resend returns no id.
+- **Webhook.** `record_delivery_event` looks the id up on `invitations` first, then on outbound `email_messages`, and applies the same precedence, compare-and-set write and masked logging to whichever matches (the write also re-checks `direction = 'outbound'`). Neither matching is still 200 `ignored` (logged `email_delivery_no_match`).
+- **API.** `GET /api/admin/emails/threads/{id}` embeds `email_messages(*)`, so the four columns reach the UI with no endpoint change.
+
+**Columns on `email_messages`** (`supabase/migrations/20261127150000_email_message_delivery.sql`): the same four as `invitations` — `resend_email_id` (partial index), `email_status` (same CHECK), `email_status_at`, `email_status_detail`. Only outbound rows are ever set; NULL means not tracked.
+
+**Deploy order.** Run `migrate prod` **before** this backend deploys. The reply send tolerates missing columns, but the webhook does not: every delivery event whose id is not an invitation (password resets, replies) now queries `email_messages.resend_email_id`, and without the column that is a 500 Resend retries. The same sub-second race as invites applies: an event that beats the id being stored is ignored and the reply stays at **Sending…**.
 
 ## Operations
 
