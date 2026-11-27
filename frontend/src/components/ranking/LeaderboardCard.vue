@@ -52,7 +52,7 @@
           />
           <span class="flex-1 min-w-0">
             <span
-              class="block line-clamp-2 break-words text-sm font-medium leading-snug text-brand-600 dark:text-brand-300"
+              class="line-clamp-2 break-words text-sm font-medium leading-snug text-brand-600 dark:text-brand-300"
               data-testid="row-team"
               >{{ row.team.name }}</span
             >

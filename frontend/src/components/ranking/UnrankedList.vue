@@ -19,7 +19,7 @@
       >
         <!-- Name gets the full width; conference and MP go underneath so a
              chip never squeezes the name on a phone (SB-1796). -->
-        <span class="block line-clamp-2 break-words leading-snug text-fg">{{
+        <span class="line-clamp-2 break-words leading-snug text-fg">{{
           row.team.name
         }}</span>
         <span class="block text-xs text-fg-muted">

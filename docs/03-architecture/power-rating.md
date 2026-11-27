@@ -442,6 +442,39 @@ line sits at the top, the unranked list at the bottom, dimmed, with "4 of 6 matc
 - "MT Power Rating, from N teams in MT". Never "Top 20 in MLS NEXT".
 - No public page. A logged-out deep link goes to login, then back.
 
+### Built (SB-1809)
+
+| Piece | Where |
+|---|---|
+| Sub-tab and launch gate | `frontend/src/components/ranking/RankingView.vue` |
+| List | `PowerRatingPanel.vue` (filters, views, states), `PowerRatingRow.vue` (one row) |
+| Formatting | `frontend/src/utils/powerRating.js`: rating, ordinal, movement, tier grouping |
+
+- **Launch gate.** `POWER_RATING_PUBLIC = false` in `RankingView.vue`. While it is false only
+  admins (`authStore.isAdmin`) get the sub-nav and a "Power Rating" sub-tab with a *Preview*
+  chip; everyone else sees the Ranking tab as before (Leaderboards and the coming-soon note, no
+  sub-nav). Launching is setting it to `true`, which drops the chip and shows the sub-tab to every
+  viewer. Remove the coming-soon note in the same change. The admin's Power Rating sub-tab does not
+  show the note.
+- **Views.** The API picks the view. On a national run a *National / By conference* filter is
+  offered; on a run that is not, the conference lists are the only view and the panel shows
+  `publication.reason` as "Not yet comparable nationally: …". The conference tabs come from
+  `conferences`; the list is filtered client-side, so switching conference is not a request.
+- **National list.** Tier headers in the order of `tiers`, with their cut-offs ("Elite · 1,700+").
+  Ranked teams below the lowest cut-off go under *Others · below 1,500*. Teams outside the main
+  island (`comparable_nationally` false) go last under their own header, without a rank.
+- **Movement.** "▲2 · +12" / "▼1 · −8". No run a week earlier (`movement_since` null) shows nothing;
+  a team the earlier run did not have shows *New*. A held place drops the arrow and keeps the
+  points; never "▲0".
+- **Unranked** teams are listed below, dimmed, as "4 of 6 matches", filtered to the conference in
+  the conference view. No run is an empty state with the API's `reason`; a 4xx/5xx is an error
+  with Retry.
+- **Team click** opens Matches as the leaderboards do. The rankings answer carries names only,
+  so the panel resolves the age group, league and season ids from `/api/age-groups`,
+  `/api/leagues` and `/api/seasons`; a failed lookup leaves that filter unset.
+- The age-group choice is not remembered across visits, the same as Leaderboards; the filter
+  panel's open/closed state is (`FilterPanel view="ranking"`).
+
 ## Validation: the Fest backtest (gate before launch)
 
 1. **Freeze Elo beside the 26b freeze:** `python -I elo_backtest.py freeze-elo
