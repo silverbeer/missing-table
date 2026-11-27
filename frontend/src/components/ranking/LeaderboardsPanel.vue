@@ -82,6 +82,28 @@
     </div>
 
     <template v-else-if="result">
+      <!-- Coverage once for all boards (SB-1817): the denominator in one
+           line, the caveat in one line, the full note on request. -->
+      <div
+        v-if="result.coverage"
+        class="mb-4 text-xs text-fg-muted space-y-0.5"
+        data-testid="leaderboards-coverage"
+      >
+        <p class="font-medium" data-testid="board-coverage">
+          {{ coverageLine }}
+        </p>
+        <p>Stat boards, not a ranking: conferences only meet at tournaments.</p>
+        <details>
+          <summary
+            class="cursor-pointer text-brand-600 dark:text-brand-300 w-fit"
+          >
+            How these boards work
+          </summary>
+          <p class="mt-1 break-words" data-testid="board-coverage-note">
+            {{ result.coverage.note }}
+          </p>
+        </details>
+      </div>
       <!-- Below sm one board at a time: six stacked cards is a long scroll. -->
       <div class="sm:hidden mb-4">
         <label class="sr-only" for="board-picker">Board</label>
@@ -102,9 +124,6 @@
           :key="board.key"
           :class="board.key === selectedBoardKey ? '' : 'hidden sm:flex'"
           :board="board"
-          :coverage="result.coverage"
-          :age-group="result.age_group?.name || selectedAgeGroup"
-          :league="result.league || selectedLeague"
           @select-team="navigateToTeam"
         />
       </div>
@@ -143,6 +162,21 @@ const authStore = useAuthStore();
 const selectedAgeGroup = ref('U15');
 const selectedLeague = ref('Homegrown');
 const selectedBoardKey = ref(BOARD_ORDER[0]);
+
+const plural = (n, word) => (n === 1 ? word : `${word}s`);
+
+// "84 U15 Homegrown teams · 8 conferences · min 6 matches" (SB-1817).
+const coverageLine = computed(() => {
+  const c = result.value?.coverage;
+  if (!c) return '';
+  const age = result.value.age_group?.name || selectedAgeGroup.value;
+  const league = result.value.league || selectedLeague.value;
+  const teams = [c.teams, age, league, plural(c.teams, 'team')]
+    .filter(p => p !== '' && p != null)
+    .join(' ');
+  const conferences = `${c.conferences} ${plural(c.conferences, 'conference')}`;
+  return [teams, conferences, `min ${c.min_gp} matches`].join(' · ');
+});
 
 const result = ref(null);
 const loading = ref(false);

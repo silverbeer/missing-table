@@ -1,8 +1,7 @@
 <template>
   <!--
-    One leaderboard (SB-1785). The coverage note leads every card, verbatim:
-    a team's numbers are earned against its own conference, so the board
-    compares stats across conferences rather than saying who is stronger.
+    One leaderboard (SB-1785). The coverage note is shown once above the
+    boards by LeaderboardsPanel, not on every card (SB-1817).
   -->
   <!-- min-w-0: a grid item otherwise grows to its widest unwrapped line,
        which on a phone pushes the value column off screen (SB-1795). -->
@@ -10,20 +9,9 @@
     class="min-w-0 rounded-lg border border-line bg-card p-4 flex flex-col"
     :data-testid="`board-${board.key}`"
   >
-    <h3 class="text-base font-semibold text-fg" data-testid="board-title">
+    <h3 class="mb-2 text-base font-semibold text-fg" data-testid="board-title">
       {{ board.title }}
     </h3>
-    <div v-if="coverage" class="mt-1 mb-3 space-y-1">
-      <p class="text-xs font-medium text-fg-muted" data-testid="board-coverage">
-        {{ coverageLine }}
-      </p>
-      <p
-        class="text-xs text-fg-muted break-words"
-        data-testid="board-coverage-note"
-      >
-        {{ coverage.note }}
-      </p>
-    </div>
 
     <p
       v-if="!board.rows || board.rows.length === 0"
@@ -92,28 +80,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
 import ClubLogo from '../shared/ClubLogo.vue';
 
 const props = defineProps({
   board: { type: Object, required: true },
-  coverage: { type: Object, default: null },
-  ageGroup: { type: String, default: '' },
-  league: { type: String, default: '' },
 });
 
 defineEmits(['select-team']);
-
-const plural = (n, word) => (n === 1 ? word : `${word}s`);
-
-const coverageLine = computed(() => {
-  const c = props.coverage;
-  const teams = [c.teams, props.ageGroup, props.league, plural(c.teams, 'team')]
-    .filter(p => p !== '' && p != null)
-    .join(' ');
-  const conferences = `${c.conferences} ${plural(c.conferences, 'conference')}`;
-  return [teams, conferences, `min ${c.min_gp} matches`].join(' · ');
-});
 
 // The API ranks; ties share a rank (1, 1, 3). "T" marks a shared one.
 const rankLabel = i => {
