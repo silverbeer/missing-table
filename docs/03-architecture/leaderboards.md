@@ -27,7 +27,7 @@ at the cut is kept.
 | `ga` / `ga_pg` | Goals against / per match | **lower** |
 | `gd` / `gd_pg` | Goal difference / per match | higher |
 | `unbeaten` | No losses and at least `MIN_GP` matches, by matches played | higher |
-| `pro_wins` | Wins over pro academies (`clubs.pro_academy`), with matches played against them | higher |
+| `pro_wins` | Wins over pro academies (`clubs.pro_academy`), with matches played against them. Pro academies themselves are left off (SB-1819) | higher |
 
 - **`MIN_GP = 6`, on every board.** Totals, per-match boards, `unbeaten` and
   `pro_wins` rank only teams with six matches, so a team with one match and none
