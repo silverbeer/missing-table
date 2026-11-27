@@ -502,6 +502,22 @@ line sits at the top, the unranked list at the bottom, dimmed, with "4 of 6 matc
   API's `reason`. Answers are cached by the list per team, age group, league and season for the
   life of the tab, so reopening a team is not a request. Failures are not cached.
 
+### Built (SB-1811)
+
+| Piece | Where |
+|---|---|
+| How it works screen | `frontend/src/components/ranking/PowerRatingHowItWorks.vue`, opened by *How it works* in the list header (`PowerRatingPanel.vue`) |
+| The per-match formula | `frontend/src/utils/powerRatingModel.js`: `expectedScore`, `marginFactor`, `ratingChange` |
+
+- **Overlay.** Teleported to `<body>` at `z-[1300]`, like the manager roles page. Closes on ✕,
+  backdrop or Escape; focus goes to ✕ on open and back to the link on close.
+- **Worked example is computed**, not typed: the screen renders the 1,600-vs-1,500 example
+  through `powerRatingModel.js`, and a test holds it to +13 and −21. The backend job stays the
+  rating of record; change both if the model changes.
+- **Copy rules.** The source line reads "MT Power Rating, from N U17 teams in MT"
+  (`coverage.teams_in_pool`). The screen never says "official" or "games", and makes no date
+  promise: it names MLS NEXT Fest as what connects conferences, not when.
+
 ## Validation: the Fest backtest (gate before launch)
 
 1. **Freeze Elo beside the 26b freeze:** `python -I elo_backtest.py freeze-elo

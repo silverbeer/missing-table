@@ -90,13 +90,24 @@
         data-testid="pr-list"
       >
         <div class="mb-3 space-y-1">
-          <p
-            v-if="updated"
-            class="text-xs font-medium text-fg-muted"
-            data-testid="pr-updated"
-          >
-            Updated {{ updated }}
-          </p>
+          <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+            <p
+              v-if="updated"
+              class="text-xs font-medium text-fg-muted"
+              data-testid="pr-updated"
+            >
+              Updated {{ updated }}
+            </p>
+            <button
+              ref="howLink"
+              type="button"
+              class="ml-auto text-xs font-medium text-brand-600 dark:text-brand-300 hover:underline"
+              data-testid="pr-how-link"
+              @click="howOpen = true"
+            >
+              How it works
+            </button>
+          </div>
           <p
             v-if="result.coverage?.note"
             class="text-xs text-fg-muted break-words"
@@ -238,16 +249,24 @@
         </ul>
       </section>
     </template>
+
+    <PowerRatingHowItWorks
+      v-if="howOpen"
+      :teams-in-pool="result?.coverage?.teams_in_pool ?? null"
+      :age-group="result?.age_group || selectedAgeGroup"
+      @close="closeHow"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '@/config/api';
 import { filterSummary } from '@/utils/filterSummary';
 import { formatUpdated, groupByTier } from '@/utils/powerRating';
 import FilterPanel from '../ui/FilterPanel.vue';
+import PowerRatingHowItWorks from './PowerRatingHowItWorks.vue';
 import PowerRatingRow from './PowerRatingRow.vue';
 import PowerRatingTeamPanel from './PowerRatingTeamPanel.vue';
 
@@ -282,6 +301,15 @@ const teamCache = new Map();
 const whyId = row => `pr-why-${row.team_id}`;
 const toggleTeam = row => {
   openTeamId.value = openTeamId.value === row.team_id ? null : row.team_id;
+};
+
+// The How it works screen (SB-1811); closing returns focus to its link.
+const howOpen = ref(false);
+const howLink = ref(null);
+const closeHow = async () => {
+  howOpen.value = false;
+  await nextTick();
+  howLink.value?.focus();
 };
 
 const pillClass = active => [
