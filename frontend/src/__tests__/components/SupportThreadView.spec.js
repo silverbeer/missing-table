@@ -74,6 +74,14 @@ describe('SupportThreadView', () => {
     expect(messages[1].attributes('data-direction')).toBe('outbound');
   });
 
+  it('gives the outbound bubble a dark-mode background (SB-1818)', () => {
+    // The light brand-50 bubble with theme text was white-on-white in dark mode.
+    const wrapper = mountThread();
+    const bubble = wrapper.find('[data-direction="outbound"] > div');
+    expect(bubble.classes()).toContain('bg-brand-50');
+    expect(bubble.classes()).toContain('dark:bg-brand-900/40');
+  });
+
   it('renders sanitized HTML body via v-html with a data-testid hook for the regression test', () => {
     /**
      * Regression hook: the backend already sanitizes inbound HTML via bleach.
