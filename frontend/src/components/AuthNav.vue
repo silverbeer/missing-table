@@ -86,6 +86,13 @@
             data-testid="dropdown-menu"
           >
             <button
+              @click="openManagerRoles"
+              class="dropdown-item"
+              data-testid="manager-roles-link"
+            >
+              Manager roles
+            </button>
+            <button
               @click="handleLogout"
               class="dropdown-item logout-item"
               data-testid="logout-button"
@@ -120,6 +127,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useTheme } from '@/composables/useTheme';
+import { useManagerRolesPage } from '@/composables/useManagerRolesPage';
 import logoLight from '@/assets/logo.png';
 import logoDark from '@/assets/logo-dark.png';
 
@@ -200,6 +208,13 @@ export default {
       emit('show-login');
     };
 
+    // SB-1799: what club and team managers do. Opens the shared overlay.
+    const managerRoles = useManagerRolesPage();
+    const openManagerRoles = () => {
+      hideDropdown();
+      managerRoles.open();
+    };
+
     const handleLogout = async () => {
       hideDropdown();
       const result = await authStore.logout();
@@ -235,6 +250,7 @@ export default {
       hideDropdown,
       showLogin,
       handleLogout,
+      openManagerRoles,
     };
   },
 };

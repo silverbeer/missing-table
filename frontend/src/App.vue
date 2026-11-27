@@ -428,6 +428,10 @@
 
     <!-- What's New (changelog) overlay, launched from the footer version -->
     <WhatsNewView v-if="showWhatsNew" @close="showWhatsNew = false" />
+    <ManagerRolesView
+      v-if="managerRoles.isOpen.value && authStore.state.session"
+      @close="managerRoles.close()"
+    />
   </div>
 </template>
 
@@ -438,6 +442,7 @@ import { hasAnyRole, TEAM_PAGE_ROLES, liveMatchesQuery } from './utils/roles';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
 import { useTournamentAnnouncements } from './composables/useTournamentAnnouncements';
+import { useManagerRolesPage } from './composables/useManagerRolesPage';
 import { useBlockedUsers } from './composables/useBlockedUsers';
 import { getApiBaseUrl } from './config/api';
 import { errorMessage } from './utils/apiError';
@@ -539,6 +544,10 @@ const WhatsNewView = lazyView(
   () => import('./components/WhatsNewView.vue'),
   'WhatsNewView'
 );
+const ManagerRolesView = lazyView(
+  () => import('./components/ManagerRolesView.vue'),
+  'ManagerRolesView'
+);
 const PrivacyPolicy = lazyView(
   () => import('./components/PrivacyPolicy.vue'),
   'PrivacyPolicy'
@@ -570,6 +579,7 @@ export default {
     QoPStandings,
     VersionFooter,
     WhatsNewView,
+    ManagerRolesView,
     LiveMatchView,
     AiChat,
     PrivacyPolicy,
@@ -609,6 +619,7 @@ export default {
     };
     // "What's New" changelog overlay, opened from the footer version.
     const showWhatsNew = ref(false);
+    const managerRoles = useManagerRolesPage();
     const tableFilters = ref({
       ageGroupId: null,
       leagueId: null,
@@ -1143,6 +1154,7 @@ export default {
       deepLinkMatchId,
       closeDeepLinkMatch,
       showWhatsNew,
+      managerRoles,
       tableFilters,
       matchesFilters,
       availableTabs,
