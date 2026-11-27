@@ -112,3 +112,114 @@ export const groupByTier = (teams, tiers) => {
   }
   return [...groups, others, apart].filter(g => g.rows.length > 0);
 };
+
+// --- the team's "why" panel (SB-1810) ------------------------------------
+
+// The badges in words, for the panel. Same rules as the chip titles.
+export const BADGE_EXPLANATIONS = {
+  provisional:
+    'Provisional: fewer than 8 matches rated, so the rating still moves quickly.',
+  low_cross_conference:
+    'Low cross-conference data: fewer than 3 matches against teams outside its conference, so its place against other conferences is less certain.',
+};
+
+const VERB = { W: 'Beat', D: 'Drew with', L: 'Lost to' };
+
+/** 24.4 -> "+24", -57 -> "−57", 0.3 -> "±0". Whole points, as the rating is shown. */
+export const formatDelta = delta => {
+  if (delta == null) return null;
+  const n = Math.round(delta);
+  if (n > 0) return `+${n}`;
+  if (n < 0) return `${MINUS}${Math.abs(n)}`;
+  return '±0';
+};
+
+/** "2026-12-14" -> "Dec 14", read as a calendar date (no timezone shift). */
+export const formatMatchDate = isoDate => {
+  if (!isoDate) return null;
+  const [y, m, d] = String(isoDate).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+/**
+ * One of the matches that moved the rating most, as a sentence:
+ * `{ headline: "Beat NEFC U17 3–0", delta: "+24", detail: [...] }`.
+ *
+ * `expected` is the share of the points the team was expected to take, a draw
+ * counting half, so it reads "expected to take 41% of the points" rather than
+ * a win chance. A shoot-out keeps its regulation score and says it was rated
+ * as a draw. A score the match row no longer has is left out, never 0–0.
+ */
+export const formatMover = move => {
+  const score =
+    move.goals_for != null && move.goals_against != null
+      ? ` ${move.goals_for}–${move.goals_against}`
+      : '';
+  const detail = [];
+  const date = formatMatchDate(move.match_date);
+  if (date) detail.push(date);
+  const pf = move.penalties_for;
+  const pa = move.penalties_against;
+  if (pf != null && pa != null && pf !== pa) {
+    const how = pf > pa ? 'Won' : 'Lost';
+    detail.push(`${how} ${pf}–${pa} on penalties, rated as a draw`);
+  }
+  if (move.expected != null) {
+    detail.push(
+      `expected to take ${Math.round(move.expected * 100)}% of the points`
+    );
+  }
+  return {
+    headline: `${VERB[move.result] || 'Played'} ${move.opponent}${score}`,
+    delta: formatDelta(move.delta),
+    direction: move.delta > 0 ? 'up' : move.delta < 0 ? 'down' : 'flat',
+    detail: detail.join(' · '),
+  };
+};
+
+/**
+ * Strength of schedule: "Average opponent 1,538 — 12th toughest of 147".
+ * The rank always comes with its denominator; with no rank (an unranked
+ * team, or no peers to rank against) only the average is stated. A
+ * conference-scoped rank names the conference, since separate conferences
+ * are not on one scale.
+ */
+export const formatSos = (sos, conference) => {
+  if (!sos || sos.rating == null) return null;
+  const average = `Average opponent ${formatRating(sos.rating)}`;
+  if (sos.rank == null || sos.of == null) return average;
+  const where =
+    sos.scope === 'conference' && conference ? ` in ${conference}` : '';
+  return `${average} — ${ordinal(sos.rank)} toughest of ${sos.of}${where}`;
+};
+
+/**
+ * Points for an inline SVG sparkline over `history` (one per week, oldest
+ * first) in a `width` × `height` box. Fewer than 2 points draws no line.
+ */
+export const sparkline = (history, width = 200, height = 40, pad = 3) => {
+  const values = (history || []).map(h => h.rating).filter(v => v != null);
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const step = (width - 2 * pad) / (values.length - 1);
+  const pts = values.map((v, i) => {
+    const x = pad + i * step;
+    // A flat history sits in the middle rather than on the floor.
+    const y =
+      max === min
+        ? height / 2
+        : height - pad - ((v - min) / span) * (height - 2 * pad);
+    return [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+  });
+  return {
+    points: pts.map(p => p.join(',')).join(' '),
+    first: pts[0],
+    last: pts[pts.length - 1],
+  };
+};

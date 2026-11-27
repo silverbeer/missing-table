@@ -469,11 +469,38 @@ line sits at the top, the unranked list at the bottom, dimmed, with "4 of 6 matc
 - **Unranked** teams are listed below, dimmed, as "4 of 6 matches", filtered to the conference in
   the conference view. No run is an empty state with the API's `reason`; a 4xx/5xx is an error
   with Retry.
-- **Team click** opens Matches as the leaderboards do. The rankings answer carries names only,
+- **View matches** (in the team panel since SB-1810; it was the row click) opens Matches as the
+  leaderboards do. The rankings answer carries names only,
   so the panel resolves the age group, league and season ids from `/api/age-groups`,
   `/api/leagues` and `/api/seasons`; a failed lookup leaves that filter unset.
 - The age-group choice is not remembered across visits, the same as Leaderboards; the filter
   panel's open/closed state is (`FilterPanel view="ranking"`).
+
+### Built (SB-1810)
+
+| Piece | Where |
+|---|---|
+| Team panel ("why") | `frontend/src/components/ranking/PowerRatingTeamPanel.vue`, over `GET /api/rankings/teams/{id}` |
+| Formatting | `powerRating.js`: `formatMover`, `formatDelta`, `formatSos`, `sparkline`, `BADGE_EXPLANATIONS` |
+
+- **Opening.** Tapping a row expands the panel inline beneath it (`aria-expanded` on the row).
+  One panel is open at a time; a second tap, *Close* or Escape closes it and focus returns to
+  the row. Changing age group, view or conference closes it. *View matches* inside the panel is
+  the old row click: Matches on that team.
+- **Movers.** "Beat Solar SC 3–0 · +24", then "Nov 2 · expected to take 41% of the points".
+  `expected` is a share of the points (a draw counts half), so it is never worded as a chance of
+  winning. A shoot-out keeps its regulation score: "Drew with … 2–2", "Won 4–3 on penalties, rated
+  as a draw". A score the match row no longer has is left out, never shown as 0–0. The line is not
+  clamped, because the score ends it.
+- **Strength of schedule.** "Average opponent 1,538 — 12th toughest of 147"; a conference-scoped
+  rank adds "in Northeast". No rank (an unranked team) states the average only.
+- **Rating over time.** An inline SVG line over `history`, first and last values labelled, with an
+  `aria-label` stating both. One weekly point shows the value alone.
+- **Badges** are written out: provisional is fewer than 8 rated matches, low cross-conference is
+  fewer than 3 matches outside its conference; pro academy does not change the rating.
+- **States.** Skeleton while loading; a failure is an error with Retry; `in_run: false` shows the
+  API's `reason`. Answers are cached by the list per team, age group, league and season for the
+  life of the tab, so reopening a team is not a request. Failures are not cached.
 
 ## Validation: the Fest backtest (gate before launch)
 
