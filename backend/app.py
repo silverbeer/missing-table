@@ -362,6 +362,33 @@ def get_client_ip(request: Request) -> str:
     return "unknown"
 
 
+TEAM_SCOPE_DENIED = "You can only manage your own team"
+
+
+def ensure_can_manage_team(user: dict[str, Any], team_id: int | None) -> None:
+    """403 unless the user may manage this team (SB-1802).
+
+    `require_team_manager_or_admin` checks the role only; every endpoint that
+    takes a team from the caller must also check *which* team. Admins pass for
+    any team; managers are scoped by `AuthManager.can_manage_team`.
+    """
+    if team_id is None or not auth_manager.can_manage_team(user, team_id):
+        raise HTTPException(status_code=403, detail=TEAM_SCOPE_DENIED)
+
+
+def ensure_can_manage_player(user: dict[str, Any], player_id: str) -> None:
+    """403 unless the user may manage one of the player's current teams (SB-1802).
+
+    A player with no current team belongs to no manager, so only an admin may
+    edit them.
+    """
+    if user.get("role") == "admin":
+        return
+    team_ids = {entry.get("team_id") for entry in player_dao.get_all_current_player_teams(player_id)}
+    if not any(auth_manager.can_manage_team(user, team_id) for team_id in team_ids if team_id is not None):
+        raise HTTPException(status_code=403, detail=TEAM_SCOPE_DENIED)
+
+
 # === Include API Routers ===
 app.include_router(invites_router)
 app.include_router(invite_requests_router)
@@ -1939,8 +1966,11 @@ async def update_admin_player(
     """Update a player's profile info (admin/manager operation).
 
     Allows updating display_name, player_number, and positions.
+    Managers may only edit players on a team they manage (SB-1802).
     """
     try:
+        ensure_can_manage_player(current_user, player_id)
+
         result = player_dao.update_player_admin(
             player_id=player_id,
             display_name=data.display_name,
@@ -1970,8 +2000,15 @@ async def add_admin_player_team(
 
     Creates a player_team_history entry and a corresponding roster (players table)
     entry so the player appears in both the Admin/Players and Admin/Teams/Roster views.
+
+    Managers must manage the target team and, if the player is already on a
+    team, one of the player's current teams (SB-1802).
     """
     try:
+        ensure_can_manage_team(current_user, data.team_id)
+        if current_user.get("role") != "admin" and player_dao.get_all_current_player_teams(player_id):
+            ensure_can_manage_player(current_user, player_id)
+
         # Use the existing create_player_history_entry method
         entry = player_dao.create_player_history_entry(
             player_id=player_id,
@@ -2037,9 +2074,16 @@ async def end_admin_player_team(
 ):
     """End a player's team assignment (admin/manager operation).
 
-    Sets is_current=false on the player_team_history entry.
+    Sets is_current=false on the player_team_history entry. Managers may only
+    end assignments to a team they manage (SB-1802).
     """
     try:
+        if current_user.get("role") != "admin":
+            entry = player_dao.get_player_history_entry_by_id(history_id)
+            if not entry:
+                raise HTTPException(status_code=404, detail="Assignment not found")
+            ensure_can_manage_team(current_user, entry.get("team_id"))
+
         result = player_dao.end_player_team_assignment(history_id=history_id)
 
         if result:
@@ -3508,6 +3552,8 @@ async def delete_match(match_id: int, current_user: dict[str, Any] = Depends(req
             return {"message": "Match deleted successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to delete match")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting match: {e!s}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -6166,16 +6212,10 @@ async def create_team_mapping(
     mapping: TeamMappingCreate,
     current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
-    """Create a team mapping (admin or club_manager for their club's teams)."""
+    """Create a team mapping (admin, or a manager for a team they manage)."""
     try:
-        user_role = current_user.get("role")
-        user_club_id = current_user.get("club_id")
-
-        # Club managers can only add mappings to their own club's teams
-        if user_role == "club_manager":
-            team = team_dao.get_team_by_id(mapping.team_id)
-            if not team or team.get("club_id") != user_club_id:
-                raise HTTPException(status_code=403, detail="You can only manage teams in your club")
+        # Managers can only add mappings to teams they manage (SB-1802)
+        ensure_can_manage_team(current_user, mapping.team_id)
 
         result = team_dao.create_team_mapping(mapping.team_id, mapping.age_group_id, mapping.division_id)
         return result
@@ -6193,16 +6233,10 @@ async def delete_team_mapping(
     division_id: int,
     current_user: dict[str, Any] = Depends(require_team_manager_or_admin),
 ):
-    """Delete a team mapping (admin or club_manager for their club's teams)."""
+    """Delete a team mapping (admin, or a manager for a team they manage)."""
     try:
-        user_role = current_user.get("role")
-        user_club_id = current_user.get("club_id")
-
-        # Club managers can only delete mappings from their own club's teams
-        if user_role == "club_manager":
-            team = team_dao.get_team_by_id(team_id)
-            if not team or team.get("club_id") != user_club_id:
-                raise HTTPException(status_code=403, detail="You can only manage teams in your club")
+        # Managers can only delete mappings from teams they manage (SB-1802)
+        ensure_can_manage_team(current_user, team_id)
 
         result = team_dao.delete_team_mapping(team_id, age_group_id, division_id)
         if not result:
@@ -6655,6 +6689,8 @@ async def create_roster_entry(
     Jersey number must be unique within the team/season.
     """
     try:
+        ensure_can_manage_team(current_user, team_id)
+
         # Verify team exists
         team = team_dao.get_team_by_id(team_id)
         if not team:
@@ -6709,6 +6745,8 @@ async def bulk_create_roster(
     Skips duplicates (existing jersey numbers).
     """
     try:
+        ensure_can_manage_team(current_user, team_id)
+
         # Verify team exists
         team = team_dao.get_team_by_id(team_id)
         if not team:
@@ -6772,6 +6810,8 @@ async def bulk_assign_player_age_group(
     season, so foreign player_ids are silently skipped rather than updated.
     """
     try:
+        ensure_can_manage_team(current_user, team_id)
+
         # Verify team exists
         team = team_dao.get_team_by_id(team_id)
         if not team:
@@ -6815,6 +6855,8 @@ async def update_roster_entry(
     Requires admin or team_manager role.
     """
     try:
+        ensure_can_manage_team(current_user, team_id)
+
         # Verify player exists and belongs to team
         player = roster_dao.get_player_by_id(player_id)
         if not player:
@@ -6856,6 +6898,8 @@ async def update_jersey_number(
     New number must not already be taken.
     """
     try:
+        ensure_can_manage_team(current_user, team_id)
+
         # Verify player exists and belongs to team
         player = roster_dao.get_player_by_id(player_id)
         if not player:
@@ -6901,6 +6945,8 @@ async def bulk_renumber_roster(
     Handles swaps without constraint violations.
     """
     try:
+        ensure_can_manage_team(current_user, team_id)
+
         # Verify team exists
         team = team_dao.get_team_by_id(team_id)
         if not team:
@@ -6949,6 +6995,8 @@ async def delete_roster_entry(
     Requires admin or team_manager role.
     """
     try:
+        ensure_can_manage_team(current_user, team_id)
+
         # Verify player exists and belongs to team
         player = roster_dao.get_player_by_id(player_id)
         if not player:
