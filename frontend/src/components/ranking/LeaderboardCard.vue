@@ -4,8 +4,10 @@
     a team's numbers are earned against its own conference, so the board
     compares stats across conferences rather than saying who is stronger.
   -->
+  <!-- min-w-0: a grid item otherwise grows to its widest unwrapped line,
+       which on a phone pushes the value column off screen (SB-1795). -->
   <section
-    class="rounded-lg border border-line bg-card p-4 flex flex-col"
+    class="min-w-0 rounded-lg border border-line bg-card p-4 flex flex-col"
     :data-testid="`board-${board.key}`"
   >
     <h3 class="text-base font-semibold text-fg" data-testid="board-title">
@@ -15,7 +17,10 @@
       <p class="text-xs font-medium text-fg-muted" data-testid="board-coverage">
         {{ coverageLine }}
       </p>
-      <p class="text-xs text-fg-muted" data-testid="board-coverage-note">
+      <p
+        class="text-xs text-fg-muted break-words"
+        data-testid="board-coverage-note"
+      >
         {{ coverage.note }}
       </p>
     </div>
@@ -68,13 +73,13 @@
               <span v-else data-testid="row-conference">{{
                 row.conference || '—'
               }}</span>
+              <!-- Matches played sits under the name, not in its own column,
+                   so the board's value always has room (SB-1795). -->
+              <span class="tabular-nums" data-testid="row-gp">
+                · {{ row.gp ?? '—' }} MP</span
+              >
             </span>
           </span>
-          <span
-            class="shrink-0 text-xs tabular-nums text-fg-muted"
-            data-testid="row-gp"
-            >{{ row.gp ?? '—' }} GP</span
-          >
           <span
             class="shrink-0 min-w-[3.5rem] text-right text-sm font-semibold tabular-nums text-fg"
             data-testid="row-value"
@@ -107,7 +112,7 @@ const coverageLine = computed(() => {
     .filter(p => p !== '' && p != null)
     .join(' ');
   const conferences = `${c.conferences} ${plural(c.conferences, 'conference')}`;
-  return [teams, conferences, `min ${c.min_gp} GP`].join(' · ');
+  return [teams, conferences, `min ${c.min_gp} matches`].join(' · ');
 });
 
 // The API ranks; ties share a rank (1, 1, 3). "T" marks a shared one.

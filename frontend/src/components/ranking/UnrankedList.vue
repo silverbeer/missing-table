@@ -1,14 +1,14 @@
 <template>
   <!--
-    Teams under the minimum games (SB-1785), listed once below the boards
+    Teams under the minimum matches (SB-1785), listed once below the boards
     rather than on every board. Not ranked, so no rank column.
   -->
   <section
-    class="rounded-lg border border-line bg-surface-alt/40 p-4"
+    class="min-w-0 rounded-lg border border-line bg-surface-alt/40 p-4"
     data-testid="unranked-list"
   >
     <h3 class="text-sm font-semibold text-fg mb-2" data-testid="unranked-title">
-      Too few games (under {{ minGp }}) — not ranked · {{ count }} teams
+      Too few matches (under {{ minGp }}) — not ranked · {{ count }} teams
     </h3>
     <ul class="divide-y divide-line">
       <li
@@ -28,7 +28,7 @@
         }}</span>
         <span
           class="shrink-0 w-12 text-right text-xs tabular-nums text-fg-muted"
-          >{{ row.gp }} GP</span
+          >{{ row.gp }} MP</span
         >
       </li>
     </ul>

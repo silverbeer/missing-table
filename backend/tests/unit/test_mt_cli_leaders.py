@@ -29,7 +29,7 @@ def row(rank, team_id, name, conference, gp, value, **extra):
 
 NOTE = (
     "12 teams from 2 conferences, plus 1 with no Homegrown conference. Conferences only meet at tournaments, "
-    "so this compares stats across conferences: a stat board, not a ranking. Teams with fewer than 6 games are listed, not ranked. "
+    "so this compares stats across conferences: a stat board, not a ranking. Teams with fewer than 6 matches are listed, not ranked. "
     "Level scores count as draws; Flex shootout points are not counted."
 )
 RESULT = {
@@ -49,7 +49,7 @@ RESULT = {
         },
         {
             "key": "ppg",
-            "title": "Points per game",
+            "title": "Points per match",
             "variant": "per_game",
             "better": "higher",
             "rows": [],
@@ -85,10 +85,10 @@ def test_coverage_comes_first_then_boards(client):
     assert out.output.index("not a ranking") < out.output.index("FC Westchester")
     assert "30 matches" in out.output
     assert "no conference" in out.output
-    assert "Points per game: nobody ranked yet · 1 unranked" in out.output
+    assert "Points per match: nobody ranked yet · 1 unranked" in out.output
     # The unranked list is printed once, not per board, with its count.
     assert out.output.count("Newcomers SC") == 1
-    assert "Unranked: under 6 games (1 of 9, most games first)" in out.output
+    assert "Unranked: under 6 matches (1 of 9, most matches first)" in out.output
     assert "1 of 2" in out.output  # pro wins carry their denominator
 
 

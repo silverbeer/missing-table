@@ -440,27 +440,29 @@ def _ordinal(n: int) -> str:
 
 
 def _plural(n: int, word: str) -> str:
-    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+    if n == 1:
+        return f"{n} {word}"
+    return f"{n} {word}es" if word.endswith(("s", "x", "ch", "sh")) else f"{n} {word}s"
 
 
 def streak_text(name: str, results: list[str]) -> str | None:
     """A run of 3+ wins or unbeaten games from the newest result, or a perfect record."""
     if len(results) >= 3 and all(r == "W" for r in results):
-        return f"{name} have won all {len(results)} of their League/Flex games this season."
+        return f"{name} have won all {len(results)} of their League/Flex matches this season."
     wins = 0
     for r in results:
         if r != "W":
             break
         wins += 1
     if wins >= 3:
-        return f"{name} have won {wins} League/Flex games in a row."
+        return f"{name} have won {wins} League/Flex matches in a row."
     unbeaten = 0
     for r in results:
         if r == "L":
             break
         unbeaten += 1
     if unbeaten >= 3:
-        return f"{name} are unbeaten in {unbeaten} League/Flex games."
+        return f"{name} are unbeaten in {unbeaten} League/Flex matches."
     losses = 0
     for r in results:
         if r != "L":
@@ -497,7 +499,7 @@ def build_facts(
                 team_id=team_id,
                 text=(
                     f"{names[team_id]} are {_ordinal(s.position)} of {table_size} in {table_label} with "
-                    f"{_plural(s.points, 'point')} from {_plural(s.played, 'game')} ({s.wins}-{s.draws}-{s.losses})."
+                    f"{_plural(s.points, 'point')} from {_plural(s.played, 'match')} ({s.wins}-{s.draws}-{s.losses})."
                 ),
             )
         )
@@ -509,7 +511,7 @@ def build_facts(
                     team_id=team_id,
                     text=(
                         f"{names[team_id]} score {s.goals_for / s.played:.1f} and concede "
-                        f"{s.goals_against / s.played:.1f} goals per game in {table_label}."
+                        f"{s.goals_against / s.played:.1f} goals per match in {table_label}."
                     ),
                 )
             )
@@ -581,7 +583,7 @@ def build_facts(
                     id=f"{mid}:left:{side}",
                     kind="stakes",
                     team_id=team_id,
-                    text=f"{names[team_id]} have {_plural(left, 'game')} left in {table_label} after this one.",
+                    text=f"{names[team_id]} have {_plural(left, 'match')} left in {table_label} after this one.",
                 )
             )
 

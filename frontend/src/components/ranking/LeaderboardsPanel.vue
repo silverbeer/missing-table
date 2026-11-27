@@ -132,8 +132,8 @@ import UnrankedList from './UnrankedList.vue';
 // child league and has none of its own, so it is not offered.
 const AGE_GROUPS = ['U15', 'U16', 'U17', 'U19'];
 const LEAGUES = ['Homegrown'];
-// The per-game boards and the two records. Totals are left to the CLI: next
-// to per-game values they mostly restate games played.
+// The per-match boards and the two records. Totals are left to the CLI: next
+// to per-match values they mostly restate matches played.
 const BOARD_ORDER = ['ppg', 'gf_pg', 'ga_pg', 'gd_pg', 'unbeaten', 'pro_wins'];
 const LIMIT = 20;
 

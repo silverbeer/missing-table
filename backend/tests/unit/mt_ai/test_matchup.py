@@ -155,7 +155,7 @@ class TestBadges:
         badge = next(b for b in badges(1, teams) if b.board == "gf_pg")
         assert badge.fact_id == f"t1:a15:board:{HG_ID}:gf_pg"
         assert badge.league_id == HG_ID
-        assert "1st in U15 Homegrown goals for per game, of 5 teams (3.00)" in badge.text
+        assert "1st in U15 Homegrown goals for per match, of 5 teams (3.00)" in badge.text
         assert "not a ranking" in badge.text
 
     def test_label_keeps_the_title_case_but_the_first_letter(self):

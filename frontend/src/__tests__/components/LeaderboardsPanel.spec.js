@@ -191,7 +191,7 @@ describe('LeaderboardsPanel (SB-1785)', () => {
     expect(notes).toHaveLength(6);
     for (const n of notes) expect(n.text()).toBe(NOTE);
     expect(w.get('[data-testid="board-coverage"]').text()).toBe(
-      '84 U15 Homegrown teams · 8 conferences · min 6 GP'
+      '84 U15 Homegrown teams · 8 conferences · min 6 matches'
     );
   });
 
@@ -263,12 +263,12 @@ describe('LeaderboardsPanel (SB-1785)', () => {
     const lists = w.findAll('[data-testid="unranked-list"]');
     expect(lists).toHaveLength(1);
     expect(w.get('[data-testid="unranked-title"]').text()).toBe(
-      'Too few games (under 6) — not ranked · 5 teams'
+      'Too few matches (under 6) — not ranked · 5 teams'
     );
     const rows = w.findAll('[data-testid="unranked-row"]');
     expect(rows).toHaveLength(1);
     expect(rows[0].text()).toContain('Late Starters');
-    expect(rows[0].text()).toContain('3 GP');
+    expect(rows[0].text()).toContain('3 MP');
     expect(rows[0].find('[data-testid="row-rank"]').exists()).toBe(false);
     expect(w.get('[data-testid="unranked-more"]').text()).toBe('+4 more');
   });
@@ -446,7 +446,7 @@ describe('LeaderboardsPanel (SB-1785)', () => {
     );
     const w = await mountPanel();
     expect(w.get('[data-testid="board-coverage"]').text()).toBe(
-      '1 U15 Homegrown team · 1 conference · min 6 GP'
+      '1 U15 Homegrown team · 1 conference · min 6 matches'
     );
   });
 
