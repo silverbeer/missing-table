@@ -1,12 +1,14 @@
 <template>
   <!--
-    What club and team managers do in MT (SB-1799). Teaches that the roles
+    What club and team managers do in MT (SB-1799). z-[1300]: opened from the
+    live-scoring hint inside the match overlay (z-[1200]), so it must sit
+    above it (SB-1800). Teaches that the roles
     exist; deliberately has no request or apply button. Every capability
     listed here is enforced in the backend (auth.py can_manage_team /
     can_edit_match) — keep it that way when editing the copy.
   -->
   <div
-    class="fixed inset-0 z-50 bg-black/60 overflow-y-auto"
+    class="fixed inset-0 z-[1300] bg-black/60 overflow-y-auto"
     data-testid="manager-roles-overlay"
     @click.self="$emit('close')"
   >
