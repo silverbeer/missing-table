@@ -466,6 +466,13 @@
             <div
               class="px-3 pb-2 pt-2 border-t border-slate-700 flex justify-end gap-2"
             >
+              <!-- SB-1800: tournament matches only, and not for someone who
+                   can already score this match. Outside the capture area so
+                   it never lands in a shared image. -->
+              <LiveScoringHint
+                v-if="isTournament && !canManageLineup"
+                class="mr-auto"
+              />
               <!-- SB-32: Instagram share. Gated to admin/club-mgr/team-mgr
                    for either team — same as backend can_edit_match. -->
               <button
@@ -818,6 +825,7 @@ import IgShareModal from './IgShareModal.vue';
 import MotwReasons from './MotwReasons.vue';
 import { hasReasons } from '../utils/featuredReasons';
 import { roundLabel } from '../utils/tournamentRounds';
+import LiveScoringHint from './match/LiveScoringHint.vue';
 
 export default {
   name: 'MatchDetailView',
@@ -827,6 +835,7 @@ export default {
     MatchPreview,
     IgShareModal,
     MotwReasons,
+    LiveScoringHint,
   },
   props: {
     matchId: {

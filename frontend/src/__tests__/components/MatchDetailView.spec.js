@@ -821,3 +821,63 @@ describe('MatchDetailView — penalty shootout', () => {
     });
   });
 });
+
+describe('MatchDetailView — live-scoring hint (SB-1800)', () => {
+  const mountAs = async (matchOverrides, authOverrides = {}) => {
+    mockAuthStore = createMockAuthStore({
+      isAdmin: { value: false },
+      ...authOverrides,
+    });
+    mockAuthStore.apiRequest = createMockApiRequestForMatch(
+      createMockMatch({ home_team_id: 1, away_team_id: 2, ...matchOverrides })
+    );
+    const wrapper = mountMatchDetailView();
+    await flushPromises();
+    return wrapper;
+  };
+  const hint = w => w.find('[data-testid="live-scoring-hint"]');
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('shows only the small toggle on a tournament match', async () => {
+    const w = await mountAs({ match_type_name: 'Tournament' });
+    expect(hint(w).exists()).toBe(true);
+    expect(w.find('[data-testid="live-scoring-hint-panel"]').exists()).toBe(
+      false
+    );
+  });
+
+  it('reveals the line and the roles link on tap, with no request action', async () => {
+    const w = await mountAs({ match_type_name: 'Tournament' });
+    await w.get('[data-testid="live-scoring-hint-toggle"]').trigger('click');
+    const panel = w.get('[data-testid="live-scoring-hint-panel"]');
+    expect(panel.text()).toContain('Team managers can live score matches');
+    expect(panel.text()).toContain('Learn about manager roles');
+    expect(panel.findAll('button')).toHaveLength(1);
+    expect(panel.text()).not.toMatch(/claim|request|apply/i);
+  });
+
+  it('opens the shared Manager roles page from the link', async () => {
+    const { useManagerRolesPage } =
+      await import('@/composables/useManagerRolesPage');
+    useManagerRolesPage().close();
+    const w = await mountAs({ match_type_name: 'Tournament' });
+    await w.get('[data-testid="live-scoring-hint-toggle"]').trigger('click');
+    await w.get('[data-testid="live-scoring-hint-roles"]').trigger('click');
+    expect(useManagerRolesPage().isOpen.value).toBe(true);
+    useManagerRolesPage().close();
+  });
+
+  it('is not shown on league matches', async () => {
+    const w = await mountAs({ match_type_name: 'League' });
+    expect(hint(w).exists()).toBe(false);
+  });
+
+  it('is not shown to a manager of either team (they have the controls)', async () => {
+    const w = await mountAs(
+      { match_type_name: 'Tournament' },
+      { isTeamManager: { value: true }, userTeamId: { value: 2 } }
+    );
+    expect(hint(w).exists()).toBe(false);
+  });
+});
