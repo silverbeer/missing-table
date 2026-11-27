@@ -102,6 +102,30 @@ def _strip_angle_brackets(value: str | None) -> str | None:
     return s
 
 
+def _record_reply_sent(
+    messages_dao: EmailMessagesDAO,
+    row: dict[str, Any],
+    response: Any,
+    sent_at: str,
+) -> None:
+    """Store Resend's email id on the reply row with status 'sent' (SB-1821).
+
+    Never raises: Resend already accepted the reply, so failing here (e.g. the
+    delivery columns are not migrated yet) only means the reply shows no
+    delivery status. Nothing is recorded without an id, since no later event
+    could ever move it past 'sent'.
+    """
+    email_id = response.get("id") if isinstance(response, dict) else None
+    if not isinstance(email_id, str) or not email_id or not row.get("id"):
+        return
+    try:
+        update = messages_dao.record_reply_sent(row["id"], email_id, sent_at)
+    except Exception as e:
+        logger.error("admin_reply_email_id_not_recorded", message_row_id=row.get("id"), error=str(e))
+        return
+    row.update(update)
+
+
 def send_admin_reply(
     threads_dao: EmailThreadsDAO,
     messages_dao: EmailMessagesDAO,
@@ -119,6 +143,8 @@ def send_admin_reply(
     3. Call `resend.Emails.send` (with `ensure_resend_api_key()` first — lesson
        #2 from Phase 1 applies here too).
     4. Persist the outbound message and transition the thread to `awaiting_user`.
+    5. Best effort: record Resend's email id and status 'sent' on the row, so
+       delivery webhooks can track the reply (SB-1821).
 
     Returns the inserted message row.
 
@@ -164,7 +190,7 @@ def send_admin_reply(
 
     ensure_resend_api_key()
     try:
-        resend.Emails.send(payload)
+        response = resend.Emails.send(payload)
     except Exception as e:
         logger.exception(
             "admin_reply_send_failed",
@@ -187,6 +213,7 @@ def send_admin_reply(
         body_html=body_html,
     )
     threads_dao.transition_on_outbound(thread["id"], last_message_at=now_iso)
+    _record_reply_sent(messages_dao, row, response, now_iso)
 
     logger.info(
         "admin_reply_sent",

@@ -1,4 +1,4 @@
-"""Invitation email delivery status from Resend webhooks (SB-1814).
+"""Email delivery status from Resend webhooks (SB-1814, SB-1821 for replies).
 
 Covers:
 - the send path: the Resend id is captured and stored with status 'sent';
@@ -6,6 +6,8 @@ Covers:
 - services/email_delivery: event mapping, precedence, retries, unknown ids
 - POST /api/webhooks/email/inbound routes delivery events there, and leaves
   email.received and signature handling alone
+- support replies: an id no invitation carries falls through to outbound
+  email_messages (SB-1821)
 
 No database: a small in-memory stand-in for the invitations table, so a
 sequence of events is applied to one row the way it would be in prod.
@@ -62,12 +64,15 @@ class _Query:
 
 
 class _FakeDb:
-    def __init__(self, *rows: dict):
+    """`rows` are invitations; `messages` are email_messages (SB-1821)."""
+
+    def __init__(self, *rows: dict, messages: tuple[dict, ...] = ()):
         self.rows = [dict(r) for r in rows]
+        self.messages = [dict(m) for m in messages]
 
     def table(self, name):
-        assert name == "invitations"
-        return _Query(self.rows)
+        assert name in ("invitations", "email_messages")
+        return _Query(self.rows if name == "invitations" else self.messages)
 
 
 def _row(**overrides) -> dict:
@@ -472,3 +477,193 @@ class TestInviteServiceStoresId:
         with patch("services.email_service.EmailService", self._email(sent=False)):
             assert InviteService(client).resend_email("inv-1") is False
         assert _updates(client) == []
+
+
+# ── support replies (SB-1821) ────────────────────────────────────────────────
+
+
+def _reply(**overrides) -> dict:
+    return {"id": "msg-1", "direction": "outbound", "resend_email_id": EMAIL_ID, "email_status": "sent", **overrides}
+
+
+class TestReplyDelivery:
+    def test_event_for_a_reply_is_recorded(self):
+        from services.email_delivery import record_delivery_event
+
+        db = _FakeDb(messages=(_reply(),))
+        result = record_delivery_event(db, _event("email.delivered"))
+
+        assert result == {"status": "recorded", "email_status": "delivered"}
+        assert db.messages[0]["email_status"] == "delivered"
+        assert db.messages[0]["email_status_at"] == "2026-11-27T12:00:00.000Z"
+
+    def test_reply_bounce_stores_the_generic_reason_only(self):
+        from services.email_delivery import record_delivery_event
+
+        db = _FakeDb(messages=(_reply(),))
+        record_delivery_event(
+            db, _event("email.bounced", bounce={"type": "Permanent", "subType": "General", "message": "550 pat@x"})
+        )
+        assert db.messages[0]["email_status"] == "bounced"
+        assert db.messages[0]["email_status_detail"] == "Permanent: General"
+
+    def test_reply_precedence(self):
+        from services.email_delivery import record_delivery_event
+
+        db = _FakeDb(messages=(_reply(),))
+        record_delivery_event(db, _event("email.bounced", bounce={"type": "Permanent", "subType": "General"}))
+        result = record_delivery_event(db, _event("email.delivered"))
+        record_delivery_event(db, _event("email.sent"))
+
+        assert result == {"status": "unchanged", "email_status": "bounced"}
+        assert db.messages[0]["email_status"] == "bounced"
+
+    def test_reply_retry_is_idempotent(self):
+        from services.email_delivery import record_delivery_event
+
+        db = _FakeDb(messages=(_reply(),))
+        record_delivery_event(db, _event("email.delivered"))
+        snapshot = dict(db.messages[0])
+        assert record_delivery_event(db, _event("email.delivered"))["status"] == "unchanged"
+        assert db.messages[0] == snapshot
+
+    def test_inbound_rows_are_never_matched(self):
+        from services.email_delivery import record_delivery_event
+
+        db = _FakeDb(messages=(_reply(direction="inbound"),))
+        assert record_delivery_event(db, _event("email.delivered"))["status"] == "ignored"
+        assert db.messages[0]["email_status"] == "sent"
+
+    def test_invitation_is_preferred_and_the_reply_untouched(self):
+        from services.email_delivery import record_delivery_event
+
+        db = _FakeDb(_row(), messages=(_reply(),))
+        record_delivery_event(db, _event("email.delivered"))
+
+        assert db.rows[0]["email_status"] == "delivered"
+        assert db.messages[0]["email_status"] == "sent"
+
+    def test_neither_matches_is_ignored(self):
+        from services.email_delivery import record_delivery_event
+
+        db = _FakeDb(_row(resend_email_id="other"), messages=(_reply(resend_email_id="another"),))
+        assert record_delivery_event(db, _event("email.delivered"))["status"] == "ignored"
+        assert db.rows[0]["email_status"] == "sent"
+        assert db.messages[0]["email_status"] == "sent"
+
+    def test_reply_write_is_compare_and_set_on_outbound(self):
+        from services.email_delivery import record_delivery_event
+
+        db = MagicMock()
+        invitations, messages = MagicMock(), MagicMock()
+        db.table.side_effect = lambda name: invitations if name == "invitations" else messages
+        invitations.select.return_value.eq.return_value.limit.return_value.execute.return_value = SimpleNamespace(
+            data=[]
+        )
+        messages.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value = (
+            SimpleNamespace(data=[{"id": "msg-1", "email_status": "sent"}])
+        )
+        record_delivery_event(db, _event("email.delivered"))
+
+        messages.select.return_value.eq.assert_called_once_with("resend_email_id", EMAIL_ID)
+        messages.select.return_value.eq.return_value.eq.assert_called_once_with("direction", "outbound")
+        chain = messages.update.return_value
+        chain.eq.assert_called_once_with("id", "msg-1")
+        chain.eq.return_value.eq.assert_called_once_with("resend_email_id", EMAIL_ID)
+        chain.eq.return_value.eq.return_value.eq.assert_called_once_with("email_status", "sent")
+        chain.eq.return_value.eq.return_value.eq.return_value.eq.assert_called_once_with("direction", "outbound")
+
+    def test_reply_logs_mask_the_recipient(self):
+        from services import email_delivery
+
+        db = _FakeDb(messages=(_reply(),))
+        with patch.object(email_delivery, "logger") as log:
+            email_delivery.record_delivery_event(db, _event("email.delivered"))
+        logged = json.dumps([c.kwargs for c in log.info.call_args_list])
+        assert "pat@example.com" not in logged
+        assert "pat***@example.com" in logged
+
+    def test_webhook_records_a_reply(self, monkeypatch):
+        monkeypatch.setenv("EMAIL_INBOUND_WEBHOOK_SECRET", "whsec_test")
+        from api import webhooks_email
+
+        app = FastAPI()
+        app.include_router(webhooks_email.router)
+        db = _FakeDb(messages=(_reply(),))
+        monkeypatch.setattr(webhooks_email._db_conn, "client", db, raising=False)
+        with patch("api.webhooks_email.verify_webhook"):
+            resp = _post(TestClient(app), _event("email.delivered"))
+
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "recorded", "email_status": "delivered"}
+        assert db.messages[0]["email_status"] == "delivered"
+
+
+class TestReplySendStoresId:
+    def _daos(self):
+        threads, messages = MagicMock(), MagicMock()
+        messages.get_latest_inbound_for_thread.return_value = None
+        messages.insert_outbound.return_value = {"id": "msg-1", "direction": "outbound"}
+        messages.record_reply_sent.side_effect = lambda row_id, email_id, sent_at: {
+            "resend_email_id": email_id,
+            "email_status": "sent",
+            "email_status_at": sent_at,
+            "email_status_detail": None,
+        }
+        return threads, messages
+
+    def _send(self, monkeypatch, threads, messages, **send_kwargs):
+        from services import email_outbound
+
+        monkeypatch.setenv("RESEND_API_KEY", "re_test")
+        thread = {"id": "t-1", "case_number": 7, "subject": "Q", "participant_email": "pat@example.com"}
+        with patch.object(email_outbound.resend.Emails, "send", **send_kwargs):
+            return email_outbound.send_admin_reply(
+                threads, messages, thread=thread, body_text="hi", body_html=None, admin_user_id="admin-1"
+            )
+
+    def test_stores_the_id_as_sent(self, monkeypatch):
+        threads, messages = self._daos()
+        row = self._send(monkeypatch, threads, messages, return_value={"id": EMAIL_ID})
+
+        args = messages.record_reply_sent.call_args.args
+        assert args[:2] == ("msg-1", EMAIL_ID)
+        assert args[2]
+        assert row["resend_email_id"] == EMAIL_ID
+        assert row["email_status"] == "sent"
+
+    def test_insert_carries_no_delivery_columns(self, monkeypatch):
+        """The reply row is inserted exactly as before SB-1821, so an
+        unmigrated database still saves it."""
+        threads, messages = self._daos()
+        self._send(monkeypatch, threads, messages, return_value={"id": EMAIL_ID})
+        ins = messages.insert_outbound.call_args.kwargs
+        assert not {"resend_email_id", "email_status"} & ins.keys()
+
+    def test_failing_to_record_does_not_fail_the_reply(self, monkeypatch):
+        threads, messages = self._daos()
+        messages.record_reply_sent.side_effect = Exception("column does not exist")
+        row = self._send(monkeypatch, threads, messages, return_value={"id": EMAIL_ID})
+
+        assert row == {"id": "msg-1", "direction": "outbound"}
+        threads.transition_on_outbound.assert_called_once()
+
+    def test_no_id_records_nothing(self, monkeypatch):
+        threads, messages = self._daos()
+        row = self._send(monkeypatch, threads, messages, return_value={})
+        messages.record_reply_sent.assert_not_called()
+        assert "email_status" not in row
+
+    def test_dao_updates_only_the_outbound_row(self):
+        from dao.email_messages_dao import EmailMessagesDAO
+
+        dao = EmailMessagesDAO.__new__(EmailMessagesDAO)
+        dao.client = MagicMock()
+        # The undecorated method: cache invalidation is BaseDAO's concern.
+        update = EmailMessagesDAO.record_reply_sent.__wrapped__(dao, "msg-1", EMAIL_ID, "2026-11-27T12:00:00Z")
+
+        assert update["email_status"] == "sent"
+        chain = dao.client.table.return_value.update
+        chain.assert_called_once_with(update)
+        chain.return_value.eq.assert_called_once_with("id", "msg-1")
+        chain.return_value.eq.return_value.eq.assert_called_once_with("direction", "outbound")

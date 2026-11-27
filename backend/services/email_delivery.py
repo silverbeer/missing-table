@@ -1,13 +1,15 @@
 """
-Invitation email delivery status from Resend webhooks (SB-1814).
+Email delivery status from Resend webhooks: invitations (SB-1814) and
+Support Inbox replies (SB-1821).
 
-The invite send stores Resend's email id on the invitation; the webhook
-handler hands every delivery event here. Pure helpers decide what an event
+The invite send and the support-reply send store Resend's email id on their
+row (invitations / outbound email_messages); the webhook handler hands every
+delivery event here. Pure helpers decide what an event
 means and whether it may overwrite what is already recorded;
 record_delivery_event does the lookup and a compare-and-set write.
 
-Unknown email ids are routine, not errors: support replies (email_outbound),
-password resets and invites sent before SB-1814 all produce events too.
+Unknown email ids are routine, not errors: password resets, and invites or
+replies sent before tracking existed, all produce events too.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from services.email_service import _mask
 
 logger = structlog.get_logger(__name__)
 
-# Resend event type → invitations.email_status. email.opened, email.clicked
+# Resend event type → email_status (invitations and email_messages). email.opened, email.clicked
 # and email.scheduled are deliberately absent: they say nothing about delivery.
 EVENT_STATUS: dict[str, str] = {
     "email.sent": "sent",
@@ -84,12 +86,34 @@ def _first_recipient(data: dict[str, Any]) -> str | None:
     return to if isinstance(to, str) else None
 
 
+# Where a Resend email id can belong, in lookup order: (table, extra filters,
+# the log key for the row id). Invitations first, so their behaviour is
+# exactly what it was before support replies were tracked (SB-1821).
+_TARGETS: tuple[tuple[str, dict[str, str], str], ...] = (
+    ("invitations", {}, "invitation_id"),
+    ("email_messages", {"direction": "outbound"}, "message_row_id"),
+)
+
+
+def _find_target(client: Any, email_id: str) -> tuple[str, dict[str, str], str, dict[str, Any]] | None:
+    """The first tracked row carrying this Resend email id, with its table."""
+    for table, filters, id_key in _TARGETS:
+        query = client.table(table).select("id, email_status").eq("resend_email_id", email_id)
+        for col, value in filters.items():
+            query = query.eq(col, value)
+        response = query.limit(1).execute()
+        if response.data:
+            return table, filters, id_key, response.data[0]
+    return None
+
+
 def record_delivery_event(client: Any, event: dict[str, Any]) -> dict[str, Any]:
-    """Apply one Resend delivery event to the invitation it belongs to.
+    """Apply one Resend delivery event to the invitation or support reply it
+    belongs to.
 
     Returns the webhook response body. Never raises for an event we cannot
-    use (unknown type, no email id, no matching invitation): Resend disables
-    an endpoint that keeps failing, so those are all 200 "ignored". Database
+    use (unknown type, no email id, no matching row): Resend disables an
+    endpoint that keeps failing, so those are all 200 "ignored". Database
     errors do propagate, so Resend retries a transient failure.
     """
     event_type = event.get("type")
@@ -101,25 +125,26 @@ def record_delivery_event(client: Any, event: dict[str, Any]) -> dict[str, Any]:
         return {"status": "ignored", "event_type": event_type}
 
     recipient = _mask(_first_recipient(data))
-    response = client.table("invitations").select("id, email_status").eq("resend_email_id", email_id).limit(1).execute()
-    if not response.data:
+    target = _find_target(client, email_id)
+    if target is None:
         logger.info(
-            "email_delivery_no_invitation",
+            "email_delivery_no_match",
             event_type=event_type,
             email_id=email_id,
             recipient=recipient,
         )
         return {"status": "ignored", "event_type": event_type}
 
-    invitation = response.data[0]
-    current = invitation.get("email_status")
+    table, filters, id_key, row = target
+    current = row.get("email_status")
     if not should_apply(current, new_status):
         logger.info(
             "email_delivery_unchanged",
-            invitation_id=invitation["id"],
+            table=table,
             current=current,
             event_status=new_status,
             recipient=recipient,
+            **{id_key: row["id"]},
         )
         return {"status": "unchanged", "email_status": current}
 
@@ -129,16 +154,19 @@ def record_delivery_event(client: Any, event: dict[str, Any]) -> dict[str, Any]:
         "email_status_detail": bounce_detail(data) if new_status == "bounced" else None,
     }
     # Compare-and-set: only write over the status we read, and only while the
-    # invite still points at this email (a resend replaces the id).
-    query = client.table("invitations").update(update).eq("id", invitation["id"]).eq("resend_email_id", email_id)
+    # row still points at this email (an invite resend replaces the id).
+    query = client.table(table).update(update).eq("id", row["id"]).eq("resend_email_id", email_id)
     query = query.is_("email_status", "null") if current is None else query.eq("email_status", current)
+    for col, value in filters.items():
+        query = query.eq(col, value)
     query.execute()
 
     logger.info(
         "email_delivery_recorded",
-        invitation_id=invitation["id"],
+        table=table,
         previous=current,
         email_status=new_status,
         recipient=recipient,
+        **{id_key: row["id"]},
     )
     return {"status": "recorded", "email_status": new_status}

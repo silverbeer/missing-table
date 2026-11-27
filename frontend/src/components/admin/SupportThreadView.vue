@@ -157,6 +157,18 @@
           >
             Attachments stripped. Reply via your email client to view them.
           </p>
+          <div
+            v-if="msg.direction === 'outbound' && emailDeliveryChip(msg)"
+            class="mt-2 text-right"
+          >
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+              :class="emailDeliveryChip(msg).classes"
+              :title="emailDeliveryChip(msg).title"
+              :data-testid="`message-delivery-${msg.id}`"
+              >{{ emailDeliveryChip(msg).label }}</span
+            >
+          </div>
         </div>
       </li>
     </ul>
@@ -213,6 +225,7 @@
 
 <script setup>
 import { ref } from 'vue';
+import { emailDeliveryChip } from '../../utils/emailDelivery';
 
 const props = defineProps({
   thread: { type: Object, required: true },
