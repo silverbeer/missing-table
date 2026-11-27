@@ -22,18 +22,18 @@ at the cut is kept.
 
 | key | board | better |
 |---|---|---|
-| `pts` / `ppg` | Points (W=3, D=1; shootouts count as draws) / points per game | higher |
-| `gf` / `gf_pg` | Goals for / per game | higher |
-| `ga` / `ga_pg` | Goals against / per game | **lower** |
-| `gd` / `gd_pg` | Goal difference / per game | higher |
-| `unbeaten` | No losses and at least `MIN_GP` games, by games played | higher |
-| `pro_wins` | Wins over pro academies (`clubs.pro_academy`), with games played against them | higher |
+| `pts` / `ppg` | Points (W=3, D=1; shootouts count as draws) / points per match | higher |
+| `gf` / `gf_pg` | Goals for / per match | higher |
+| `ga` / `ga_pg` | Goals against / per match | **lower** |
+| `gd` / `gd_pg` | Goal difference / per match | higher |
+| `unbeaten` | No losses and at least `MIN_GP` matches, by matches played | higher |
+| `pro_wins` | Wins over pro academies (`clubs.pro_academy`), with matches played against them | higher |
 
-- **`MIN_GP = 6`, on every board.** Totals, per-game boards, `unbeaten` and
-  `pro_wins` rank only teams with six games, so a team with one game and none
+- **`MIN_GP = 6`, on every board.** Totals, per-match boards, `unbeaten` and
+  `pro_wins` rank only teams with six matches, so a team with one match and none
   conceded can never top fewest goals against.
 - **Unranked teams are listed once**, in the result's `unranked` (rank and value
-  null, most games first, at most `limit`) with the full `unranked_count`. Each
+  null, most matches first, at most `limit`) with the full `unranked_count`. Each
   board carries only its own `unranked_count`. Early in a season that is most
   teams, and listing them on all ten boards flooded MT AI's context and the CLI.
 - Each board's `ranked_count` is every team it ranks, not just the `limit`
@@ -125,3 +125,10 @@ second sub-tab, and the sub-nav stays hidden until then. No `/ranking` deep link
   a team is selected (SB-1116).
 - Below `sm` a board picker shows one card at a time; wider, the cards are a
   grid (two columns, three at `xl`).
+
+## Wording
+
+Soccer plays **matches**, never games. Every user-facing string (board titles,
+the coverage note, the web cards, `mt leaders`, dossier and MOTW facts) says
+"match", "per match" and "MP" (matches played). The API keeps its field names
+(`gp`, `min_gp`, variant `per_game`) so clients don't break (SB-1795).

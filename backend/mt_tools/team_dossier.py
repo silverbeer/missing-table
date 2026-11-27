@@ -444,7 +444,9 @@ def _ordinal(n: int) -> str:
 
 
 def _plural(n: int, word: str) -> str:
-    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+    if n == 1:
+        return f"{n} {word}"
+    return f"{n} {word}es" if word.endswith(("s", "x", "ch", "sh")) else f"{n} {word}s"
 
 
 def dossier_facts(
@@ -477,7 +479,7 @@ def dossier_facts(
                 )
             )
         else:
-            small = " (fewer than 3 games: a small sample)" if line.low_sample else ""
+            small = " (fewer than 3 matches: a small sample)" if line.low_sample else ""
             own.append(
                 MotwFact(
                     team_id=team_id,
@@ -485,7 +487,7 @@ def dossier_facts(
                     kind="standings",
                     text=(
                         f"{name} are {_ordinal(line.position)} of {line.table_size} in {label} with "
-                        f"{line.ppg:.2f} points per game from {_plural(line.played, 'game')} "
+                        f"{line.ppg:.2f} points per match from {_plural(line.played, 'match')} "
                         f"({line.wins}-{line.draws}-{line.losses}){small}."
                     ),
                 )
@@ -496,7 +498,7 @@ def dossier_facts(
                     id=f"{cid}:rate",
                     kind="form",
                     text=(
-                        f"{name} score {line.gf_per_game:.1f} and concede {line.ga_per_game:.1f} goals per game "
+                        f"{name} score {line.gf_per_game:.1f} and concede {line.ga_per_game:.1f} goals per match "
                         f"in {label} (goal difference {line.gd:+d})."
                     ),
                 )
@@ -508,7 +510,7 @@ def dossier_facts(
                     kind="standings",
                     text=(
                         f"{name} are in the {_ordinal(line.strength_percentile)} percentile within {label} "
-                        f"on points and goal difference per game{small}."
+                        f"on points and goal difference per match{small}."
                     ),
                 )
             )

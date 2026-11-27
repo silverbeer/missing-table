@@ -135,7 +135,7 @@ class TestPure:
         ("results", "text"),
         [
             (["W", "W", "W"], "won all 3"),
-            (["W", "W", "W", "L"], "won 3 League/Flex games in a row"),
+            (["W", "W", "W", "L"], "won 3 League/Flex matches in a row"),
             (["D", "W", "D", "L"], "unbeaten in 3"),
             (["L", "L", "L", "W"], "lost 3 in a row"),
             (["W", "L", "W"], None),

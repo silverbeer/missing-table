@@ -193,7 +193,7 @@ class TestForm:
         r = dossier(1)
         streak = next(f for f in r.facts if f.id == r.streak_fact_id)
         assert r.streak_fact_id == f"t1:a{U15}:form:streak"
-        assert streak.text == "Team 1 are unbeaten in 6 League/Flex games."
+        assert streak.text == "Team 1 are unbeaten in 6 League/Flex matches."
 
     def test_no_streak_is_no_fact(self):
         assert dossier(HG_ONLY).streak_fact_id is None

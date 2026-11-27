@@ -2028,7 +2028,7 @@ def leaders(
         table.add_column("#", style="dim", no_wrap=True)
         table.add_column("Team", style="white")
         table.add_column("Conference", style="cyan")
-        table.add_column("GP", justify="right")
+        table.add_column("MP", justify="right")
         table.add_column("W-D-L", justify="right", style="dim")
         table.add_column("Value", justify="right", style="bold")
         for row in b.get("rows") or []:
@@ -2044,13 +2044,13 @@ def leaders(
     unranked_rows = result.get("unranked") or []
     if unranked_rows:
         console.print(
-            f"\n[dim]Unranked: under {cov.get('min_gp', '?')} games "
-            f"({len(unranked_rows)} of {result.get('unranked_count', len(unranked_rows))}, most games first)[/dim]"
+            f"\n[dim]Unranked: under {cov.get('min_gp', '?')} matches "
+            f"({len(unranked_rows)} of {result.get('unranked_count', len(unranked_rows))}, most matches first)[/dim]"
         )
         table = Table(style="dim")
         table.add_column("Team")
         table.add_column("Conference")
-        table.add_column("GP", justify="right")
+        table.add_column("MP", justify="right")
         table.add_column("W-D-L", justify="right")
         for row in unranked_rows:
             _, name, conference, gp, record, _ = _leader_cells(row)

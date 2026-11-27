@@ -277,13 +277,13 @@ class BoardSpec:
 
 BOARDS: tuple[BoardSpec, ...] = (
     BoardSpec("pts", "Points (W=3, D=1; shootouts count as draws)", "total", "higher", lambda t: t.points),
-    BoardSpec("ppg", "Points per game", "per_game", "higher", lambda t: Fraction(t.points, t.gp)),
+    BoardSpec("ppg", "Points per match", "per_game", "higher", lambda t: Fraction(t.points, t.gp)),
     BoardSpec("gf", "Goals for", "total", "higher", lambda t: t.gf),
-    BoardSpec("gf_pg", "Goals for per game", "per_game", "higher", lambda t: Fraction(t.gf, t.gp)),
+    BoardSpec("gf_pg", "Goals for per match", "per_game", "higher", lambda t: Fraction(t.gf, t.gp)),
     BoardSpec("ga", "Goals against (fewest)", "total", "lower", lambda t: t.ga),
-    BoardSpec("ga_pg", "Goals against per game (fewest)", "per_game", "lower", lambda t: Fraction(t.ga, t.gp)),
+    BoardSpec("ga_pg", "Goals against per match (fewest)", "per_game", "lower", lambda t: Fraction(t.ga, t.gp)),
     BoardSpec("gd", "Goal difference", "total", "higher", lambda t: t.gd),
-    BoardSpec("gd_pg", "Goal difference per game", "per_game", "higher", lambda t: Fraction(t.gd, t.gp)),
+    BoardSpec("gd_pg", "Goal difference per match", "per_game", "higher", lambda t: Fraction(t.gd, t.gp)),
 )
 BOARD_KEYS = (*(b.key for b in BOARDS), "unbeaten", "pro_wins")
 
@@ -363,7 +363,7 @@ def build_boards(
     boards.append(
         Board(
             key="unbeaten",
-            title=f"Unbeaten (no losses, {min_gp}+ games; by games played)",
+            title=f"Unbeaten (no losses, {min_gp}+ matches; by matches played)",
             variant="total",
             better="higher",
             rows=_ranked([t for t in unbeaten if t.team_id in enough], lambda t: t.gp, True, limit, refs, clubs),
@@ -418,7 +418,7 @@ def coverage_note(
     text = f"{teams} {'team' if teams == 1 else 'teams'} from {conferences} conference{'' if conferences == 1 else 's'}"
     if without_conference:
         text += f", plus {without_conference} with no Homegrown conference"
-    text += f". {NOT_A_RANKING} Teams with fewer than {min_gp} games are listed, not ranked. {SHOOTOUTS}"
+    text += f". {NOT_A_RANKING} Teams with fewer than {min_gp} matches are listed, not ranked. {SHOOTOUTS}"
     for competition in absent:
         text += f" No {competition} results at {age_group}."
     return text

@@ -89,7 +89,7 @@ RESULT = {
     ],
     "streak_fact_id": "t7:a3:form:streak",
     "flags": [],
-    "facts": [{"id": "t7:a3:form:streak", "text": "FC Westchester have won 4 League/Flex games in a row."}],
+    "facts": [{"id": "t7:a3:form:streak", "text": "FC Westchester have won 4 League/Flex matches in a row."}],
     "coverage": {"note": NOTE},
 }
 
@@ -114,7 +114,7 @@ def test_note_first_then_conferences_absent_as_dash(client):
     empire = next(row for row in out.output.splitlines() if "Empire" in row)
     assert "—" in empire and " 0-0" not in empire  # absent renders as absent, not 0
     assert "pro_academy_upset" in out.output
-    assert "won 4 League/Flex games in a row" in out.output
+    assert "won 4 League/Flex matches in a row" in out.output
 
 
 def test_for_match_shows_playing_up(client):
