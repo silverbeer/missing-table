@@ -230,7 +230,7 @@ describe('TournamentHeroCard — quick stats', () => {
 });
 
 describe('TournamentHeroCard — announcement (SB-1797)', () => {
-  const LINE = 'Every MLS NEXT Fest match scored live';
+  const LINE = 'Every MLS NEXT Fest match scored';
   const banner = w => w.find('[data-testid="tournament-announcement"]');
 
   it('shows the announcement under the status ribbon', () => {

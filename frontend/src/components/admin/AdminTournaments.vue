@@ -390,7 +390,7 @@
                 type="text"
                 :maxlength="ANNOUNCEMENT_MAX"
                 class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="e.g. Every MLS NEXT Fest match scored live"
+                placeholder="e.g. Every MLS NEXT Fest match scored"
                 aria-describedby="tournament-announcement-help"
                 data-testid="tournament-announcement-input"
               />
