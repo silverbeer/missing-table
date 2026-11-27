@@ -228,6 +228,24 @@ roster row's; otherwise the division comes from the team's primary division
 for the chosen age group (`teamDivisionFor` in `utils/teamDivisions.js`, home
 league first — a team may play one age group in several divisions, SB-1468).
 
+##### A manager role is not a team scope (SB-1802)
+
+`require_team_manager_or_admin` checks the **role** only. Every endpoint behind
+it that takes a team, player or match from the caller must also check *which*
+one, or any manager can edit any team by changing an id in the URL.
+
+- Team-scoped writes (`/api/teams/{team_id}/roster*`, `/players/age-group`,
+  `/api/team-mappings`) call `ensure_can_manage_team(user, team_id)` in `app.py`
+  before any read or write: admin → any team, team-manager → their own
+  `team_id`, club_manager → teams in their `club_id` (none without one).
+- Player writes under `/api/admin/players/*` resolve the player's current
+  teams (`ensure_can_manage_player`) or the history row's team. Assigning a
+  player to a team needs the target team *and*, if the player is already on a
+  team, one of their current teams.
+- Match writes use `can_edit_match` (either side of the match).
+
+Denials are a generic `403 "You can only manage your own team"`.
+
 ##### Backend auth clients must be stateless (SB-115)
 
 The backend's shared Supabase clients (`auth_ops_client`, `auth_service_client`
