@@ -261,7 +261,8 @@ class InviteService:
                     # the provider refuses, so the result has to be checked:
                     # ignoring it meant a refused invitation was recorded
                     # nowhere at all (SB-1126).
-                    sent = EmailService().send_invitation(
+                    email_service = EmailService()
+                    sent = email_service.send_invitation(
                         to_email=email,
                         invite_code=invite_code,
                         invite_type=invite_type,
@@ -269,7 +270,9 @@ class InviteService:
                         ios_beta=ios_beta,
                         testflight_email=testflight_email,
                     )
-                    if not sent:
+                    if sent:
+                        self._record_email_sent(invitation, email_service.last_email_id)
+                    else:
                         logger.warning(
                             "invitation_email_not_sent",
                             extra={"invite_type": invite_type, "reason": "provider_rejected"},
@@ -360,7 +363,8 @@ class InviteService:
 
         from services.email_service import EmailService
 
-        return EmailService().send_invitation(
+        email_service = EmailService()
+        sent = email_service.send_invitation(
             to_email=invitation["email"],
             invite_code=invitation["invite_code"],
             invite_type=invitation.get("invite_type"),
@@ -368,6 +372,34 @@ class InviteService:
             ios_beta=bool(invitation.get("testflight_status")),
             testflight_email=invitation.get("testflight_email"),
         )
+        if sent:
+            # A resend is a new email: its id replaces the old one, so events
+            # for the earlier email no longer match this invite (SB-1814).
+            self._record_email_sent(invitation, email_service.last_email_id)
+        return sent
+
+    def _record_email_sent(self, invitation: dict, email_id: str | None) -> None:
+        """Store the Resend email id and mark delivery 'sent' (SB-1814).
+
+        Delivery webhooks find the invite by this id. Best effort and never
+        raises: an invite whose id could not be recorded still works, it just
+        shows no delivery status. Nothing is recorded without an id, since no
+        later event could ever move it past 'sent'.
+        """
+        if not isinstance(email_id, str) or not email_id:
+            return
+        update = {
+            "resend_email_id": email_id,
+            "email_status": "sent",
+            "email_status_at": datetime.now(UTC).isoformat(),
+            "email_status_detail": None,
+        }
+        try:
+            self.supabase.table("invitations").update(update).eq("id", invitation["id"]).execute()
+        except Exception as e:
+            logger.error(f"Invitation {invitation.get('id')}: could not record email id: {e}")
+            return
+        invitation.update(update)
 
     def remove_testflight_for_user(self, user_id: str) -> int:
         """Remove a deleted user's TestFlight tester(s) from the beta group.

@@ -8,6 +8,10 @@ provider retries are safe.
 
 SB-35 Phase 1. The admin API (Phase 2) and admin UI (Phase 3) consume
 the rows we land here.
+
+The same Resend webhook (one endpoint, one signing secret) also carries the
+delivery events for outbound mail. Those go to services.email_delivery, which
+records invitation email delivery status (SB-1814).
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dao.email_messages_dao import EmailMessagesDAO
 from dao.email_threads_dao import EmailThreadsDAO
 from dao.match_dao import SupabaseConnection as DbConnectionHolder
+from services.email_delivery import record_delivery_event, status_for_event
 from services.email_inbound import (
     WebhookVerificationError,
     resolve_thread,
@@ -83,10 +88,12 @@ def _extract_display_name(from_header: str) -> tuple[str, str | None]:
 
 @router.post("/email/inbound")
 async def email_inbound(request: Request) -> dict[str, Any]:
-    """Receive an `email.received` event from Resend Inbound.
+    """Receive an `email.received` event from Resend Inbound, or a delivery
+    event (email.sent, email.delivered, …) for an invitation email.
 
     Returns 200 on:
     - Successful ingest
+    - Delivery event, recorded or ignored (unknown email id) — SB-1814
     - Unknown event type (we ignore quietly so Resend doesn't retry)
     - Already-seen Message-ID (idempotent retry)
 
@@ -116,6 +123,8 @@ async def email_inbound(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="invalid JSON payload") from e
 
     event_type = event.get("type")
+    if status_for_event(event_type):
+        return record_delivery_event(_db_conn.client, event)
     if event_type != _INBOUND_EVENT_TYPE:
         logger.info("email_webhook_ignored_event", event_type=event_type)
         return {"status": "ignored", "event_type": event_type}

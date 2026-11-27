@@ -69,6 +69,10 @@ class EmailService:
         # pointing at this address so user replies route to a monitored
         # inbox instead of the noreply@ from-address.
         self.reply_to = os.getenv("RESEND_REPLY_TO") or None
+        # Resend's id for the last invitation email this instance sent, so the
+        # caller can match later delivery webhooks to the invite (SB-1814).
+        # send_invitation keeps returning a bool for its existing callers.
+        self.last_email_id: str | None = None
 
     def _build_send_payload(self, to_email: str, subject: str, html: str, text: str) -> dict:
         """Common Resend payload with optional Reply-To."""
@@ -300,8 +304,9 @@ class EmailService:
             "— Missing Table"
         )
 
+        self.last_email_id = None
         try:
-            resend.Emails.send(
+            response = resend.Emails.send(
                 self._build_send_payload(
                     to_email=to_email,
                     subject=subject,
@@ -309,6 +314,8 @@ class EmailService:
                     text=text_body,
                 )
             )
+            email_id = response.get("id") if isinstance(response, dict) else None
+            self.last_email_id = email_id if isinstance(email_id, str) and email_id else None
             logger.info(
                 "invitation_email_sent",
                 extra={

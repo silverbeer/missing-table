@@ -381,6 +381,15 @@
               {{ invite.status }}
             </span>
           </div>
+          <div v-if="inviteDeliveryChip(invite)" class="mb-2 text-right">
+            <span
+              :class="inviteDeliveryChip(invite).classes"
+              :title="inviteDeliveryChip(invite).title"
+              class="px-2 py-0.5 text-xs rounded-full"
+              data-testid="invite-delivery-chip"
+              >{{ inviteDeliveryChip(invite).label }}</span
+            >
+          </div>
           <div class="text-sm space-y-1">
             <p>
               <span class="text-fg-muted">Type:</span>
@@ -394,6 +403,13 @@
               <template v-else>
                 {{ invite.teams?.name }} - {{ invite.age_groups?.name }}
               </template>
+            </p>
+            <p
+              v-if="inviteDeliveryHint(invite)"
+              class="text-xs text-red-700"
+              data-testid="invite-delivery-hint"
+            >
+              {{ inviteDeliveryHint(invite) }}
             </p>
             <p v-if="invite.used_by_user">
               <span class="text-fg-muted">Used by:</span>
@@ -554,6 +570,13 @@
                   {{ invite.email }}
                 </span>
                 <span v-else class="text-fg-muted">—</span>
+                <p
+                  v-if="inviteDeliveryHint(invite)"
+                  class="mt-1 text-xs text-red-700"
+                  data-testid="invite-delivery-hint"
+                >
+                  {{ inviteDeliveryHint(invite) }}
+                </p>
                 <div
                   v-if="invite.testflight_status"
                   class="mt-1 flex items-center gap-2"
@@ -591,6 +614,15 @@
                 >
                   {{ invite.status }}
                 </span>
+                <div v-if="inviteDeliveryChip(invite)" class="mt-1">
+                  <span
+                    :class="inviteDeliveryChip(invite).classes"
+                    :title="inviteDeliveryChip(invite).title"
+                    class="px-2 py-0.5 text-xs rounded-full"
+                    data-testid="invite-delivery-chip"
+                    >{{ inviteDeliveryChip(invite).label }}</span
+                  >
+                </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-fg">
                 <template v-if="invite.used_by_user">
@@ -906,6 +938,10 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { getApiBaseUrl } from '../../config/api';
 import { errorMessage } from '../../utils/apiError';
+import {
+  inviteDeliveryChip,
+  inviteDeliveryHint,
+} from '../../utils/inviteDelivery';
 
 const props = defineProps({
   // From an invite request (SB-1312): { request: {id, name, email}, form }
