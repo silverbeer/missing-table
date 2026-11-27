@@ -202,3 +202,36 @@ describe('TournamentIndex', () => {
     );
   });
 });
+
+describe('TournamentIndex — announcement (SB-1797)', () => {
+  const LINE = 'Every MLS NEXT Fest match scored live';
+  const callout = (w, id) =>
+    card(w, id).find('[data-testid="tournament-card-announcement"]');
+
+  it("shows the tournament's announcement on its card", () => {
+    const w = mountIndex([{ ...LIVE, announcement: LINE }, SOON]);
+    expect(callout(w, 11).exists()).toBe(true);
+    expect(callout(w, 11).text()).toBe(LINE);
+    // Only on the card it belongs to.
+    expect(callout(w, 12).exists()).toBe(false);
+  });
+
+  it('none set: no element at all, no placeholder', () => {
+    const w = mountIndex([
+      { ...LIVE, announcement: null },
+      { ...SOON, announcement: '   ' },
+      DONE,
+    ]);
+    expect(
+      w.find('[data-testid="tournament-card-announcement"]').exists()
+    ).toBe(false);
+  });
+
+  it('a long announcement wraps rather than overflowing', () => {
+    const w = mountIndex([{ ...LIVE, announcement: 'x'.repeat(160) }]);
+    const cls = callout(w, 11).classes();
+    expect(cls).toContain('break-words');
+    expect(cls).not.toContain('truncate');
+    expect(cls).not.toContain('whitespace-nowrap');
+  });
+});

@@ -8957,6 +8957,8 @@ class TournamentCreate(BaseModel):
     description: str | None = None
     age_group_ids: list[int] = []
     is_active: bool = True
+    # One line on a phone (SB-1797); blank = none.
+    announcement: str | None = Field(None, max_length=160)
 
 
 class TournamentUpdate(BaseModel):
@@ -8968,6 +8970,8 @@ class TournamentUpdate(BaseModel):
     description: str | None = None
     age_group_ids: list[int] | None = None
     is_active: bool | None = None
+    # None leaves it unchanged; a blank string clears it (SB-1797).
+    announcement: str | None = Field(None, max_length=160)
 
 
 class TournamentMatchCreate(BaseModel):
@@ -9177,6 +9181,7 @@ async def admin_create_tournament(
             description=payload.description,
             age_group_ids=payload.age_group_ids,
             is_active=payload.is_active,
+            announcement=payload.announcement,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -9200,6 +9205,7 @@ async def admin_update_tournament(
             description=payload.description,
             age_group_ids=payload.age_group_ids,
             is_active=payload.is_active,
+            announcement=payload.announcement,
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Tournament not found")

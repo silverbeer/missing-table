@@ -260,6 +260,19 @@
               ]"
             >
               <span v-if="tab.isLive" class="live-dot"></span>
+              <!-- Before the label, not after: on a phone the tab strip
+                   scrolls and Tournaments sits half off screen, which hid a
+                   trailing dot (SB-1797). -->
+              <span
+                v-if="
+                  tab.id === 'match-center' &&
+                  currentTab !== 'match-center' &&
+                  tournamentAnnouncements.hasUnseen.value
+                "
+                class="announcement-dot"
+                data-testid="tournaments-announcement-dot"
+                ><span class="sr-only">New announcement</span></span
+              >
               {{ tab.name }}
               <span
                 v-if="tab.isBeta"
@@ -424,6 +437,7 @@ import { lazyView } from './utils/lazyView';
 import { hasAnyRole, TEAM_PAGE_ROLES, liveMatchesQuery } from './utils/roles';
 import { useAuthStore } from './stores/auth';
 import { useAdminAttentionCounts } from './composables/useAdminAttentionCounts';
+import { useTournamentAnnouncements } from './composables/useTournamentAnnouncements';
 import { useBlockedUsers } from './composables/useBlockedUsers';
 import { getApiBaseUrl } from './config/api';
 import { errorMessage } from './utils/apiError';
@@ -567,6 +581,7 @@ export default {
   setup() {
     const authStore = useAuthStore();
     const adminAttention = useAdminAttentionCounts();
+    const tournamentAnnouncements = useTournamentAnnouncements();
     const blockedUsers = useBlockedUsers();
     const notificationSetup = useNotificationSetup();
     const currentTab = ref('table');
@@ -1003,6 +1018,27 @@ export default {
       { immediate: true }
     );
 
+    // Tournaments tab "new announcement" dot (SB-1797). The tabs exist only
+    // when signed in, so the list is fetched then — once per app load.
+    // Opening the tab marks every current announcement seen, including when
+    // the list arrives after the tab is already open (a /tournaments link).
+    watch(
+      () => authStore.isAuthenticated.value,
+      isAuth => {
+        if (isAuth) tournamentAnnouncements.load();
+      },
+      { immediate: true }
+    );
+    watch(
+      [currentTab, tournamentAnnouncements.hasUnseen],
+      ([tab, unseen]) => {
+        if (tab === 'match-center' && unseen) {
+          tournamentAnnouncements.markSeen();
+        }
+      },
+      { immediate: true }
+    );
+
     // MT AI chat (SB-1500): ask whether it is on whenever someone signs in.
     // Any failure leaves it off — the tab is an extra, never a blocker.
     const loadAiChatStatus = async () => {
@@ -1101,6 +1137,7 @@ export default {
     return {
       authStore,
       adminAttention,
+      tournamentAnnouncements,
       currentTab,
       isPrivacyPage,
       deepLinkMatchId,
@@ -1281,6 +1318,19 @@ export default {
   50% {
     opacity: 0.5;
   }
+}
+
+/* Tournaments tab: an announcement not yet seen (SB-1797). Accent, not red —
+   news, not a problem. */
+.announcement-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  vertical-align: 1px;
+  background-color: #f59e0b; /* accent-400 */
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22);
 }
 
 .admin-attention-dot {

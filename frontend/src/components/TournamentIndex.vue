@@ -105,6 +105,27 @@
               >{{ card.matchCount }}
               {{ card.matchCount === 1 ? 'match' : 'matches' }}</span
             >
+            <!-- The admin's one line (SB-1797). None set: no element at all. -->
+            <span
+              v-if="card.announcement"
+              class="mt-2 flex items-start gap-1.5 rounded-md bg-accent-50 px-2 py-1 text-sm font-semibold text-accent-700 break-words dark:bg-accent-900 dark:text-accent-100"
+              data-testid="tournament-card-announcement"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                class="mt-0.5 h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z" />
+                <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+              </svg>
+              <span class="min-w-0">{{ card.announcement }}</span>
+            </span>
           </span>
         </button>
       </li>
@@ -118,6 +139,7 @@ import {
   formatTournamentDateRange,
   tournamentStatus,
 } from '../utils/tournamentStatus';
+import { announcementText } from '../composables/useTournamentAnnouncements';
 
 const props = defineProps({
   // Already in status order (`compareByStatus`); rendered as given.
@@ -164,6 +186,7 @@ const cards = computed(() =>
       chipClass: chip?.cls ?? '',
       dates: formatTournamentDateRange(t),
       matchCount: typeof t.match_count === 'number' ? t.match_count : null,
+      announcement: announcementText(t),
     };
   })
 );

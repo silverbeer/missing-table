@@ -52,6 +52,13 @@ VALID_ROUNDS = {
     "placement_final",
 }
 
+# The columns of one tournament, shared by every tournament read so a new
+# column (announcement, SB-1797) reaches the index, the admin list and the
+# detail endpoint alike.
+TOURNAMENT_SELECT = (
+    "id, name, season_id, start_date, end_date, location, description, is_active, logo_url, announcement"
+)
+
 # The columns of one match in a tournament's match list. Shared by the detail
 # endpoint and the paged one so a row is the same shape from either (SB-1749).
 TOURNAMENT_MATCH_SELECT = """
@@ -169,11 +176,7 @@ class TournamentDAO(BaseDAO):
         season_id, when provided, restricts results to that season.
         """
         try:
-            query = (
-                self.client.table("tournaments")
-                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
-                .eq("is_active", True)
-            )
+            query = self.client.table("tournaments").select(TOURNAMENT_SELECT).eq("is_active", True)
             if not include_test:
                 query = query.eq("is_test", False)
             if season_id is not None:
@@ -194,10 +197,7 @@ class TournamentDAO(BaseDAO):
         """
         try:
             response = (
-                self.client.table("tournaments")
-                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
-                .order("start_date", desc=True)
-                .execute()
+                self.client.table("tournaments").select(TOURNAMENT_SELECT).order("start_date", desc=True).execute()
             )
             data = self._attach_age_groups(response.data or [])
             return self._attach_match_counts(data, include_test=True)
@@ -217,11 +217,7 @@ class TournamentDAO(BaseDAO):
         """
         try:
             t_response = (
-                self.client.table("tournaments")
-                .select("id, name, season_id, start_date, end_date, location, description, is_active, logo_url")
-                .eq("id", tournament_id)
-                .single()
-                .execute()
+                self.client.table("tournaments").select(TOURNAMENT_SELECT).eq("id", tournament_id).single().execute()
             )
             if not t_response.data:
                 return None
@@ -503,6 +499,7 @@ class TournamentDAO(BaseDAO):
         description: str | None = None,
         age_group_ids: list[int] | None = None,
         is_active: bool = True,
+        announcement: str | None = None,
     ) -> dict:
         """Create a new tournament.
 
@@ -515,6 +512,7 @@ class TournamentDAO(BaseDAO):
             description: Free text notes (optional)
             age_group_ids: Age groups for the tournament (optional)
             is_active: Controls public visibility (default True)
+            announcement: One-line announcement (optional; blank = none)
 
         Returns:
             Created tournament record with age_groups list
@@ -531,6 +529,8 @@ class TournamentDAO(BaseDAO):
             data["location"] = location
         if description:
             data["description"] = description
+        if announcement and announcement.strip():
+            data["announcement"] = announcement.strip()
 
         try:
             response = self.client.table("tournaments").insert(data).execute()
@@ -555,10 +555,13 @@ class TournamentDAO(BaseDAO):
         age_group_ids: list[int] | None = None,
         is_active: bool | None = None,
         logo_url: str | None = None,
+        announcement: str | None = None,
     ) -> dict | None:
         """Update tournament fields. Only provided (non-None) fields are changed.
 
         age_group_ids replaces all existing age group links when provided.
+        announcement is stripped; a blank string clears it to NULL (SB-1797),
+        since None already means "leave unchanged".
         """
         updates: dict = {}
         if name is not None:
@@ -577,6 +580,8 @@ class TournamentDAO(BaseDAO):
             updates["is_active"] = is_active
         if logo_url is not None:
             updates["logo_url"] = logo_url
+        if announcement is not None:
+            updates["announcement"] = announcement.strip() or None
 
         try:
             if updates:
