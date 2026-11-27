@@ -120,7 +120,7 @@
           class="max-w-[80%] rounded-lg px-4 py-3"
           :class="
             msg.direction === 'outbound'
-              ? 'bg-brand-50 border border-brand-200'
+              ? 'bg-brand-50 border border-brand-200 dark:bg-brand-900/40 dark:border-brand-700'
               : 'bg-surface-alt border border-line'
           "
         >
