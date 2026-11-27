@@ -131,6 +131,7 @@ from dao.motw_dao import MotwDAO, week_start_for
 from dao.player_dao import PlayerDAO
 from dao.player_stats_dao import PlayerStatsDAO
 from dao.playoff_dao import PlayoffDAO
+from dao.power_rating_dao import PowerRatingDAO
 from dao.qop_rankings_dao import QoPRankingsDAO
 from dao.roster_dao import RosterDAO
 from dao.season_dao import SeasonDAO
@@ -293,6 +294,7 @@ ingest_failures_dao = IngestFailuresDAO(db_conn_holder_obj)
 motw_dao = MotwDAO(db_conn_holder_obj)
 motd_dao = MotdDAO(db_conn_holder_obj)
 coverage_dao = CoverageDAO(db_conn_holder_obj)
+power_rating_dao = PowerRatingDAO(db_conn_holder_obj)
 ai_conversation_dao = AIConversationDAO(db_conn_holder_obj)
 
 # Competitions whose standings are grouped by division (SB-833).
@@ -9758,6 +9760,35 @@ async def get_competition_coverage(
     except Exception as e:
         logger.error(f"Error reading competition coverage: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Could not read competition coverage") from e
+
+
+@app.post("/api/admin/power-rating/recompute")
+async def recompute_power_rating(
+    season_id: int | None = None,
+    age_group: list[str] | None = Query(None),
+    league: str = "Homegrown",
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Recompute the MT Power Rating now, in-process (SB-1807).
+
+    The same job the nightly Celery beat task runs: per age group (default
+    U15, U16, U17, U19; repeat `age_group` to choose), a new run is written
+    only when its input changed since the latest run. Returns the summary.
+    An unknown league or age group, or no current season, is 400; an age group
+    that fails is reported as `failed` in the summary, not as an error.
+    """
+    from services.power_rating_service import DEFAULT_AGE_GROUPS, InvalidRecomputeError, recompute
+
+    try:
+        summary = await asyncio.to_thread(
+            recompute, power_rating_dao, season_id, tuple(age_group or DEFAULT_AGE_GROUPS), league
+        )
+    except InvalidRecomputeError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.error(f"Error recomputing the power rating: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Could not recompute the power rating") from e
+    return summary.model_dump(mode="json")
 
 
 @app.post("/api/admin/motw")

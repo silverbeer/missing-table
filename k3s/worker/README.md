@@ -34,7 +34,8 @@ This directory contains Kubernetes manifests for deploying Celery workers to K3s
 ## Files
 
 ### Active Configuration
-- `deployment-prod.yaml` - The worker deployment (consumes `matches.prod`)
+- `deployment-prod.yaml` - The worker deployment (consumes `matches.prod` and
+  `power_rating`, and runs Celery beat; see "Celery beat" below)
 - `configmap-dev.yaml` / `secret-dev.yaml` - Dev config, for a `matches.dev`
   worker that is not currently deployed
 
@@ -121,13 +122,43 @@ database.
 
 ## Scaling Workers
 
-```bash
-# Scale to 4 workers
-kubectl scale deployment/missing-table-celery-worker-prod -n match-scraper --replicas=4
+**Do not scale this Deployment past one replica.** It runs Celery beat
+embedded (`--beat`, SB-1807), so every extra pod is an extra scheduler and
+every scheduled task is sent once per pod. To scale out, first move beat into
+its own single-replica Deployment (same image, `celery -A celery_app beat`),
+then drop `--beat` from this one.
 
-# Scale down to 1 worker
+```bash
+# The only supported size
 kubectl scale deployment/missing-table-celery-worker-prod -n match-scraper --replicas=1
 ```
+
+## Celery beat (SB-1807)
+
+The worker is the only place a beat runs. Its schedule is `BEAT_SCHEDULE` in
+`backend/celery_app.py`:
+
+| Entry | Task | When | Queue |
+|---|---|---|---|
+| `power-rating-nightly` | `power_rating.recompute_all` | 10:00 UTC daily | `power_rating` |
+
+Why embedded (`--beat`) rather than a separate Deployment: the node has no CPU
+headroom for another pod (see `strategy` in the manifest), the Deployment is
+already one replica with `Recreate` (so there is never a second beat, even
+during a rollout), and `rebuild-and-deploy.sh` pins one container. The cost is
+that a worker restart at 10:00 skips that night's run; the ratings go stale,
+not wrong, and `POST /api/admin/power-rating/recompute` runs the same job from
+the API.
+
+Check it is running:
+
+```bash
+kubectl logs -n match-scraper -l app=missing-table-worker --tail=200 | grep -i "beat\|power_rating"
+kubectl exec -n match-scraper messaging-rabbitmq-0 -- rabbitmqctl list_queues name messages consumers | grep power_rating
+```
+
+`power_rating` must show one consumer. Messages piling up there mean the worker
+was deployed without `--queues=...,power_rating`.
 
 ## Monitoring
 
@@ -235,7 +266,9 @@ kubectl rollout status deployment/missing-table-celery-worker-prod -n match-scra
 
 ### Worker Configuration
 
-- **Queues**: `matches.prod` — the only queue match-scraper publishes to
+- **Queues**: `matches.prod` — the only queue match-scraper publishes to;
+  `power_rating` — the nightly Power Rating recompute, published by the beat
+- **Beat**: embedded (`--beat`), schedule file `/tmp/celerybeat-schedule`
 - **Concurrency**: 2 tasks per worker
 - **Log Level**: INFO
 - **Replicas**: 1

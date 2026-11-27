@@ -263,12 +263,79 @@ admin trigger, `POST /api/admin/power-rating/recompute`, which runs the same eng
 | Cost | add `celery beat` (single replica) to `k3s/worker` | a new CronJob |
 
 Caveats:
-- **No beat runs anywhere today.** `maintenance_tasks.py` expects one, but none is deployed.
+- **Before SB-1807 no beat ran anywhere.** The k3s prod worker now runs the only one (below).
+  `maintenance_tasks.py` still has no schedule entry, and is not imported by `celery_tasks`.
 - **The worker cannot clear the API's Redis cache** (`caching.md`). The API therefore caches the
   rankings payload keyed by `run_id`, and reads the latest run id uncached.
 - **If the M4 is down, the ratings go stale, not wrong.** The page shows "updated <date>", and the
   admin trigger works from LKE.
 - A full replay costs milliseconds: about 1k matches and a 150×150 solve for each age group.
+
+### Built (SB-1807)
+
+| Piece | Where |
+|---|---|
+| Tables | `supabase/migrations/20261127140000_power_rating_tables.sql`: the three above. RLS on: logged-in users read, only the service role writes |
+| Input and storage | `backend/dao/power_rating_dao.py`. `to_rated_matches` (pure) maps rows to `RatedMatch`; `PowerRatingDAO` reads, writes runs, and answers `latest_run` / `latest_run_id` / `run_as_of` (the run users saw at a time, for 7-day movement) |
+| Orchestration | `backend/services/power_rating_service.py` `recompute(store, season_id=None, age_groups=("U15","U16","U17","U19"), league="Homegrown")` |
+| Nightly | Celery task `power_rating.recompute_all` (`backend/celery_tasks/power_rating_tasks.py`); `BEAT_SCHEDULE` in `backend/celery_app.py`, 10:00 UTC, queue `power_rating` |
+| Beat | embedded in the k3s prod worker: `--beat`, `--queues=matches.prod,power_rating` (`k3s/worker/deployment-prod.yaml`, README "Celery beat") |
+| Admin trigger | `POST /api/admin/power-rating/recompute?season_id=&age_group=U17&age_group=U19&league=Homegrown`, admin only. Runs `recompute` in-process and returns the summary. Unknown league or age group, or no current season: 400. A failed read: 503 |
+
+**What a run reads.** For each age group: the season's League and Flex fixtures of Homegrown
+and its child leagues (the leaderboards' read, `MatchDAO.get_season_results`), and every
+tournament match at the age group (`tournament_id` set, no division). League fixtures **in any
+status** decide the pool: a team is in pool when it has a Homegrown League fixture at that age
+this season, scheduled or played. This matters early in a season: on a 2026-09-20 snapshot,
+"has played a League match" left half the U15 Flex teams out of pool. Only `completed` and
+`forfeit` matches go to the engine. A match in which either side fielded another age group is
+not rated and is counted as `other_age_group`. A completed match with no score is counted as
+`no_score`. Tournament matches are all `competition="tournament"` (neutral). The engine does
+not yet distinguish `cup`, and both are rated the same.
+
+**What a run writes.** One `power_rating_runs` row (`matches_excluded` holds `forfeit`,
+`out_of_pool_opponent`, `other_age_group` and `no_score`, each present, 0 when none), one
+`power_ratings` row per rated team, and the deltas. Older runs' deltas for the same season, age
+group and league are then deleted. The ranks:
+- `rank`: only when the age group is national, ranked teams in the main island, by rating.
+- `conference_rank`: ranked teams within their conference, by rating.
+- `massey_rank`: ranked teams within their island, by the Massey audit.
+
+An unranked team (under 6 matches) carries none of them. `badges` holds `provisional` (ranked,
+under 8 matches) and `low_cross_conference`. `pro_academy` is not a badge here. It is read from
+`clubs.pro_academy` when the rankings are served (slice 4).
+
+**Skip when unchanged.** `input_fingerprint` is a sha256 of the whole engine input (match ids,
+dates, teams, scores, status, competition, pool flags, conference) plus `PARAMS_VERSION`. When it
+equals the latest run's, nothing is written and the summary says `unchanged`. A score
+correction, a new forfeit, a team gaining a conference, or a parameter change all produce a new
+run. An age group with nothing played still gets one run, with no teams and a reason.
+
+**Not atomic.** PostgREST has no multi-statement transaction. If a ratings or deltas insert
+fails, the run row is deleted again (its ratings and deltas cascade) and the error is raised, so
+a half-written run never becomes the latest. While a run is being written, for a few hundred
+milliseconds, a reader can see it with only some of its ratings.
+
+**One age group failing does not stop the others.** It is reported as `failed` in the summary,
+with the detail in the log only.
+
+#### Operator steps
+
+1. `./scripts/db_tools.sh migrate prod`, from the main checkout, **before** the code reaches prod.
+   The admin trigger and the nightly task write to the new tables.
+2. Merge. The API (LKE) gets the admin trigger with the normal deploy.
+3. Build the worker image from the merged main: `./k3s/worker/rebuild-and-deploy.sh --build-only`.
+4. The args changed, so the manifest must be applied, and applying resets the image to the
+   mutable `:latest` (SB-860). Re-pin straight away:
+   `kubectl apply -f k3s/worker/deployment-prod.yaml && ./k3s/worker/rebuild-and-deploy.sh --deploy-only`.
+   Then `./k3s/worker/rebuild-and-deploy.sh --check` should report HEAD.
+5. Check: `rabbitmqctl list_queues name messages consumers` shows `power_rating` with 1 consumer,
+   and the worker log shows `beat: Starting...`.
+6. Seed the first runs without waiting for 10:00 UTC: `POST /api/admin/power-rating/recompute` as
+   an admin.
+
+**Keep the worker at one replica.** Every pod with `--beat` is a scheduler. To scale out, move
+beat to its own single-replica Deployment first.
 
 ## API
 

@@ -71,11 +71,32 @@ spec:
 
         command:
           - /app/docker-entrypoint.sh
+        # --beat runs Celery beat inside this worker (SB-1807): the scheduler
+        # for the nightly MT Power Rating recompute, 10:00 UTC (beat_schedule in
+        # backend/celery_app.py). It is the only beat anywhere, so this
+        # Deployment must stay at ONE replica with the Recreate strategy above:
+        # two pods would each run a beat and send every scheduled task twice.
+        # (A duplicate recompute is harmless, since an unchanged input writes
+        # nothing, but a future scheduled task may not be.)
+        #
+        # Embedded rather than a separate beat Deployment because this node has
+        # no CPU headroom (see `strategy`), and a second pod of this image
+        # would need its own pin in rebuild-and-deploy.sh. If the worker is
+        # ever scaled out, move beat to its own single-replica Deployment first.
+        #
+        # The schedule file is beat's record of the last run. /tmp, because
+        # losing it on restart only means a run due during the restart is
+        # skipped; the admin trigger covers that.
+        #
+        # power_rating is the queue the beat entry publishes to. This worker
+        # must consume it, or the nightly task waits in RabbitMQ forever.
         args:
           - worker
           - --loglevel=info
-          - --queues=matches.prod
+          - --queues=matches.prod,power_rating
           - --concurrency=2
+          - --beat
+          - --schedule=/tmp/celerybeat-schedule
 
         env:
         # --- RabbitMQ / Celery ---
