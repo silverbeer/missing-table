@@ -269,6 +269,15 @@
         >
           <AdminUsers />
         </div>
+
+        <!-- Power Rating audit: Elo vs Massey (SB-1812) -->
+        <div
+          v-if="currentSection === 'power-rating-audit'"
+          class="p-3 sm:p-6"
+          data-testid="admin-section-power-rating-audit"
+        >
+          <AdminPowerRatingAudit />
+        </div>
       </div>
     </div>
   </div>
@@ -297,6 +306,7 @@ import AdminCache from './admin/AdminCache.vue';
 import AdminUsers from './admin/AdminUsers.vue';
 import AdminTournaments from './admin/AdminTournaments.vue';
 import AdminContentReports from './admin/AdminContentReports.vue';
+import AdminPowerRatingAudit from './admin/AdminPowerRatingAudit.vue';
 
 export default {
   name: 'AdminPanel',
@@ -320,6 +330,7 @@ export default {
     AdminUsers,
     AdminTournaments,
     AdminContentReports,
+    AdminPowerRatingAudit,
   },
   setup() {
     const authStore = useAuthStore();
@@ -417,6 +428,12 @@ export default {
       },
       { id: 'cache', name: 'Cache', adminOnly: true, category: 'system' },
       { id: 'users', name: 'Users', adminOnly: true, category: 'system' },
+      {
+        id: 'power-rating-audit',
+        name: 'Power Rating audit',
+        adminOnly: true,
+        category: 'system',
+      },
     ];
 
     const categoryDefs = [

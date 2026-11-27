@@ -612,6 +612,28 @@ class PowerRatingDAO(BaseDAO):
             self.client.table(DELTAS).select(_DELTA_COLUMNS).eq("run_id", run_id).eq("team_id", team_id).execute()
         ).data or []
 
+    def massey_ranks(self, run_id: int) -> dict[int, int]:
+        """team_id -> stored Massey rank (within its island) for a run's ranked teams (SB-1812).
+
+        Read apart from `run_payload`, uncached: the admin audit is the only
+        reader, and the cached payloads' shape stays as it was.
+        """
+        ranks: dict[int, int] = {}
+        offset = 0
+        while True:
+            page = (
+                self.client.table(RATINGS)
+                .select("team_id, massey_rank")
+                .eq("run_id", run_id)
+                .order("team_id")
+                .range(offset, offset + _PAGE - 1)
+                .execute()
+            ).data or []
+            ranks.update({r["team_id"]: r["massey_rank"] for r in page if r.get("massey_rank") is not None})
+            offset += len(page)
+            if len(page) < _PAGE:
+                return ranks
+
     def matches_by_ids(self, match_ids: Iterable[int]) -> list[dict]:
         """Date and score of the given matches, for "why it moved"."""
         ids = sorted(set(match_ids))

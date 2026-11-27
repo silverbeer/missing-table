@@ -411,6 +411,41 @@ How the reads behave:
   row and its ratings (a counted run with no ratings yet) is served but not cached. The team
   reads are small and uncached.
 
+## Admin audit: Elo vs Massey
+
+Massey runs beside Elo in every run (open decision 1). The audit lists the teams whose two places
+differ by more than 30 (see "Elo vs Massey at the freeze"). **Investigate, never auto-fix:** a large
+gap usually means few matches or few matches against other conferences.
+
+### Built (SB-1812)
+
+| Piece | Where |
+|---|---|
+| Read model | `backend/mt_tools/power_rating_audit.py`: pure `build_audit` over the stored rows, and `get_power_rating_audit`, which gathers through `ToolDeps.power_rating` |
+| Storage read | `PowerRatingDAO.massey_ranks(run_id)`: the stored `massey_rank` per team, read uncached and apart from `run_payload`, so the cached payloads keep their shape |
+| API | `GET /api/admin/power-rating/audit?age_group=&league=Homegrown&season=&min_gap=30`, admin only (`require_admin`; club and team managers get 403) |
+| Admin UI | Admin → System → *Power Rating audit* (`frontend/src/components/admin/AdminPowerRatingAudit.vue`), `adminOnly`, so club managers never see it |
+
+- **Like with like.** The stored `massey_rank` counts ranked teams (6+ matches) **within their
+  island**. The national `rank` counts the main island only, and only on a national run, so it is
+  not the other side of the comparison. The audit recomputes the Elo rank the same way: the teams
+  that have a Massey rank, within the same island, by rating, ties by team id. This is what
+  `rank_gaps` in the engine does at compute time. An unranked team is never compared.
+- **Rows.** Flagged when `|gap| > min_gap`. `gap = massey_rank − elo_rank`, so it is **positive
+  when Elo ranks the team higher**. Biggest gap first. Each row has the team, conference, island,
+  rounded Elo rating, both ranks, MP, cross-conference MP and badges. A team missing from the team
+  index (a test team) is still listed, by id, because it moved the other teams' places.
+- **Summary.** The run (id, computed_at), `teams_compared`, `flagged_count`, and the Spearman rank
+  correlation for each island (`islands`). The top-level `rank_correlation` is the largest island's.
+  It is null for an island with fewer than 2 teams. `scope` and `note` say the above in one line each.
+- **No run** is 200: `teams: []`, `run: null`, `reason`. A run with nothing to compare has a
+  `reason` too. An unknown league, age group or season is 400. A negative `min_gap` is 422. A failed
+  read is 503.
+- **The admin view.** Age pills (U15–U19), a gap input (default 30, applied on change; a negative
+  or fractional value is ignored), the summary line and the flagged table. Rows stack on mobile.
+  *Recompute now* posts to the admin recompute (every default age group), is disabled while it
+  runs, shows each age group's status, run and team count, and then reads the audit again.
+
 ## UI (Ranking tab → Power Rating)
 
 **Row:**
