@@ -97,6 +97,18 @@
                   >
                     {{ match.match_status || 'scheduled' }}
                   </div>
+                  <!-- SB-1801: no name or role, just the fact. -->
+                  <div
+                    v-if="
+                      match.match_status === 'completed' &&
+                      match.scoring_mode === 'live'
+                    "
+                    class="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider text-slate-200 bg-slate-600/60"
+                    data-testid="scored-live-badge"
+                  >
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                    Scored live
+                  </div>
                 </div>
 
                 <!-- Countdown to kickoff -->
