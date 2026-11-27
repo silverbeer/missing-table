@@ -1603,6 +1603,30 @@ class MissingTableClient:
             params["season"] = season
         return self._request("GET", "/api/leaderboards", params=params).json()
 
+    def get_power_rating(
+        self,
+        age_group: str,
+        league: str = "Homegrown",
+        season: str | None = None,
+        view: str | None = None,
+        conference: str | None = None,
+    ) -> dict[str, Any]:
+        """The MT Power Rating for a league and age group, from its latest run (SB-1808)."""
+        params: dict[str, Any] = {"age_group": age_group, "league": league}
+        for key, value in (("season", season), ("view", view), ("conference", conference)):
+            if value:
+                params[key] = value
+        return self._request("GET", "/api/rankings", params=params).json()
+
+    def get_power_rating_team(
+        self, team_id: int, age_group: str, league: str = "Homegrown", season: str | None = None
+    ) -> dict[str, Any]:
+        """One team in the latest Power Rating run: why it moved (SB-1808)."""
+        params: dict[str, Any] = {"age_group": age_group, "league": league}
+        if season:
+            params["season"] = season
+        return self._request("GET", f"/api/rankings/teams/{team_id}", params=params).json()
+
     def get_team_dossier(
         self, team_id: int, age_group_id: int | None = None, for_match_id: int | None = None
     ) -> dict[str, Any]:

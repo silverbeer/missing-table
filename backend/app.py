@@ -5,7 +5,7 @@ import os
 from collections import Counter
 from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from dotenv import load_dotenv
@@ -9671,6 +9671,61 @@ async def get_leaderboards(
         raise HTTPException(status_code=400, detail=result.error.message)
     if result.error:
         raise HTTPException(status_code=503, detail="Leaderboards are unavailable right now")
+    return result.model_dump(mode="json")
+
+
+@app.get("/api/rankings")
+async def get_rankings(
+    age_group: str,
+    league: str = "Homegrown",
+    season: str | None = None,
+    view: Literal["national", "conference"] | None = None,
+    conference: str | None = None,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """The MT Power Rating for a league and age group, from its latest run (SB-1808).
+
+    The same result as mt-mcp's get_power_rating and `mt rankings`. Logged-in
+    users only: MT is invite-only, and this names minors' teams. `view=national`
+    is served only when the run is national; otherwise the conference lists,
+    with `publication.reason`. No run yet is 200 with `teams` [] and a `reason`;
+    an unknown league, age group, season or conference is 400; a failed read is 503.
+    """
+    from mt_tools.power_rating_read import get_power_rating
+
+    result = await asyncio.to_thread(
+        get_power_rating, _my_team_deps(), age_group, league, season, view=view, conference=conference
+    )
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="The Power Rating is unavailable right now")
+    return result.model_dump(mode="json")
+
+
+@app.get("/api/rankings/teams/{team_id}")
+async def get_rankings_team(
+    team_id: int,
+    age_group: str,
+    league: str = "Homegrown",
+    season: str | None = None,
+    current_user: dict[str, Any] = Depends(get_current_user_required),
+):
+    """One team in the latest MT Power Rating run: why it moved (SB-1808).
+
+    Rating, ranks, strength of schedule, the 3 matches that moved it most, every
+    rated match, and one history point per week. The same result as mt-mcp's
+    get_power_rating_team and `mt rankings team`. Logged-in users only. A team
+    with no rated match (or no run yet) is 200 with `in_run` false and a `reason`;
+    an unknown team, league, age group or season is 400; a failed read is 503.
+    """
+    from mt_tools.power_rating_read import get_power_rating_team
+
+    result = await asyncio.to_thread(get_power_rating_team, _my_team_deps(), team_id, age_group, league, season)
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="The Power Rating is unavailable right now")
     return result.model_dump(mode="json")
 
 

@@ -2058,6 +2058,238 @@ def leaders(
         console.print(table)
 
 
+RANKING_VIEWS = ("national", "conference")
+
+
+def _ordinal(n: int) -> str:
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _movement(row: dict[str, Any]) -> str:
+    """Places and points since the run a week earlier. Absent is "—", never "0" (CLAUDE.md rule 2)."""
+    places, points = row.get("rank_change_7d"), row.get("rating_change_7d")
+    if places is None and points is None:
+        return "—"
+    moved = "—" if places is None else f"▲{places}" if places > 0 else f"▼{-places}" if places < 0 else "="
+    return f"{moved} · {_dash(points, '{:+d}')}"
+
+
+def _ranking_cells(row: dict[str, Any]) -> list[str]:
+    conference = row.get("conference") or "[yellow]no conference[/yellow]"
+    if row.get("conference") and row.get("conference_rank"):
+        conference += f" · {_ordinal(row['conference_rank'])}"
+    badges = [b.replace("_", " ") for b in row.get("badges") or []]
+    if row.get("pro_academy"):
+        badges.append("pro academy")
+    return [
+        "" if row.get("rank") is None else str(row["rank"]),
+        str(row.get("team") or "?"),
+        conference,
+        f"{row.get('rating', 0):,}",
+        _movement(row),
+        f"{row.get('w', 0)}-{row.get('d', 0)}-{row.get('l', 0)}",
+        str(row.get("mp", 0)),
+        ", ".join(badges),
+    ]
+
+
+def _ranking_table(title: str, rows: list[dict[str, Any]]) -> Table:
+    table = Table(title=title)
+    table.add_column("#", style="dim", no_wrap=True)
+    table.add_column("Team", style="white")
+    table.add_column("Conference", style="cyan")
+    table.add_column("Rating", justify="right", style="bold")
+    table.add_column("Move", justify="right")
+    table.add_column("W-D-L", justify="right", style="dim")
+    table.add_column("MP", justify="right")
+    table.add_column("Badges", style="dim")
+    for row in rows:
+        table.add_row(*_ranking_cells(row))
+    return table
+
+
+def _print_rankings(result: dict[str, Any], age_group: str) -> None:
+    run = result.get("run") or {}
+    console.print(
+        f"[bold]MT Power Rating · {result.get('league')} {result.get('age_group') or age_group.upper()} · "
+        f"{result.get('season') or '?'}[/bold]"
+    )
+    # The denominator comes first (CLAUDE.md rule 3).
+    cov = result.get("coverage") or {}
+    if cov.get("note"):
+        console.print(f"[dim]{cov['note']}[/dim]")
+    if run:
+        since = result.get("movement_since")
+        moved = f" · movement since run {since['run_id']}" if since else " · no run a week earlier: no movement"
+        console.print(
+            f"[dim]Run {run.get('id')} · computed {str(run.get('computed_at', '?'))[:10]} · "
+            f"through {run.get('through_date') or '—'}{moved}[/dim]"
+        )
+    publication = result.get("publication") or {}
+    if result.get("reason"):
+        console.print(f"[yellow]{result['reason']}[/yellow]")
+        return
+    if not publication.get("national"):
+        console.print(f"[yellow]No national list: {publication.get('reason') or 'not yet comparable'}[/yellow]")
+
+    teams = result.get("teams") or []
+    if result.get("view") == "national":
+        tiers = result.get("tiers") or []
+        for tier in tiers:
+            rows = [t for t in teams if t.get("rank") is not None and t.get("tier") == tier["key"]]
+            if rows:
+                console.print(_ranking_table(f"{tier['label']} · {tier['min']:,}+", rows))
+        lowest = min((t["min"] for t in tiers), default=None)
+        rest = [t for t in teams if t.get("rank") is not None and t.get("tier") is None]
+        if rest:
+            console.print(_ranking_table(f"Below {lowest:,}" if lowest is not None else "Ranked", rest))
+        apart = [t for t in teams if t.get("rank") is None]
+        if apart:
+            console.print(_ranking_table("Not yet comparable nationally", apart))
+    else:
+        groups: dict[str | None, list[dict[str, Any]]] = {}
+        for t in teams:
+            groups.setdefault(t.get("conference"), []).append(t)
+        for name, rows in groups.items():
+            console.print(_ranking_table(name or "No conference", rows))
+
+    unranked = result.get("unranked") or []
+    if unranked:
+        console.print(f"\n[dim]Unranked: fewer than {cov.get('min_matches', '?')} matches ({len(unranked)})[/dim]")
+        table = Table(style="dim")
+        table.add_column("Team")
+        table.add_column("Conference")
+        table.add_column("Matches", justify="right")
+        for row in unranked:
+            table.add_row(
+                str(row.get("team") or "?"),
+                row.get("conference") or "no conference",
+                f"{row.get('mp', 0)} of {row.get('needed', '?')}",
+                style="dim",
+            )
+        console.print(table)
+
+
+def _move_score(move: dict[str, Any]) -> str:
+    if move.get("goals_for") is None or move.get("goals_against") is None:
+        return "—"
+    score = f"{move['goals_for']}-{move['goals_against']}"
+    if move.get("penalties_for") is not None and move.get("penalties_against") is not None:
+        score += f" ({move['penalties_for']}-{move['penalties_against']} pens)"
+    return score
+
+
+def _print_ranking_team(result: dict[str, Any]) -> None:
+    console.print(
+        f"[bold]{result.get('team') or result.get('team_id')} · MT Power Rating · {result.get('league')} "
+        f"{result.get('age_group') or '?'} · {result.get('season') or '?'}[/bold]"
+    )
+    if not result.get("in_run"):
+        console.print(f"[yellow]{result.get('reason') or 'Not in the latest run.'}[/yellow]")
+        return
+    where = []
+    if result.get("rank") is not None:
+        where.append(f"national rank {result['rank']}")
+    if result.get("conference"):
+        place = f" · {_ordinal(result['conference_rank'])}" if result.get("conference_rank") else ""
+        where.append(f"{result['conference']}{place}")
+    if result.get("tier"):
+        where.append(str(result["tier"]).replace("_", " "))
+    console.print(f"Rating [bold]{result.get('rating', 0):,}[/bold]" + "".join(f" · {w}" for w in where))
+    console.print(
+        f"[dim]{result.get('mp', 0)} matches · {result.get('w', 0)}-{result.get('d', 0)}-{result.get('l', 0)} · "
+        f"{result.get('xconf_mp', 0)} against other conferences[/dim]"
+    )
+    if not result.get("ranked"):
+        mp = result.get("mp", 0)
+        console.print(f"[yellow]Unranked: {mp} of {mp + (result.get('needed') or 0)} matches[/yellow]")
+    if result.get("badges"):
+        console.print(f"[dim]Badges: {', '.join(b.replace('_', ' ') for b in result['badges'])}[/dim]")
+    sos = result.get("sos")
+    if sos:
+        ranked = f" — {_ordinal(sos['rank'])} toughest of {sos['of']} ({sos['scope']})" if sos.get("rank") else ""
+        console.print(f"Strength of schedule {sos['rating']:,}{ranked}")
+
+    movers = result.get("biggest_movers") or []
+    if movers:
+        table = Table(title="Biggest movers")
+        table.add_column("Date", style="magenta", no_wrap=True)
+        table.add_column("Opponent", style="white")
+        table.add_column("Result", justify="center")
+        table.add_column("Score", justify="right")
+        table.add_column("Expected", justify="right", style="dim")
+        table.add_column("Change", justify="right", style="bold")
+        for m in movers:
+            table.add_row(
+                str(m.get("match_date") or "—"),
+                str(m.get("opponent") or "?"),
+                str(m.get("result") or "?"),
+                _move_score(m),
+                f"{m.get('expected', 0):.0%}",
+                f"{m.get('delta', 0):+.1f}",
+            )
+        console.print(table)
+
+    history = result.get("history") or []
+    if history:
+        table = Table(title="Weekly history", style="dim")
+        table.add_column("Run", style="dim")
+        table.add_column("Computed", no_wrap=True)
+        table.add_column("Rating", justify="right")
+        table.add_column("Rank", justify="right")
+        table.add_column("Conf. rank", justify="right")
+        for h in history:
+            table.add_row(
+                str(h.get("run_id")),
+                str(h.get("computed_at", "?"))[:10],
+                f"{h.get('rating', 0):,}",
+                _dash(h.get("rank")),
+                _dash(h.get("conference_rank")),
+            )
+        console.print(table)
+
+
+@app.command("rankings")
+def rankings(
+    target: str = typer.Argument(..., help='Age group, e.g. U17; or "team" followed by a team'),
+    team: str = typer.Argument(None, help='After "team": team name or id'),
+    age: str = typer.Option(None, "--age", "-a", help='With "team": the age group, e.g. U15'),
+    league: str = typer.Option("Homegrown", "--league", "-l", help="Top-level league"),
+    season: str = typer.Option(None, "--season", "-s", help="Season name (default: current)"),
+    view: str = typer.Option(None, "--view", help="national or conference (national only when published)"),
+    conference: str = typer.Option(None, "--conference", "-c", help="One conference, e.g. Northeast"),
+    as_json: bool = typer.Option(False, "--json", help="Print the raw result"),
+):
+    """The MT Power Rating (SB-1808): `mt rankings U17`, or `mt rankings team "IFA" --age U15`.
+
+    National lists only once the conferences are connected by matches; until
+    then each conference is ranked on its own.
+    """
+    if target.casefold() == "team":
+        if not team or not age:
+            _fail('Usage: mt rankings team "<team>" --age U15')
+        client, _ = get_client()
+        team_row = _api(resolve_team, client, team)
+        result = _api(client.get_power_rating_team, team_row["id"], age, league=league, season=season)
+        if as_json:
+            console.print_json(data=result)
+            return
+        _print_ranking_team(result)
+        return
+
+    if team is not None:
+        _fail(f'Unexpected argument {team!r}. For one team: mt rankings team "<team>" --age U15')
+    if view is not None and view not in RANKING_VIEWS:
+        _fail(f"--view must be one of {', '.join(RANKING_VIEWS)}")
+    client, _ = get_client()
+    result = _api(client.get_power_rating, target, league=league, season=season, view=view, conference=conference)
+    if as_json:
+        console.print_json(data=result)
+        return
+    _print_rankings(result, target)
+
+
 # The ingest_failures kinds that are feed-vs-person conflicts rather than
 # names (SB-1787). Mirrors CONFLICT_KINDS in dao/ingest_failures_dao.py: the
 # CLI is an HTTP client and does not import the DAO layer.

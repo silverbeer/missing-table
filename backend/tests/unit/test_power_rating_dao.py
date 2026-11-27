@@ -355,6 +355,10 @@ class _Query:
         self.n = n
         return self
 
+    def range(self, start, end):
+        self.window = (start, end + 1)
+        return self
+
     def execute(self):
         rows = self.db.tables.setdefault(self.table, [])
         if self.table in self.db.fail_on and self.op == "insert":
@@ -378,6 +382,8 @@ class _Query:
         if hasattr(self, "sort"):
             col, desc = self.sort
             matched = sorted(matched, key=lambda r: (r.get(col), r["id"]), reverse=desc)
+        if hasattr(self, "window"):
+            matched = matched[self.window[0] : self.window[1]]
         return type("R", (), {"data": matched[: getattr(self, "n", None)]})
 
 
@@ -450,3 +456,72 @@ class TestWriteRun:
         week_ago = datetime(2026, 11, 14, 12, tzinfo=UTC)
         assert dao.run_as_of(184, U17, HOMEGROWN, week_ago)["id"] == a
         assert dao.run_as_of(184, U17, HOMEGROWN, datetime(2026, 11, 1, tzinfo=UTC)) is None
+
+
+class TestRunPayload:
+    """SB-1808: a run as served, cached by run id; a half-written run is never cached."""
+
+    def _cache(self, monkeypatch):
+        store: dict[str, object] = {}
+        monkeypatch.setattr("dao.power_rating_dao.cache_get", store.get)
+        monkeypatch.setattr("dao.power_rating_dao.cache_set", lambda key, value, ttl: store.__setitem__(key, value))
+        return store
+
+    def test_run_ratings_and_conference_names(self, monkeypatch):
+        cache = self._cache(monkeypatch)
+        db = FakeClient()
+        db.tables["divisions"] = [{"id": NORTHEAST, "name": "Northeast"}]
+        dao = make_dao(db)
+        run_id = dao.write_run(
+            {**scope_run(20), "matches_counted": 1},
+            [{"team_id": 1, "rating": 1510.0, "conference_division_id": NORTHEAST}, {"team_id": 2, "rating": 1490.0}],
+            [],
+        )
+        payload = dao.run_payload(run_id)
+        assert payload["run"]["id"] == run_id
+        assert [r["team_id"] for r in payload["ratings"]] == [1, 2]
+        assert payload["conferences"] == {str(NORTHEAST): "Northeast"}
+        assert cache == {f"mt:dao:power_rating:run:{run_id}": payload}
+
+    def test_a_cached_payload_is_served_without_a_read(self, monkeypatch):
+        cache = self._cache(monkeypatch)
+        cache["mt:dao:power_rating:run:5"] = {"run": {"id": 5}, "ratings": [], "conferences": {}}
+        dao = make_dao(FakeClient())
+        assert dao.run_payload(5)["run"] == {"id": 5}
+
+    def test_a_run_caught_before_its_ratings_is_not_cached(self, monkeypatch):
+        cache = self._cache(monkeypatch)
+        db = FakeClient()
+        db.tables["power_rating_runs"] = [{**scope_run(20), "id": 9, "matches_counted": 12}]
+        dao = make_dao(db)
+        assert dao.run_payload(9)["ratings"] == []
+        assert cache == {}
+
+    def test_an_empty_run_is_cached(self, monkeypatch):
+        cache = self._cache(monkeypatch)
+        db = FakeClient()
+        dao = make_dao(db)
+        run_id = dao.write_run({**scope_run(20), "matches_counted": 0}, [], [])
+        assert dao.run_payload(run_id)["ratings"] == []
+        assert list(cache) == [f"mt:dao:power_rating:run:{run_id}"]
+
+    def test_no_such_run(self, monkeypatch):
+        self._cache(monkeypatch)
+        assert make_dao(FakeClient()).run_payload(404) is None
+
+    def test_team_reads(self):
+        db = FakeClient()
+        dao = make_dao(db)
+        a = dao.write_run(scope_run(13), [{"team_id": 1, "rating": 1500.0}], [])
+        b = dao.write_run(
+            scope_run(20),
+            [{"team_id": 1, "rating": 1520.0}, {"team_id": 2, "rating": 1480.0}],
+            [{"match_id": 7, "team_id": 1, "delta": 20.0}, {"match_id": 7, "team_id": 2, "delta": -20.0}],
+        )
+        assert [r["id"] for r in dao.runs(184, U17, HOMEGROWN)] == [a, b]
+        assert {r["run_id"] for r in dao.team_ratings(1, [a, b])} == {a, b}
+        assert dao.team_ratings(1, []) == []
+        assert [d["delta"] for d in dao.team_deltas(b, 1)] == [20.0]
+        db.tables["matches_with_test"] = [{"id": 7, "home_score": 1}, {"id": 8, "home_score": 0}]
+        assert dao.matches_by_ids([7, 7]) == [{"id": 7, "home_score": 1}]
+        assert dao.matches_by_ids([]) == []

@@ -63,6 +63,12 @@ from mt_tools.leaderboards import LeaderboardsResult, get_leaderboards
 from mt_tools.matchup import MatchupResult, get_matchup
 from mt_tools.motw_candidates import MotwCandidatesResult, suggest_from_deps
 from mt_tools.my_team import MyTeamResult, resolve_my_team
+from mt_tools.power_rating_read import (
+    PowerRatingResult,
+    PowerRatingTeamResult,
+    get_power_rating,
+    get_power_rating_team,
+)
 from mt_tools.team_dossier import TeamDossierResult, get_team_dossier
 
 logger = structlog.get_logger()
@@ -91,6 +97,10 @@ Describing one team (a match preview, Match of the Day): get_team_dossier. Cite 
 ids, and never say one team is better than another from a different conference.
 Previewing one match (a Fest scouting report): get_matchup, both dossiers side by side.
 Cite its fact ids, and never compare the two teams across conferences.
+The MT Power Rating (an Elo rating from results): get_power_rating, and
+get_power_rating_team for one team's "why it moved". State coverage.note. Without a
+national list, teams are ranked within their conference only: never compare two
+conferences' ranks. An unranked team is "4 of 6 matches", never rank 0.
 """
 
 UNAVAILABLE = "MT could not answer that right now."
@@ -108,6 +118,8 @@ TOOL_TIERS: dict[str, Tier] = {
     "get_leaderboards": "read",
     "get_team_dossier": "read",
     "get_matchup": "read",
+    "get_power_rating": "read",
+    "get_power_rating_team": "read",
     "get_my_team": "my",
     "list_ingest_failures": "admin",
     "resolve_ingest_failure": "admin",
@@ -335,6 +347,53 @@ def register_tools(server: MCPServer, deps: DepsProvider, ingest: IngestProvider
         conferences: two conferences share no table."""
         viewer = Viewer.from_user(_caller().as_user())
         return await _run(lambda: get_matchup(deps(), match_id, viewer=viewer), "get_matchup")
+
+    @server.tool(name="get_power_rating")
+    async def get_power_rating_tool(
+        age_group: str,
+        league: str = "Homegrown",
+        season: str | None = None,
+        view: Literal["national", "conference"] | None = None,
+        conference: str | None = None,
+    ) -> PowerRatingResult:
+        """The MT Power Rating for one league at one age group (like "U17"), from its
+        latest nightly run: an Elo rating from League, Flex and tournament results
+        (a shoot-out is a draw), rounded. view "national" is served only when the run
+        is national (publication.national); otherwise the result is conference lists,
+        "view" says which was served and publication.reason why. National view: "rank"
+        and "tier" (cut-offs in "tiers"). Conference view: "rank" is null, use
+        "conference_rank", and never compare ranks across conferences. "conference"
+        filters to one of "conferences". rank_change_7d (places, up positive) and
+        rating_change_7d compare with the run a week earlier ("movement_since"): null
+        means no such run or the team was not in it, never 0. "unranked" teams have
+        under coverage.min_matches matches: say "mp of needed matches", never a rank.
+        Badges: "provisional", "low_cross_conference". Always state coverage.note.
+        "teams" [] with "reason" means no run yet or nothing rated; null with "error"
+        means MT could not check."""
+        _caller()
+        return await _run(
+            lambda: get_power_rating(deps(), age_group, league, season, view=view, conference=conference),
+            "get_power_rating",
+        )
+
+    @server.tool(name="get_power_rating_team")
+    async def get_power_rating_team_tool(
+        team_id: int, age_group: str, league: str = "Homegrown", season: str | None = None
+    ) -> PowerRatingTeamResult:
+        """One team in the latest MT Power Rating run at one age group (team_id from
+        search_teams, age_group like "U17"): rating, national "rank" (null without a
+        national list) and "conference_rank", tier, badges, "sos" (mean opponent rating
+        before each match, ranked toughest first within "scope"), "biggest_movers" (the
+        3 matches that moved it most: opponent, score from the team's side, "expected"
+        share of the points, "delta"), every rated match in "deltas", and "history" (one
+        point per week). "in_run" false with "reason" means the team has no rated
+        match (or there is no run yet): say so, it is not a rating of 0. An unranked
+        team needs "needed" more matches."""
+        _caller()
+        return await _run(
+            lambda: get_power_rating_team(deps(), team_id, age_group, league, season),
+            "get_power_rating_team",
+        )
 
     # --- my tier --------------------------------------------------------------
 

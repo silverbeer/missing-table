@@ -4,7 +4,9 @@ The tools depend on these Protocols rather than on the DAO classes, so tests
 pass small hand-written fakes and the real DAOs satisfy them unchanged.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 
@@ -83,6 +85,24 @@ class MotwSource(Protocol):
     def list_for_week(self, week_start: str, *, include_test: bool = False) -> list[dict]: ...
 
 
+class PowerRatingSource(Protocol):
+    """The stored MT Power Rating runs (`dao.power_rating_dao.PowerRatingDAO`, SB-1808)."""
+
+    def latest_run(self, season_id: int, age_group_id: int, league_id: int) -> dict | None: ...
+
+    def run_as_of(self, season_id: int, age_group_id: int, league_id: int, at: datetime) -> dict | None: ...
+
+    def run_payload(self, run_id: int) -> dict | None: ...
+
+    def runs(self, season_id: int, age_group_id: int, league_id: int) -> list[dict]: ...
+
+    def team_ratings(self, team_id: int, run_ids: Iterable[int]) -> list[dict]: ...
+
+    def team_deltas(self, run_id: int, team_id: int) -> list[dict]: ...
+
+    def matches_by_ids(self, match_ids: Iterable[int]) -> list[dict]: ...
+
+
 class SeasonSource(Protocol):
     def get_current_season(self) -> dict | None: ...
 
@@ -103,6 +123,8 @@ class ToolDeps:
     roster: RosterSource | None = None
     # suggest_motw_candidates only (SB-1551): the week's pick and the recent ones.
     motw: MotwSource | None = None
+    # get_power_rating / get_power_rating_team only (SB-1808): the stored runs.
+    power_rating: PowerRatingSource | None = None
 
 
 def dao_tool_deps() -> ToolDeps:
@@ -113,6 +135,7 @@ def dao_tool_deps() -> ToolDeps:
     from dao.match_dao import MatchDAO, SupabaseConnection
     from dao.match_event_dao import MatchEventDAO
     from dao.motw_dao import MotwDAO
+    from dao.power_rating_dao import PowerRatingDAO
     from dao.roster_dao import RosterDAO
     from dao.season_dao import SeasonDAO
     from dao.team_dao import TeamDAO
@@ -129,4 +152,5 @@ def dao_tool_deps() -> ToolDeps:
         events=MatchEventDAO(conn),
         roster=RosterDAO(conn),
         motw=MotwDAO(conn),
+        power_rating=PowerRatingDAO(conn),
     )

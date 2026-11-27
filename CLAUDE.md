@@ -263,6 +263,8 @@ mt team matches "IFA U15"              # every competition (default), with statu
 mt team matches "IFA U15" -c Flex      # one competition
 mt team matches "IFA U15" -c qualifying  # League + Flex — whatever is flagged
 mt leaders U15 -l Homegrown            # cross-conference stat boards (SB-1781): a stat board, not a ranking
+mt rankings U17 [--view conference]    # MT Power Rating, latest nightly run (SB-1808); national only once published
+mt rankings team "IFA" --age U15       # one team: rating, SOS, the 3 matches that moved it most, weekly history
 mt match show 1190                     # status, lineups, events
 mt player stats 42
 mt search --age U15 --days 30
@@ -463,7 +465,7 @@ Secrets are managed via Kubernetes Secrets - NEVER committed to git.
 `teams`, `matches`, `seasons`, `age_groups`, `divisions`, `match_types`, `team_match_types`, `user_profiles`, `match_of_the_week`, `tournament_match_of_the_day`, `division_age_groups`, `notification_channels`, `notification_deliveries`, `channel_members`
 
 ### API Routes
-`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/tournaments/{id}/motd`, `/api/notification-channels`, `/api/channels/*`, `/api/leaderboards` (cross-conference stat boards, logged-in), `/api/teams/{id}/dossier` (team inside its own conferences, logged-in), `/api/matches/{id}/matchup` (both teams' dossiers side by side, logged-in), `/api/admin/*` (incl. `/api/admin/coverage`)
+`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/tournaments/{id}/motd`, `/api/notification-channels`, `/api/channels/*`, `/api/leaderboards` (cross-conference stat boards, logged-in), `/api/rankings` + `/api/rankings/teams/{id}` (MT Power Rating, logged-in), `/api/teams/{id}/dossier` (team inside its own conferences, logged-in), `/api/matches/{id}/matchup` (both teams' dossiers side by side, logged-in), `/api/admin/*` (incl. `/api/admin/coverage`)
 
 ### Authentication Flow
 ```
