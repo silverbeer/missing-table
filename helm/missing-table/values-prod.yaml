@@ -5,17 +5,17 @@
 namespace: missing-table
 
 # Version information - updated by CI workflow
-version: "1.123.0" # version-tag
-buildId: "1970" # build-id
-commitSha: "a3ec93ca4b3660d0ffb3ae702a11ddf07ca71aae" # commit-sha  #pragma: allowlist secret
-buildDate: "2026-11-27T18:34:28Z" # build-date
+version: "1.124.0" # version-tag
+buildId: "1972" # build-id
+commitSha: "5be5d9752792a57592c1c87997e6f287fb481f43" # commit-sha  #pragma: allowlist secret
+buildDate: "2026-11-27T18:46:41Z" # build-date
 
 backend:
   replicaCount: 1
 
   image:
     repository: ghcr.io/silverbeer/missing-table-backend
-    tag: "a3ec93c" # backend-tag
+    tag: "5be5d97" # backend-tag
     pullPolicy: IfNotPresent
 
   env:
@@ -65,7 +65,7 @@ frontend:
 
   image:
     repository: ghcr.io/silverbeer/missing-table-frontend
-    tag: "a3ec93c" # frontend-tag
+    tag: "5be5d97" # frontend-tag
     pullPolicy: IfNotPresent
 
   # Production image uses nginx, not npm - override default command
