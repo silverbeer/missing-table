@@ -525,3 +525,12 @@ class TestRunPayload:
         db.tables["matches_with_test"] = [{"id": 7, "home_score": 1}, {"id": 8, "home_score": 0}]
         assert dao.matches_by_ids([7, 7]) == [{"id": 7, "home_score": 1}]
         assert dao.matches_by_ids([]) == []
+
+    def test_massey_ranks_skip_teams_without_one(self):
+        db = FakeClient()
+        dao = make_dao(db)
+        run_id = dao.write_run(
+            scope_run(20), [{"team_id": 1, "massey_rank": 2}, {"team_id": 2, "massey_rank": 1}, {"team_id": 3}], []
+        )
+        dao.write_run(scope_run(21), [{"team_id": 1, "massey_rank": 9}], [])
+        assert dao.massey_ranks(run_id) == {1: 2, 2: 1}

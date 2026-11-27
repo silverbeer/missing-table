@@ -9817,6 +9817,31 @@ async def get_competition_coverage(
         raise HTTPException(status_code=500, detail="Could not read competition coverage") from e
 
 
+@app.get("/api/admin/power-rating/audit")
+async def get_power_rating_audit(
+    age_group: str,
+    league: str = "Homegrown",
+    season: str | None = None,
+    min_gap: int = Query(30, ge=0),  # mt_tools.power_rating.RANK_GAP_FLAG
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Elo vs Massey places in the latest Power Rating run (SB-1812), admin only.
+
+    Teams whose two ranks, within their island, differ by more than `min_gap`
+    places; `gap` is positive when Elo ranks the team higher. Investigate, never
+    auto-fix. No run yet is 200 with `teams` [] and a `reason`; an unknown
+    league, age group or season is 400; a failed read is 503.
+    """
+    from mt_tools.power_rating_audit import get_power_rating_audit as build_audit
+
+    result = await asyncio.to_thread(build_audit, _my_team_deps(), age_group, league, season, min_gap=min_gap)
+    if result.error and result.error.kind == "invalid_args":
+        raise HTTPException(status_code=400, detail=result.error.message)
+    if result.error:
+        raise HTTPException(status_code=503, detail="The Power Rating audit is unavailable right now")
+    return result.model_dump(mode="json")
+
+
 @app.post("/api/admin/power-rating/recompute")
 async def recompute_power_rating(
     season_id: int | None = None,

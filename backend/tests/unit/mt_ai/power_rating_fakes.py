@@ -154,6 +154,12 @@ class FakePowerRating:
         self._check()
         return [dict(self.matches[i]) for i in set(match_ids) if i in self.matches]
 
+    def massey_ranks(self, run_id):
+        self._check()
+        return {
+            r["team_id"]: r["massey_rank"] for r in self.ratings.get(run_id, []) if r.get("massey_rank") is not None
+        }
+
 
 def deps(store: FakePowerRating | None = None, **kwargs):
     return replace(league_deps(**kwargs), power_rating=store if store is not None else FakePowerRating())
