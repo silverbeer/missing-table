@@ -1,7 +1,7 @@
 """Tournament announcement (SB-1797).
 
 One optional line an admin sets on a tournament ("Every MLS NEXT Fest match
-scored live"). NULL means none. On update None already means "leave
+scored"). NULL means none. On update None already means "leave
 unchanged", so a blank string is how an admin clears it.
 
 The endpoint tests use the real app with auth overridden and tournament_dao
@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.unit, pytest.mark.backend]
 
 ADMIN = {"user_id": "admin-1", "username": "admin", "role": "admin"}
 CREATE = {"name": "MLS NEXT Fest", "season_id": 184, "start_date": "2026-12-04"}
-LINE = "Every MLS NEXT Fest match scored live"
+LINE = "Every MLS NEXT Fest match scored"
 
 
 @pytest.fixture

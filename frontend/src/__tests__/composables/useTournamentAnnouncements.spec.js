@@ -19,7 +19,7 @@ import {
   _resetTournamentAnnouncements,
 } from '@/composables/useTournamentAnnouncements';
 
-const LINE = 'Every MLS NEXT Fest match scored live';
+const LINE = 'Every MLS NEXT Fest match scored';
 const FEST = {
   id: 6,
   name: 'MLS NEXT Fest',

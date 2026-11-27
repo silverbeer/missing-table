@@ -204,7 +204,7 @@ describe('TournamentIndex', () => {
 });
 
 describe('TournamentIndex — announcement (SB-1797)', () => {
-  const LINE = 'Every MLS NEXT Fest match scored live';
+  const LINE = 'Every MLS NEXT Fest match scored';
   const callout = (w, id) =>
     card(w, id).find('[data-testid="tournament-card-announcement"]');
 
