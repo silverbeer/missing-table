@@ -22,6 +22,7 @@ This section documents the system architecture, design decisions, and technical 
 | **[Leaderboards](leaderboards.md)** | Cross-conference stat boards (points, goals, unbeaten, wins over pro academies): counting rules, MIN_GP, not a ranking | 🟢 Beginner |
 | **[Power Rating engine](power-rating-engine.md)** | Pure Elo engine (SB-1805): parameters, what is rated, publication rule (islands, tiers), Massey audit, backtest reproduction | 🟡 Intermediate |
 | **[Team dossier](team-dossier.md)** | One team inside its own conference tables: positions, key wins, form, playing up, fact ids; never compared across conferences | 🟢 Beginner |
+| **[Power Rating (design)](power-rating.md)** | Draft design for a cross-conference rating: why results alone are not enough (islands), candidate models, Fest backtest | 🟡 Intermediate |
 | **[MLS NEXT Qualification — facts](mls-next-qualification-facts.md)** | Short answers: Fest, Flex, MLS NEXT Cup routes, each fact CONFIRMED / INFERRED / UNKNOWN with source. Agents answer from this. | 🟢 Beginner |
 | **[MLS NEXT Qualification 2026–27](mls-next-qualification-2026-27.md)** | Full research analysis: qualification matrix, U15 Northeast, worked Flex group (SB-1544). Evidence: [sources.md](../research/notes/mls-next-qualification-2026-27/sources.md) | 🟡 Intermediate |
 | **[Qualification data model](mls-next-qualification-data-model.md)** | Proposed entities for versioned, sourced rules + feature priorities | 🟡 Intermediate |
