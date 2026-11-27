@@ -14,22 +14,23 @@
       <li
         v-for="row in rows"
         :key="row.team.id"
-        class="flex items-center gap-2 py-1.5 text-sm"
+        class="py-1.5 text-sm"
         data-testid="unranked-row"
       >
-        <span class="flex-1 min-w-0 truncate text-fg">{{ row.team.name }}</span>
-        <span
-          v-if="row.no_conference"
-          class="shrink-0 rounded px-1.5 text-xs bg-surface-alt text-fg-muted"
-          >No Homegrown conference</span
-        >
-        <span v-else class="shrink-0 truncate text-xs text-fg-muted">{{
-          row.conference || '—'
+        <!-- Name gets the full width; conference and MP go underneath so a
+             chip never squeezes the name on a phone (SB-1796). -->
+        <span class="block line-clamp-2 break-words leading-snug text-fg">{{
+          row.team.name
         }}</span>
-        <span
-          class="shrink-0 w-12 text-right text-xs tabular-nums text-fg-muted"
-          >{{ row.gp }} MP</span
-        >
+        <span class="block text-xs text-fg-muted">
+          <span
+            v-if="row.no_conference"
+            class="inline-block rounded px-1.5 bg-surface-alt text-fg-muted"
+            >No Homegrown conference</span
+          >
+          <span v-else>{{ row.conference || '—' }}</span>
+          <span class="tabular-nums"> · {{ row.gp }} MP</span>
+        </span>
       </li>
     </ul>
     <p
