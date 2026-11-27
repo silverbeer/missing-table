@@ -131,7 +131,7 @@ Both tables have RLS enabled with one policy each: `*_admin_all` gated by `publi
 
 ### Backend
 
-- **`backend/api/webhooks_email.py`** — webhook endpoint at `POST /api/webhooks/email/inbound`. Verifies signature, fetches via `resend.Emails.Receiving.get`, threads, sanitizes, inserts, transitions. Registered in `app.py`.
+- **`backend/api/webhooks_email.py`** — webhook endpoint at `POST /api/webhooks/email/inbound`. Verifies signature, fetches via `resend.Emails.Receiving.get`, threads, sanitizes, inserts, transitions. Registered in `app.py`. Delivery events (`email.sent`, `email.delivered`, …) on the same endpoint go to `services/email_delivery.py` instead — see [Invitation email delivery status](#invitation-email-delivery-status-sb-1814).
 - **`backend/services/email_inbound.py`** — pure helpers consumed by the handler:
   - `verify_webhook()` — wraps `resend.Webhooks.verify` with env-driven secret + typed `WebhookVerificationError`. **Key gotcha**: Resend's `WebhookHeaders` TypedDict uses short keys `id`/`timestamp`/`signature`, not the prefixed HTTP header names. See "Lessons learned" below.
   - `sanitize_html()` — bleach allowlist. Conservative tag set; protocols limited to `http`/`https`/`mailto`.
@@ -181,7 +181,39 @@ Both tables have RLS enabled with one policy each: `*_admin_all` gated by `publi
 Not in source control, but the configured state matters:
 
 - **Domains** → `contact.missingtable.com` → Receiving toggled **on**.
-- **Webhooks** → endpoint `https://api.missingtable.com/api/webhooks/email/inbound`, subscribed only to `email.received`, signing secret stored in AWS Secrets Manager (`resend_api_key` property).
+- **Webhooks** → endpoint `https://api.missingtable.com/api/webhooks/email/inbound`, subscribed to `email.received` plus the seven delivery events below (SB-1814), signing secret stored in AWS Secrets Manager (`resend_api_key` property).
+
+## Invitation email delivery status (SB-1814)
+
+An invitation's `status` of `pending` means "not redeemed yet" — it says nothing about whether the email arrived. Resend does know, so the invite send records Resend's email id and the webhook above records what Resend later reports. Admin → Invites → **Existing Invites** shows it as a chip under the invite status.
+
+**One endpoint, one secret.** A Resend webhook can subscribe to many event types and signs them all with the same secret, so delivery events arrive at the existing `POST /api/webhooks/email/inbound`. The handler verifies the signature exactly as before; `email.received` keeps its path unchanged, and delivery events go to `record_delivery_event` in `backend/services/email_delivery.py`.
+
+**Resend dashboard step.** On the existing webhook, add these events (keep `email.received`):
+
+`email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed`, `email.suppressed`
+
+`email.opened`, `email.clicked` and `email.scheduled` are ignored if subscribed; there is no reason to tick them.
+
+**Columns on `invitations`** (`supabase/migrations/20261127130000_invitation_email_delivery.sql`):
+
+| Column | Meaning |
+|---|---|
+| `resend_email_id` | Resend id of the latest invitation email (indexed). Set by `InviteService` on create and on admin resend — a resend replaces it, so events for the earlier email stop matching. |
+| `email_status` | `sent` \| `delivered` \| `delayed` \| `bounced` \| `complained` \| `failed` \| `suppressed`. **NULL = not tracked** (no address, send refused, or sent before SB-1814); the UI renders it as nothing, never "not delivered". |
+| `email_status_at` | The event's `created_at`. |
+| `email_status_detail` | Bounce reason from `bounce.type` + `bounce.subType`, e.g. `Permanent: Suppressed`. The raw SMTP diagnostic (`bounce.message`) is never stored. |
+
+**Rules the handler keeps:**
+
+- **Unknown email id → 200 `ignored`.** Support replies, password resets and pre-SB-1814 invites all produce events too. Resend auto-disables an endpoint that keeps failing, so nothing routine may be a 4xx/5xx.
+- **Precedence, not arrival order.** `sent` < `delayed` < `delivered` < (`bounced` | `complained` | `failed` | `suppressed`). A status only replaces a lower one: `delivered` never overwrites `bounced`, a `complained` after `delivered` wins, and the first final outcome stays. A retried event (same svix-id) is therefore a no-op.
+- **Compare-and-set write.** The update matches the status that was read and the current `resend_email_id`, so concurrent events or a resend in flight cannot clobber each other.
+- **Logs mask the recipient** (`_mask` → `pat***@example.com`) and never include the payload.
+
+**Deploy order.** Run `migrate prod` before ticking the new events in Resend: the webhook looks invitations up by `resend_email_id`, and a lookup against a database without the column is a 500 that Resend retries. The send path is tolerant either way — recording the id is best effort and never fails an invite.
+
+**Known gap.** If Resend's `email.sent` / `email.delivered` reaches the webhook before the send call has returned and the id has been stored (a sub-second race), that event is ignored and the invite stays at **Sending…**. Resend → Emails is the source of truth if a chip looks stuck.
 
 ## Operations
 
