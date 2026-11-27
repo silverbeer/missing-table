@@ -368,6 +368,41 @@
               ></textarea>
             </div>
 
+            <!-- Announcement (SB-1797) -->
+            <div class="mb-4">
+              <div class="flex items-baseline justify-between gap-2 mb-1">
+                <label
+                  for="tournament-announcement"
+                  class="block text-sm font-medium text-fg"
+                  >Announcement</label
+                >
+                <span
+                  class="text-xs text-fg-muted tabular-nums"
+                  data-testid="tournament-announcement-count"
+                  >{{ (tForm.announcement || '').length }}/{{
+                    ANNOUNCEMENT_MAX
+                  }}</span
+                >
+              </div>
+              <input
+                id="tournament-announcement"
+                v-model="tForm.announcement"
+                type="text"
+                :maxlength="ANNOUNCEMENT_MAX"
+                class="w-full px-3 py-2 bg-card text-fg border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="e.g. Every MLS NEXT Fest match scored live"
+                aria-describedby="tournament-announcement-help"
+                data-testid="tournament-announcement-input"
+              />
+              <p
+                id="tournament-announcement-help"
+                class="mt-1 text-xs text-fg-muted"
+              >
+                One line shown on the tournament card and banner. Leave empty
+                for none.
+              </p>
+            </div>
+
             <!-- Logo -->
             <div class="mb-4">
               <label class="block text-sm font-medium text-fg mb-1">Logo</label>
@@ -738,6 +773,9 @@ import { bustApiCache } from '../../utils/swCache';
 import { ROUND_LABELS_LONG as ROUND_LABELS } from '../../utils/tournamentRounds';
 import TeamCombobox from '../ui/TeamCombobox.vue';
 
+// Mirrors the tournaments.announcement CHECK and TournamentCreate (SB-1797).
+const ANNOUNCEMENT_MAX = 160;
+
 export default {
   name: 'AdminTournaments',
   components: { TeamCombobox },
@@ -800,6 +838,7 @@ export default {
         end_date: '',
         location: '',
         description: '',
+        announcement: '',
         age_group_ids: [],
         is_active: true,
       };
@@ -975,6 +1014,7 @@ export default {
         end_date: tournament.end_date || '',
         location: tournament.location || '',
         description: tournament.description || '',
+        announcement: tournament.announcement || '',
         age_group_ids: (tournament.age_groups || []).map(ag => ag.id),
         is_active: tournament.is_active,
       };
@@ -1054,6 +1094,8 @@ export default {
         if (!payload.end_date) payload.end_date = null;
         if (!payload.location) payload.location = null;
         if (!payload.description) payload.description = null;
+        // Always sent: an empty string clears it server-side (SB-1797).
+        payload.announcement = (payload.announcement || '').trim();
 
         let tournamentId;
         if (editingTournament.value) {
@@ -1268,6 +1310,7 @@ export default {
     });
 
     return {
+      ANNOUNCEMENT_MAX,
       // data
       tournaments,
       loading,

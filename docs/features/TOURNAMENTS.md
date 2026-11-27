@@ -159,6 +159,35 @@ completed. Within a state, **anything still ahead sorts soonest-first and
 anything finished sorts most-recent-first** — the tournament someone wants to
 revisit is the one that just ended.
 
+## Announcements
+
+An admin can give a tournament one line — "Every MLS NEXT Fest match scored
+live" — in the Announcement field of the admin tournament form (SB-1797).
+
+- **Storage.** `tournaments.announcement`, nullable `TEXT`, 1–160 characters
+  (CHECK constraint, migration `20261127120000_add_tournament_announcement.sql`).
+  `NULL` means none. It is in `TOURNAMENT_SELECT` (`tournament_dao.py`), so
+  `GET /api/tournaments`, `GET /api/tournaments/{id}` and
+  `GET /api/admin/tournaments` all return it.
+- **Writing it.** `POST` / `PUT /api/admin/tournaments[/{id}]` accept
+  `announcement` (max 160, else 422). The value is trimmed. On `PUT`, omitting
+  the field (or `null`) leaves it unchanged and an empty or whitespace-only
+  string clears it to `NULL` — the admin form always sends the field, so
+  emptying the input clears it.
+- **Where it shows.** A one-line accent callout on the tournament's card in the
+  season index (`tournament-card-announcement`), and a strip directly under
+  the hero card's status ribbon (`tournament-announcement`). The strip is its
+  own element, so it still shows when the ribbon is hidden for want of dates.
+  Both wrap on a phone. No announcement renders no element — never placeholder
+  text.
+- **The tab dot.** `useTournamentAnnouncements` fetches `GET /api/tournaments`
+  once per app load (signed in only — the tabs do not exist otherwise) and puts
+  an accent dot on the Tournaments tab while any active tournament carries an
+  announcement this browser has not seen. Opening the tab marks every current
+  announcement seen in localStorage (`mt_seen_announcements`, a list of
+  `<tournament_id>:<hash of text>`), so an edited announcement shows the dot
+  again. A failed fetch shows no dot.
+
 ## Absent is not zero
 
 This page is where the CLAUDE.md rule bit hardest, so it is worth restating.
@@ -692,16 +721,19 @@ showing them.
 | `__tests__/utils/tournamentGroups.spec.js` | Group format: namespaced, legacy, absent |
 | `__tests__/components/ScorePill.spec.js` | The absent-is-not-zero guard, including the 42 real draws |
 | `__tests__/components/TournamentMatchRow.spec.js` | Row states, club highlight, chips |
-| `__tests__/components/TournamentHeroCard.spec.js` | Ribbon, schedule link, next-match strip, stats |
+| `__tests__/components/TournamentHeroCard.spec.js` | Ribbon, announcement strip, schedule link, next-match strip, stats |
 | `__tests__/components/TournamentMatchCenter.spec.js` | Wiring and filters |
 | `__tests__/utils/tournamentRoute.spec.js` | `/tournaments` and `/tournaments/<id>` parsing and building |
-| `__tests__/components/TournamentIndex.spec.js` | Index cards: order, status words, logo vs placeholder, no number for a `null` count, live styling, dates and location |
+| `__tests__/components/TournamentIndex.spec.js` | Index cards: order, status words, logo vs placeholder, no number for a `null` count, live styling, dates and location, announcement callout |
 | `__tests__/components/TournamentMatchCenterIndex.spec.js` | Index vs detail and history: card push, direct link, another season's link (large still pages), unknown id, back / `popstate`, one-tournament season, empty season, unchanged `document.title`; late answers after unmount and after back during a lookup |
 | `__tests__/components/TournamentDeepLink.spec.js` | App level: signed in lands on the tournament; signed out (on load or by back / forward) shows only the login prompt and makes no `/api/tournaments` request; sign-in (password and Google) returns to it; leaving the tab or signing out resets the URL and stops requests; the return path is cleared by a normal load and a failed Google sign-in |
 | `backend/tests/unit/test_tournament_match_counts.py` | Exact per-tournament counts; a failed or missing count is `None`, a real empty tournament `0` |
 | `__tests__/components/TournamentMatchCenterFestScale.spec.js` | Large tournaments: showcase-only and groups-plus-finals age groups, request parameters, degraded filters, small tournament unchanged |
 | `__tests__/components/TournamentFilters.spec.js` | Age Group / Group controls; the three states of `groups` |
 | `__tests__/components/AdminTournaments.truncation.spec.js` | Exact count and the truncation note in the admin panel |
+| `__tests__/components/AdminTournaments.announcement.spec.js` | The announcement field: counter, sent trimmed on create and update, empty clears |
+| `__tests__/composables/useTournamentAnnouncements.spec.js` | Tab dot: unseen, seen, changed text, inactive tournament, failed fetch, one fetch per load |
+| `backend/tests/unit/test_tournament_announcement.py` | Announcement passes through create/update, blank clears to `NULL`, over 160 is 422 |
 | `__tests__/composables/useTournamentMatches.spec.js` | The scale switch, default age group, filter changes, paging, stale answers |
 | `__tests__/utils/tournamentStages.spec.js` | Stage sections and their titles |
 | `backend/tests/unit/test_tournament_filters.py` | Query parsing and facet shaping (pure) |

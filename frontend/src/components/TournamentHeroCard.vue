@@ -32,6 +32,30 @@
       >
     </div>
 
+    <!-- The admin's one line (SB-1797). Its own strip under the ribbon, so it
+         shows even when the ribbon is hidden for want of dates. None set: no
+         element at all. -->
+    <div
+      v-if="announcement"
+      class="flex items-start gap-2 px-4 sm:px-5 py-2 bg-brand-700 text-accent-300 text-sm font-semibold break-words"
+      data-testid="tournament-announcement"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        class="mt-0.5 h-4 w-4 shrink-0"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z" />
+        <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+      </svg>
+      <span class="min-w-0">{{ announcement }}</span>
+    </div>
+
     <div class="px-4 sm:px-5 pt-4 flex items-start gap-3 sm:gap-4 flex-wrap">
       <img
         v-if="tournament.logo_url"
@@ -151,6 +175,7 @@ import {
   relativeDayLabel,
   SCORED_STATUSES,
 } from '../utils/tournamentStatus';
+import { announcementText } from '../composables/useTournamentAnnouncements';
 
 const props = defineProps({
   tournament: { type: Object, required: true },
@@ -193,6 +218,8 @@ const status = computed(() =>
     now.value
   )
 );
+
+const announcement = computed(() => announcementText(props.tournament));
 
 const ribbonStageLabel = computed(() =>
   isPartial.value ? null : props.stageLabel

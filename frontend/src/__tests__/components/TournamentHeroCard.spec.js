@@ -228,3 +228,39 @@ describe('TournamentHeroCard — quick stats', () => {
     expect(days.text()).toContain('2');
   });
 });
+
+describe('TournamentHeroCard — announcement (SB-1797)', () => {
+  const LINE = 'Every MLS NEXT Fest match scored live';
+  const banner = w => w.find('[data-testid="tournament-announcement"]');
+
+  it('shows the announcement under the status ribbon', () => {
+    const w = mountCard({ tournament: tournament({ announcement: LINE }) });
+    expect(w.find('[data-testid="tournament-status-ribbon"]').exists()).toBe(
+      true
+    );
+    expect(banner(w).text()).toBe(LINE);
+  });
+
+  it('still shows it when the ribbon is hidden for want of dates', () => {
+    const w = mountCard({
+      tournament: tournament({
+        start_date: null,
+        end_date: null,
+        announcement: LINE,
+      }),
+    });
+    expect(w.find('[data-testid="tournament-status-ribbon"]').exists()).toBe(
+      false
+    );
+    expect(banner(w).text()).toBe(LINE);
+  });
+
+  it('none set: no element at all', () => {
+    expect(banner(mountCard()).exists()).toBe(false);
+    expect(
+      banner(
+        mountCard({ tournament: tournament({ announcement: '' }) })
+      ).exists()
+    ).toBe(false);
+  });
+});
