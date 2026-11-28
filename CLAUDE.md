@@ -273,6 +273,9 @@ mt team mapping list "NEFC"            # which age groups a team is registered i
 mt team mapping add "NEFC" -a U16 -d Northeast
 mt team guest add "CF Montreal" -a U15 -d "New England" -r "why"  # no table row, results still count (SB-1598), admin
 mt team dossier "IFA" --age U15 [--match 501]  # the team inside its own conference tables, fact ids (SB-1780)
+mt team merge 581 937                  # fold a duplicate team in; dry run first, old name kept as alias (SB-1822), admin
+mt club merge 247 446                  # same for clubs; target keeps its crest (SB-1822), admin
+mt club logo-gaps [--season ID] [--all]  # teams with no club, clubs with no/hot-linked crest (SB-1815), admin
 mt ingest failures                     # what the scraper could not resolve
 mt ingest resolve 1 --note "fixed at the sender"
 mt ingest plan --teams fest.json -o plan.json  # read-only: which tournament names resolve, proposed aliases/teams (SB-1763), admin
@@ -465,7 +468,7 @@ Secrets are managed via Kubernetes Secrets - NEVER committed to git.
 `teams`, `matches`, `seasons`, `age_groups`, `divisions`, `match_types`, `team_match_types`, `user_profiles`, `match_of_the_week`, `tournament_match_of_the_day`, `division_age_groups`, `notification_channels`, `notification_deliveries`, `channel_members`
 
 ### API Routes
-`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/tournaments/{id}/motd`, `/api/notification-channels`, `/api/channels/*`, `/api/leaderboards` (cross-conference stat boards, logged-in), `/api/rankings` + `/api/rankings/teams/{id}` (MT Power Rating, logged-in), `/api/teams/{id}/dossier` (team inside its own conferences, logged-in), `/api/matches/{id}/matchup` (both teams' dossiers side by side, logged-in), `/api/admin/*` (incl. `/api/admin/coverage`)
+`/api/auth/*`, `/api/standings`, `/api/matches`, `/api/match-types`, `/api/teams`, `/api/motw`, `/api/tournaments/{id}/motd`, `/api/notification-channels`, `/api/channels/*`, `/api/leaderboards` (cross-conference stat boards, logged-in), `/api/rankings` + `/api/rankings/teams/{id}` (MT Power Rating, logged-in), `/api/teams/{id}/dossier` (team inside its own conferences, logged-in), `/api/matches/{id}/matchup` (both teams' dossiers side by side, logged-in), `/api/admin/*` (incl. `/api/admin/coverage`, `/api/admin/clubs/logo-gaps`, `/api/admin/{teams,clubs}/{id}/merge-into/{id}`)
 
 ### Authentication Flow
 ```

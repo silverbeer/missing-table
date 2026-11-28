@@ -6208,6 +6208,64 @@ async def delete_club(club_id: int, current_user: dict[str, Any] = Depends(requi
         raise HTTPException(status_code=500, detail="An unexpected error occurred while deleting the club.") from e
 
 
+@app.post("/api/admin/clubs/{from_id}/merge-into/{into_id}")
+async def merge_club_into(
+    from_id: int,
+    into_id: int,
+    dry_run: bool = True,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Fold duplicate club `from_id` into `into_id` (SB-1822), admin only.
+
+    Dry run by default. The target keeps its own crest and colours; the
+    source's fill only the ones the target lacks.
+    """
+    if from_id == into_id:
+        raise HTTPException(status_code=400, detail="Choose two different clubs")
+    try:
+        result = club_dao.merge_club(from_id, into_id, dry_run=dry_run)
+    except Exception as e:
+        raise _merge_http_error(e, "club") from e
+    _log_incomplete_dry_run(result, "club", from_id, into_id)
+    if not dry_run:
+        logger.info(
+            "Club merged",
+            from_id=from_id,
+            into_id=into_id,
+            tables=result.get("tables"),
+            copied=result.get("copied"),
+            actor=current_user.get("username"),
+        )
+    return result
+
+
+@app.get("/api/admin/clubs/logo-gaps")
+async def get_club_logo_gaps(
+    season_id: int | None = None,
+    include_all: bool = Query(False, alias="all"),
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Crest gaps without SQL (SB-1815), admin only.
+
+    Teams with no club (so no crest at all), clubs with no logo, and clubs
+    whose logo_url is hot-linked from somewhere other than our club-logos
+    bucket. Scoped to teams that played in the season (default: current) and
+    their clubs; `all=true` reports every team and club.
+    """
+    try:
+        target = None
+        if not include_all:
+            target = season_id if season_id is not None else season_dao.get_current_season_id()
+            if target is None:
+                raise HTTPException(status_code=400, detail="No current season is set")
+        return club_dao.logo_gaps(target)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reading club logo gaps: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not read club logo gaps") from e
+
+
 # Team Mappings CRUD
 @app.post("/api/team-mappings")
 async def create_team_mapping(
@@ -8503,6 +8561,69 @@ async def create_team_alias(
             raise HTTPException(status_code=409, detail="That alias already exists") from e
         logger.error(f"Error creating team alias: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create alias") from e
+
+
+# merge_team/merge_club raise their own refusals with these SQLSTATEs
+# (20261128120000_merge_team_club.sql). Anything else is unexpected.
+_MERGE_REFUSALS = {
+    "MTNF1": (404, "{What} not found"),
+    "MTBLK": (409, "This {what} merge is blocked; run a dry run to see what needs resolving first"),
+    "MTSAM": (400, "Choose two different {what}s"),
+}
+
+
+def _merge_http_error(e: Exception, what: str) -> HTTPException:
+    """A merge RPC failure as a client error, without the database's wording."""
+    refusal = _MERGE_REFUSALS.get(getattr(e, "code", None))
+    if refusal:
+        status, detail = refusal
+        return HTTPException(status_code=status, detail=detail.format(what=what, What=what.capitalize()))
+    logger.error(f"Error merging {what}: {e}", exc_info=True)
+    return HTTPException(status_code=500, detail=f"Failed to merge {what}")
+
+
+def _log_incomplete_dry_run(result: dict, what: str, from_id: int, into_id: int) -> None:
+    """A dry run that stopped early: the payload names a SQLSTATE, the log keeps it."""
+    if result.get("error"):
+        logger.warning(
+            f"{what.capitalize()} merge dry run stopped early",
+            from_id=from_id,
+            into_id=into_id,
+            error=result.get("error"),
+        )
+
+
+@app.post("/api/admin/teams/{from_id}/merge-into/{into_id}")
+async def merge_team_into(
+    from_id: int,
+    into_id: int,
+    dry_run: bool = True,
+    current_user: dict[str, Any] = Depends(require_admin),
+):
+    """Fold duplicate team `from_id` into `into_id` (SB-1822), admin only.
+
+    Dry run by default: the response lists per-table {moved, dropped} counts
+    and any blockers, and nothing changes. `dry_run=false` does it for real,
+    keeping the retired name as a former_name alias so the feed resolves
+    either spelling.
+    """
+    if from_id == into_id:
+        raise HTTPException(status_code=400, detail="Choose two different teams")
+    try:
+        result = team_dao.merge_team(from_id, into_id, dry_run=dry_run)
+    except Exception as e:
+        raise _merge_http_error(e, "team") from e
+    _log_incomplete_dry_run(result, "team", from_id, into_id)
+    if not dry_run:
+        logger.info(
+            "Team merged",
+            from_id=from_id,
+            into_id=into_id,
+            tables=result.get("tables"),
+            alias=result.get("alias"),
+            actor=current_user.get("username"),
+        )
+    return result
 
 
 @app.get("/api/admin/users/login-events")

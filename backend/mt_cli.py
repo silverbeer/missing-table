@@ -2991,6 +2991,110 @@ def team_set_club(
     console.print(f"[green]{current.get('name')} now belongs to {target.get('name')}[/green]")
 
 
+def _print_merge(result: dict, title: str) -> list[dict]:
+    """The per-table counts of a merge, then its blockers. Returns the blockers."""
+    tables = result.get("tables") or {}
+    # A blocked dry run can stop before counting anything; an empty table
+    # would read as "nothing references this".
+    if tables:
+        table = Table(title=title)
+        table.add_column("Table", style="cyan")
+        table.add_column("Moved", justify="right")
+        table.add_column("Dropped", justify="right")
+        for name, counts in sorted(tables.items()):
+            moved, dropped = counts.get("moved", 0), counts.get("dropped", 0)
+            style = None if moved or dropped else "dim"
+            table.add_row(name, str(moved), str(dropped), style=style)
+        console.print(table)
+        console.print("[dim]dropped = the target already had that row, or it is derived and gets recomputed[/dim]")
+
+    blockers = result.get("blockers") or []
+    for b in blockers:
+        ref = ", ".join(f"{k} {v}" for k, v in b.items() if k not in ("kind", "detail"))
+        console.print(f"[red]blocked[/red] {b.get('kind')}: {b.get('detail')} ({ref})")
+    return blockers
+
+
+def _resolve_exact(items: list[dict], term: str, kind: str) -> dict:
+    """One row by id or by its exact full name (case-insensitive).
+
+    Merges delete a row, so the near-miss matching every other command offers
+    is refused here: "City SC" must not quietly become "City SC San Diego".
+    """
+    if str(term).isdigit():
+        target = int(term)
+        for item in items:
+            if item.get("id") == target:
+                return item
+        raise ResolutionError(f"No {kind} with id {target}")
+    needle = term.lower().strip()
+    exact = [i for i in items if (i.get("name") or "").lower().strip() == needle]
+    if len(exact) == 1:
+        return exact[0]
+    if exact:
+        ids = ", ".join(f"#{i['id']}" for i in exact)
+        raise ResolutionError(f"{len(exact)} {kind}s are named {term!r} ({ids}); use the id")
+    raise ResolutionError(f"No {kind} named exactly {term!r}; merges need the exact name or the id")
+
+
+def _run_merge(kind: str, source: dict, target: dict, merge_fn, yes: bool) -> dict:
+    """Dry run, show it, confirm, then merge for real. Shared by team and club."""
+    if source["id"] == target["id"]:
+        _fail(f"Both arguments are {kind} #{source['id']}")
+
+    console.print(
+        f"[bold]{source.get('name')}[/bold] ({kind} #{source['id']}) -> "
+        f"[bold]{target.get('name')}[/bold] ({kind} #{target['id']})"
+    )
+    preview = _api(merge_fn, source["id"], target["id"], dry_run=True)
+    blockers = _print_merge(preview, f"Dry run: merge {kind} #{source['id']} into #{target['id']}")
+    # A dry run stops early at the first constraint it trips (often the one a
+    # blocker names); the payload says which, as a SQLSTATE and table.
+    error = preview.get("error") or {}
+    if error:
+        where = ", ".join(f"{k} {v}" for k, v in error.items())
+        console.print(f"[yellow]dry run stopped early: {where}[/yellow]")
+    if blockers:
+        _fail(f"{len(blockers)} blocker(s); nothing was changed. Resolve them and run again.")
+    if not preview.get("complete", True):
+        _fail("The dry run did not complete; nothing was changed.")
+
+    if not yes and not typer.confirm(f"Merge and delete {kind} #{source['id']}?"):
+        raise typer.Exit(1)
+    result = _api(merge_fn, source["id"], target["id"], dry_run=False)
+    console.print(f"[green]Merged {kind} #{source['id']} into #{target['id']} ({target.get('name')})[/green]")
+    return result
+
+
+@team_app.command("merge")
+def team_merge(
+    source: str = typer.Argument(..., help="Duplicate team (id or exact name) — deleted after the merge"),
+    target: str = typer.Argument(..., help="Team to keep (id or exact name)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation after the dry run"),
+):
+    """Fold a duplicate team into the one to keep (SB-1822).
+
+    Matches, mappings, aliases, rosters, managers and follows move to the
+    target; rows the target already has are dropped, and power ratings are
+    dropped for the next run to recompute. The duplicate's name is kept as a
+    former_name alias, so the feed resolves either spelling. Always shows a
+    dry run first.
+    """
+    client, _ = get_client()
+    teams = _api(client.get_teams) or []
+    src = _api(_resolve_exact, teams, source, "team")
+    dst = _api(_resolve_exact, teams, target, "team")
+    result = _run_merge("team", src, dst, client.merge_team, yes)
+    alias = result.get("alias")
+    if alias == "added":
+        console.print(f"[dim]{src.get('name')!r} kept as a former_name alias of #{dst['id']}[/dim]")
+    elif alias == "exists":
+        console.print(f"[dim]{src.get('name')!r} was already an alias of #{dst['id']}; left as it was[/dim]")
+    copied = result.get("copied") or []
+    if copied:
+        console.print(f"[dim]copied from #{src['id']} because #{dst['id']} had none: {', '.join(copied)}[/dim]")
+
+
 @team_app.command("create")
 def team_create(
     name: str = typer.Option(..., "--name", "-n", help="Team name (globally unique)"),
@@ -3450,6 +3554,69 @@ def club_set_colors(
     )
     console.print("[dim]crest, website, description and pro-academy flag preserved[/dim]")
     _print_club(updated or full)
+
+
+@club_app.command("merge")
+def club_merge(
+    source: str = typer.Argument(..., help="Duplicate club (id or exact name) — deleted after the merge"),
+    target: str = typer.Argument(..., help="Club to keep (id or exact name)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation after the dry run"),
+):
+    """Fold a duplicate club into the one to keep (SB-1822).
+
+    Teams, members, invitations and channels move to the target. The target
+    keeps its own crest and colours; the duplicate's only fill ones it lacks.
+    Merge duplicate teams first (mt team merge) — a team of the same name in
+    both clubs blocks this. Always shows a dry run first.
+    """
+    client, _ = get_client()
+    clubs = _api(client.get_clubs) or []
+    src = _api(_resolve_exact, clubs, source, "club")
+    dst = _api(_resolve_exact, clubs, target, "club")
+    result = _run_merge("club", src, dst, client.merge_club, yes)
+    copied = result.get("copied") or []
+    if copied:
+        console.print(f"[dim]copied from #{src['id']} because #{dst['id']} had none: {', '.join(copied)}[/dim]")
+
+
+@club_app.command("logo-gaps")
+def club_logo_gaps(
+    season_id: int = typer.Option(None, "--season", help="Season id (default: current)"),
+    include_all: bool = typer.Option(False, "--all", help="Every team and club, not only those with matches"),
+):
+    """Where crests are missing: teams with no club, clubs with no logo, hot-linked logos (SB-1815).
+
+    Scoped to teams with a match in the season and their clubs, so the list
+    is what visitors actually see. A hot-linked logo is one not stored in our
+    club-logos bucket — it breaks whenever the other site changes.
+    """
+    client, _ = get_client()
+    payload = _api(client.get_club_logo_gaps, season_id=season_id, include_all=include_all)
+    scope = "every team and club" if include_all else f"teams with matches in season {payload.get('season_id')}"
+    console.print(f"[dim]Scope: {scope}[/dim]")
+
+    teams = payload.get("teams_without_club") or []
+    console.print(f"\n[bold]Teams with no club[/bold] ({len(teams)})")
+    for t in teams:
+        console.print(f"  #{t['id']:<5} {t.get('name')}  [dim]{t.get('match_count', 0)} matches[/dim]")
+    if not teams:
+        console.print("  none")
+
+    missing = payload.get("clubs_without_logo") or []
+    console.print(f"\n[bold]Clubs with no logo[/bold] ({len(missing)})")
+    for c in missing:
+        console.print(f"  #{c['id']:<5} {c.get('name')}")
+    if not missing:
+        console.print("  none")
+
+    external = payload.get("clubs_external_logo") or []
+    console.print(f"\n[bold]Clubs with a hot-linked logo[/bold] ({len(external)})")
+    for c in external:
+        console.print(f"  #{c['id']:<5} {c.get('name')}  [dim]{c.get('host') or c.get('logo_url')}[/dim]")
+    if not external:
+        console.print("  none")
+    if external:
+        console.print("\n[dim]Fix one with: mt club set-logo <club> <file>[/dim]")
 
 
 @alias_app.command("add")

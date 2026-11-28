@@ -252,6 +252,108 @@ Delete a club (only if no teams are linked).
 **Parameters:** `club_id` (path, integer)
 **Response:** `204 No Content` on success
 
+### GET /api/admin/clubs/logo-gaps (SB-1815)
+
+Where crests are missing, without SQL. CLI: `mt club logo-gaps [--season ID] [--all]`.
+
+**Authentication:** Admin only
+**Query Parameters:**
+- `season_id` (integer) - season to scope to (default: current)
+- `all` (boolean) - report every team and club, ignoring the season
+
+**Response:** `{season_id, teams_without_club: [{id, name, match_count}], clubs_without_logo: [{id, name}], clubs_external_logo: [{id, name, logo_url, host}]}`
+
+- Scoped by default to teams with at least one match in the season and the clubs
+  of those teams, excluding test clubs (`is_test`). `season_id` is `null` with `all=true`.
+- A team with no club has no crest at all: the crest comes from the club.
+- *External* means `logo_url` does not start with
+  `{SUPABASE_URL}/storage/v1/object/public/club-logos/`, i.e. it is hot-linked
+  from another site and breaks whenever that site changes. The prefix comes from
+  `SUPABASE_URL`, so against a local database restored from prod every prod-hosted
+  crest reads as external. Run it against prod for the real list.
+- Fix a gap with `mt club set-logo <club> <file>` (uploads to the bucket) or
+  `mt team set-club`.
+
+### POST /api/admin/teams/{from_id}/merge-into/{into_id} (SB-1822)
+
+Fold a duplicate team into the one to keep. CLI: `mt team merge FROM INTO [--yes]`
+(id or exact full name, case-insensitive; no partial matching for a merge; always
+shows the dry run first).
+
+**Authentication:** Admin only
+**Query Parameters:** `dry_run` (boolean, default `true`; `null` is also a dry run)
+
+Calls the `merge_team(p_from, p_into, p_dry_run)` database function
+(`20261128120000_merge_team_club.sql`, service role only). One transaction, with the
+source row locked `FOR UPDATE` and the target `FOR KEY SHARE`:
+
+- Every table referencing `teams.id` is repointed to `into_id`. A row that would
+  collide with one the target already has (same mapping, same follow, same
+  manager…) is dropped. A `player_team_history` collision keeps the target's row,
+  which stays current if either copy was. A duplicate fixture (same date, teams and
+  `unique_manual_match` key, and no differing external match id, tournament, round
+  or side age group) is dropped. If the dropped copy has an external match id and the
+  target has none, the id moves to the target (`tables["matches.match_id"]`).
+- `power_ratings` / `power_rating_match_deltas` rows for the source are deleted.
+  They are derived, and the next rating run recomputes them.
+- The target's empty `club_id` and `city` are filled from the source (`copied`).
+  When both teams have clubs and they differ, moved user profiles and invitations
+  that carried the source's club take the target's.
+- The source name is recorded as a `former_name` alias of the target
+  (league-agnostic), so the feed resolves either spelling, unless a league-agnostic
+  alias of that name already points at the target (`exists`). Then the source team
+  is deleted.
+- The response has `tables` (per-table `{moved, dropped}`), `alias`
+  (`added` / `exists` / `same_name`), `copied`, `blockers`, and `complete`. A dry
+  run that trips a constraint (usually the one a blocker names) stops early with
+  `complete: false` and `error: {sqlstate, table, constraint}`; the backend logs it
+  and the CLI prints it.
+
+**Blockers**: a real run is refused (`409`) while any exist. When in doubt, the merge
+blocks: merges are rare and a person can always resolve one by hand.
+- a match between the two teams, which would become a team playing itself;
+- `fixture_collision`: a target match on the same date and key that is a
+  different fixture (another external match id, tournament, round or side age
+  group);
+- `duplicate_fixture_has_data`: a duplicate fixture whose source copy has user data
+  (events, lineups, player stats, MOTW/MOTD, a bracket slot, notification threads),
+  a score, penalty score
+  or status that differs from the target's, a score lock, or a photo;
+- `external_id_conflict`: a dropped copy's external match id has more than one place
+  to go (several target rows, or several source copies for one target);
+- two active players with the same jersey on the same team, season and age group;
+- `channel_conflict`: both teams have the same notification channel (dropping one
+  would take its members and delivery history with it);
+- `alias_conflict`: a league-agnostic alias of the source's name points at a third
+  team;
+- `club_copy_conflict`: the target would take the source's club, which already has
+  a team of the target's name in its league;
+- `unlisted_reference`: after every known table moved, some table still references
+  the source (a table added since the function was written). A real run raises
+  naming it. Extend the function rather than lose those rows to a cascade.
+
+Errors map by the function's own SQLSTATE, never by message text: `MTNF1` → `404`,
+`MTBLK` → `409`, `MTSAM` (same or missing id) → `400`. Anything else is a logged
+`500`.
+
+### POST /api/admin/clubs/{from_id}/merge-into/{into_id} (SB-1822)
+
+Fold a duplicate club into the one to keep. CLI: `mt club merge FROM INTO [--yes]`
+(id or exact name).
+Same shape as the team merge (`merge_club` function). Teams, user profiles,
+invitations, chat messages (`match_events.chat_club_id`) and notification channels
+move to the target. The target keeps its own crest, colours, city and website.
+The source's values only fill the ones the target is missing. Stock colours
+(`#6B7280` / `#374151`) count as missing. The response's `copied` lists which ones.
+Blockers: a team with the same name and league in both clubs (merge the duplicate
+teams first), the same notification channel or club channel platform in both clubs,
+and any unlisted table still referencing the source.
+
+```bash
+mt team merge 581 937      # City SC San Diego -> City SC - San Diego
+mt club merge 247 446
+```
+
 ### GET /api/teams (Enhanced)
 
 Teams endpoint now supports club filtering.

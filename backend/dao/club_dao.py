@@ -8,15 +8,102 @@ Handles all database operations related to clubs including:
 """
 
 from collections import Counter
+from urllib.parse import urlparse
 
 import structlog
 
-from dao.base_dao import BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import BaseDAO, clear_cache, dao_cache, invalidates_cache
 
 logger = structlog.get_logger()
 
 # Cache pattern for invalidation
 CLUBS_CACHE_PATTERN = "mt:dao:clubs:*"
+
+_PAGE = 1000
+
+LOGO_MISSING = "missing"
+LOGO_EXTERNAL = "external"
+LOGO_HOSTED = "hosted"
+
+
+def club_logo_prefix(supabase_url: str | None) -> str | None:
+    """The public URL every crest we host starts with, or None if unknown.
+
+    Derived from SUPABASE_URL rather than hardcoded, so local, prod and any
+    future project each recognise their own bucket (SB-1815).
+    """
+    base = (supabase_url or "").strip().rstrip("/")
+    if not base:
+        return None
+    return f"{base}/storage/v1/object/public/club-logos/"
+
+
+def classify_logo(logo_url: str | None, prefix: str) -> str:
+    """missing, external (hot-linked from someone else's site), or hosted.
+
+    Scheme and host compare case-insensitively; the path does not, because
+    storage paths are case-sensitive.
+    """
+    url = (logo_url or "").strip()
+    if not url:
+        return LOGO_MISSING
+    parsed, expected = urlparse(url), urlparse(prefix)
+    same_origin = (parsed.scheme.lower(), parsed.netloc.lower()) == (
+        expected.scheme.lower(),
+        expected.netloc.lower(),
+    )
+    return LOGO_HOSTED if same_origin and parsed.path.startswith(expected.path) else LOGO_EXTERNAL
+
+
+def build_logo_gaps(
+    teams: list[dict],
+    clubs: list[dict],
+    match_counts: dict[int, int],
+    prefix: str,
+    scoped: bool = True,
+) -> dict:
+    """The three crest gaps, from rows already read (SB-1815).
+
+    With `scoped`, only teams with at least one match count, and only clubs
+    with at least one such team: a gap nobody sees is not the one to fix
+    first. Test clubs (is_test) and their teams are left out too — their
+    fixtures are real rows, so the match count alone does not exclude them.
+    Unscoped, every team and club is reported.
+    """
+    test_clubs = {c["id"] for c in clubs if c.get("is_test")}
+    in_scope = [
+        t for t in teams if not scoped or (match_counts.get(t["id"], 0) > 0 and t.get("club_id") not in test_clubs)
+    ]
+
+    teams_without_club = sorted(
+        (
+            {"id": t["id"], "name": t.get("name"), "match_count": match_counts.get(t["id"], 0)}
+            for t in in_scope
+            if t.get("club_id") is None
+        ),
+        key=lambda row: (-row["match_count"], row["name"] or ""),
+    )
+
+    club_ids = {t["club_id"] for t in in_scope if t.get("club_id") is not None}
+    clubs_without_logo: list[dict] = []
+    clubs_external_logo: list[dict] = []
+    for club in sorted(clubs, key=lambda c: c.get("name") or ""):
+        if scoped and club["id"] not in club_ids:
+            continue
+        status = classify_logo(club.get("logo_url"), prefix)
+        if status == LOGO_MISSING:
+            clubs_without_logo.append({"id": club["id"], "name": club.get("name")})
+        elif status == LOGO_EXTERNAL:
+            url = club["logo_url"].strip()
+            clubs_external_logo.append(
+                {"id": club["id"], "name": club.get("name"), "logo_url": url, "host": urlparse(url).hostname or ""}
+            )
+
+    return {
+        "teams_without_club": teams_without_club,
+        "clubs_without_logo": clubs_without_logo,
+        "clubs_external_logo": clubs_external_logo,
+    }
 
 
 class ClubDAO(BaseDAO):
@@ -219,6 +306,57 @@ class ClubDAO(BaseDAO):
         # Now delete the club
         self.client.table("clubs").delete().eq("id", club_id).execute()
         return True
+
+    def merge_club(self, from_id: int, into_id: int, dry_run: bool = True) -> dict:
+        """Fold a duplicate club into its canonical club (SB-1822).
+
+        One transaction in the database (merge_club RPC): every reference is
+        repointed, the target's empty crest/colours are filled from the source,
+        and the source is deleted. A dry run reports the same counts and
+        changes nothing. A real run raises while the dry run lists blockers.
+        """
+        response = self.client.rpc("merge_club", {"p_from": from_id, "p_into": into_id, "p_dry_run": dry_run}).execute()
+        if not dry_run:
+            # Teams carry their club's crest and colours into every cached
+            # read, so nothing cached about either club is trustworthy now.
+            clear_cache("mt:dao:*")
+        return response.data or {}
+
+    # === Crest coverage (SB-1815) ===
+
+    def _paged(self, query_fn) -> list[dict]:
+        """Every row of a query, a page at a time (PostgREST caps a response)."""
+        rows: list[dict] = []
+        while True:
+            page = query_fn().order("id").range(len(rows), len(rows) + _PAGE - 1).execute().data or []
+            rows.extend(page)
+            if len(page) < _PAGE:
+                return rows
+
+    def logo_gaps(self, season_id: int | None) -> dict:
+        """Teams with no club, clubs with no crest, clubs whose crest is hot-linked.
+
+        `season_id` scopes the report to teams that played in that season and
+        their clubs; None reports every team and club.
+        """
+        prefix = club_logo_prefix(getattr(self.connection_holder, "url", None))
+        if prefix is None:
+            raise ValueError("SUPABASE_URL is not configured; cannot tell hosted crests from hot-linked ones")
+
+        teams = self._paged(lambda: self.client.table("teams").select("id, name, club_id"))
+        clubs = self._paged(lambda: self.client.table("clubs").select("id, name, logo_url, is_test"))
+
+        def matches_query():
+            query = self.client.table("matches").select("id, home_team_id, away_team_id")
+            return query.eq("season_id", season_id) if season_id is not None else query
+
+        match_counts: Counter = Counter()
+        for match in self._paged(matches_query):
+            match_counts[match["home_team_id"]] += 1
+            match_counts[match["away_team_id"]] += 1
+
+        report = build_logo_gaps(teams, clubs, match_counts, prefix, scoped=season_id is not None)
+        return {"season_id": season_id, **report}
 
     # === Team-Club Association Methods ===
 

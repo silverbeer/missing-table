@@ -447,6 +447,15 @@ class MissingTableClient:
         response = self._request("DELETE", f"/api/teams/{team_id}")
         return response.json()
 
+    def merge_team(self, from_id: int, into_id: int, dry_run: bool = True) -> dict[str, Any]:
+        """Fold a duplicate team into another (admin only). Dry run by default."""
+        response = self._request(
+            "POST",
+            f"/api/admin/teams/{from_id}/merge-into/{into_id}",
+            params={"dry_run": str(dry_run).lower()},
+        )
+        return response.json()
+
     # Games endpoints
 
     def get_games(
@@ -769,6 +778,25 @@ class MissingTableClient:
     def delete_club(self, club_id: int) -> dict[str, Any]:
         """Delete a club (admin only)."""
         response = self._request("DELETE", f"/api/clubs/{club_id}")
+        return response.json()
+
+    def merge_club(self, from_id: int, into_id: int, dry_run: bool = True) -> dict[str, Any]:
+        """Fold a duplicate club into another (admin only). Dry run by default."""
+        response = self._request(
+            "POST",
+            f"/api/admin/clubs/{from_id}/merge-into/{into_id}",
+            params={"dry_run": str(dry_run).lower()},
+        )
+        return response.json()
+
+    def get_club_logo_gaps(self, season_id: int | None = None, include_all: bool = False) -> dict[str, Any]:
+        """Teams with no club, clubs with no crest, hot-linked crests (admin only)."""
+        params: dict[str, Any] = {}
+        if season_id:
+            params["season_id"] = season_id
+        if include_all:
+            params["all"] = "true"
+        response = self._request("GET", "/api/admin/clubs/logo-gaps", params=params)
         return response.json()
 
     # Invite endpoints
