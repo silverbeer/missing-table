@@ -1,0 +1,2830 @@
+{
+  "plan_id": "plan-20261128T184043-a784296a",
+  "environment": "prod",
+  "database": "4c58d15d2bed",
+  "batches": [
+    {
+      "batch": 1,
+      "applied_at": "2026-11-28T19:12:20+00:00",
+      "actions": [
+        {
+          "id": "a001",
+          "type": "create_team",
+          "external_name": "Coppermine SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 450,
+            "team_id": 1268,
+            "team_created": true,
+            "mapping_ids": [
+              3594,
+              3595,
+              3596,
+              3597,
+              3598,
+              3599
+            ],
+            "alias_id": 17
+          },
+          "steps": [
+            "create team 'Coppermine SC Academy' (Academy)",
+            "register in Academy Mid-Atlantic (U13)",
+            "register in Academy Mid-Atlantic (U14)",
+            "register in Academy Mid-Atlantic (U15)",
+            "register in Academy Mid-Atlantic (U16)",
+            "register in Academy Mid-Atlantic (U17)",
+            "register in Academy Mid-Atlantic (U19)",
+            "alias 'Coppermine SC' (Academy) → 'Coppermine SC Academy'"
+          ]
+        },
+        {
+          "id": "a002",
+          "type": "create_team",
+          "external_name": "Baltimore Armour",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 239,
+            "team_id": 1269,
+            "team_created": true,
+            "mapping_ids": [
+              3600,
+              3601,
+              3602
+            ],
+            "alias_id": 18
+          },
+          "steps": [
+            "create team 'Baltimore Armour Academy' (Academy)",
+            "register in Academy Mid-Atlantic (U16)",
+            "register in Academy Mid-Atlantic (U17)",
+            "register in Academy Mid-Atlantic (U19)",
+            "alias 'Baltimore Armour' (Academy) → 'Baltimore Armour Academy'"
+          ]
+        },
+        {
+          "id": "a003",
+          "type": "create_team",
+          "external_name": "SoCal Reds FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 472,
+            "team_id": 1270,
+            "team_created": true,
+            "mapping_ids": [
+              3603,
+              3604,
+              3605,
+              3606,
+              3607
+            ],
+            "alias_id": 19
+          },
+          "steps": [
+            "create team 'SoCal Reds FC Academy' (Academy)",
+            "register in Academy Southern California (U13)",
+            "register in Academy Southern California (U14)",
+            "register in Academy Southern California (U16)",
+            "register in Academy Southern California (U17)",
+            "register in Academy Southern California (U19)",
+            "alias 'SoCal Reds FC' (Academy) → 'SoCal Reds FC Academy'"
+          ]
+        },
+        {
+          "id": "a004",
+          "type": "alias",
+          "external_name": "Michigan Wolves",
+          "outcome": "applied",
+          "ids": {
+            "team_id": 676,
+            "alias_id": 20
+          },
+          "steps": [
+            "alias 'Michigan Wolves' (Academy) → team 676"
+          ]
+        },
+        {
+          "id": "a005",
+          "type": "create_team",
+          "external_name": "Queen City Mutiny FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 300,
+            "team_id": 1271,
+            "team_created": true,
+            "mapping_ids": [
+              3608,
+              3609,
+              3610,
+              3611
+            ],
+            "alias_id": 21
+          },
+          "steps": [
+            "create team 'Queen City Mutiny FC Academy' (Academy)",
+            "register in Academy Carolinas (U15)",
+            "register in Academy Carolinas (U16)",
+            "register in Academy Carolinas (U17)",
+            "register in Academy Carolinas (U19)",
+            "alias 'Queen City Mutiny FC' (Academy) → 'Queen City Mutiny FC Academy'"
+          ]
+        },
+        {
+          "id": "a006",
+          "type": "create_team",
+          "external_name": "Michigan Jaguars",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 263,
+            "team_id": 1272,
+            "team_created": true,
+            "mapping_ids": [
+              3612,
+              3613,
+              3614,
+              3615,
+              3616,
+              3617
+            ],
+            "alias_id": 22
+          },
+          "steps": [
+            "create team 'Michigan Jaguars Academy' (Academy)",
+            "register in Academy Great Lakes North (U13)",
+            "register in Academy Great Lakes North (U14)",
+            "register in Academy Great Lakes North (U15)",
+            "register in Academy Great Lakes North (U16)",
+            "register in Academy Great Lakes North (U17)",
+            "register in Academy Great Lakes North (U19)",
+            "alias 'Michigan Jaguars' (Academy) → 'Michigan Jaguars Academy'"
+          ]
+        },
+        {
+          "id": "a007",
+          "type": "create_team",
+          "external_name": "The Football Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 283,
+            "team_id": 1273,
+            "team_created": true,
+            "mapping_ids": [
+              3618,
+              3619,
+              3620,
+              3621
+            ],
+            "alias_id": 23
+          },
+          "steps": [
+            "create team 'The Football Academy AD' (Academy)",
+            "register in Academy Garden State (U15)",
+            "register in Academy Garden State (U16)",
+            "register in Academy Garden State (U17)",
+            "register in Academy Garden State (U19)",
+            "alias 'The Football Academy' (Academy) → 'The Football Academy AD'"
+          ]
+        },
+        {
+          "id": "a008",
+          "type": "create_team",
+          "external_name": "Bethesda SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 403,
+            "team_id": 1274,
+            "team_created": true,
+            "mapping_ids": [
+              3622
+            ],
+            "alias_id": 24
+          },
+          "steps": [
+            "create team 'Bethesda Soccer Club Academy' (Academy)",
+            "register in Academy Mid-Atlantic (U17)",
+            "alias 'Bethesda SC' (Academy) → 'Bethesda Soccer Club Academy'"
+          ]
+        },
+        {
+          "id": "a009",
+          "type": "alias",
+          "external_name": "FC Westchester",
+          "outcome": "applied",
+          "ids": {
+            "team_id": 679,
+            "alias_id": 25
+          },
+          "steps": [
+            "alias 'FC Westchester' (Academy) → team 679"
+          ]
+        },
+        {
+          "id": "a010",
+          "type": "create_team",
+          "external_name": "Boca OC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 708,
+            "club_created": true,
+            "team_id": 1275,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'Boca OC'",
+            "create team 'Boca OC' (Academy)"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 923,
+          "raw_name": "Michigan Wolves",
+          "league": "Academy",
+          "team_id": 676
+        },
+        {
+          "id": 803,
+          "raw_name": "SoCal Reds FC",
+          "league": "Academy",
+          "team_id": 1270
+        },
+        {
+          "id": 801,
+          "raw_name": "Coppermine SC",
+          "league": "Academy",
+          "team_id": 1268
+        },
+        {
+          "id": 806,
+          "raw_name": "The Football Academy",
+          "league": "Academy",
+          "team_id": 1273
+        },
+        {
+          "id": 805,
+          "raw_name": "Michigan Jaguars",
+          "league": "Academy",
+          "team_id": 1272
+        },
+        {
+          "id": 802,
+          "raw_name": "Baltimore Armour",
+          "league": "Academy",
+          "team_id": 1269
+        },
+        {
+          "id": 804,
+          "raw_name": "Queen City Mutiny FC",
+          "league": "Academy",
+          "team_id": 1271
+        },
+        {
+          "id": 808,
+          "raw_name": "FC Westchester",
+          "league": "Academy",
+          "team_id": 679
+        },
+        {
+          "id": 807,
+          "raw_name": "Bethesda SC",
+          "league": "Academy",
+          "team_id": 1274
+        },
+        {
+          "id": 809,
+          "raw_name": "Boca OC",
+          "league": "Academy",
+          "team_id": 1275
+        }
+      ]
+    },
+    {
+      "batch": 2,
+      "applied_at": "2026-11-28T19:12:26+00:00",
+      "actions": [
+        {
+          "id": "a011",
+          "type": "create_team",
+          "external_name": "Las Vegas Sports Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 459,
+            "team_id": 1276,
+            "team_created": true,
+            "mapping_ids": [
+              3623,
+              3624,
+              3625
+            ],
+            "alias_id": 26
+          },
+          "steps": [
+            "create team 'Las Vegas Sports Academy AD' (Academy)",
+            "register in Academy Desert (U16)",
+            "register in Academy Desert (U17)",
+            "register in Academy Desert (U19)",
+            "alias 'Las Vegas Sports Academy' (Academy) → 'Las Vegas Sports Academy AD'"
+          ]
+        },
+        {
+          "id": "a012",
+          "type": "create_team",
+          "external_name": "Houston Rangers",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 255,
+            "team_id": 1277,
+            "team_created": true,
+            "mapping_ids": [
+              3626,
+              3627,
+              3628,
+              3629,
+              3630,
+              3631
+            ],
+            "alias_id": 27
+          },
+          "steps": [
+            "create team 'Houston Rangers Academy' (Academy)",
+            "register in Academy Pioneer (U13)",
+            "register in Academy Pioneer (U14)",
+            "register in Academy Pioneer (U15)",
+            "register in Academy Pioneer (U16)",
+            "register in Academy Pioneer (U17)",
+            "register in Academy Pioneer (U19)",
+            "alias 'Houston Rangers' (Academy) → 'Houston Rangers Academy'"
+          ]
+        },
+        {
+          "id": "a013",
+          "type": "alias",
+          "external_name": "Club Ohio",
+          "outcome": "applied",
+          "ids": {
+            "team_id": 680,
+            "alias_id": 28
+          },
+          "steps": [
+            "alias 'Club Ohio' (Academy) → team 680"
+          ]
+        },
+        {
+          "id": "a015",
+          "type": "create_team",
+          "external_name": "Tulsa Greenwood SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 286,
+            "team_id": 1278,
+            "team_created": true,
+            "mapping_ids": [
+              3632,
+              3633,
+              3634,
+              3635,
+              3636,
+              3637
+            ],
+            "alias_id": 29
+          },
+          "steps": [
+            "create team 'Tulsa Greenwood SC Academy' (Academy)",
+            "register in Academy Pioneer (U13)",
+            "register in Academy Pioneer (U14)",
+            "register in Academy Pioneer (U15)",
+            "register in Academy Pioneer (U16)",
+            "register in Academy Pioneer (U17)",
+            "register in Academy Pioneer (U19)",
+            "alias 'Tulsa Greenwood SC' (Academy) → 'Tulsa Greenwood SC Academy'"
+          ]
+        },
+        {
+          "id": "a016",
+          "type": "create_team",
+          "external_name": "Miami Futbol Academy Rush",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 143,
+            "team_id": 1279,
+            "team_created": true,
+            "mapping_ids": [
+              3638,
+              3639,
+              3640,
+              3641,
+              3642,
+              3643
+            ],
+            "alias_id": 30
+          },
+          "steps": [
+            "create team 'Miami Futbol Academy Rush Academy' (Academy)",
+            "register in Academy Sunshine South (U13)",
+            "register in Academy Sunshine South (U14)",
+            "register in Academy Sunshine South (U15)",
+            "register in Academy Sunshine South (U16)",
+            "register in Academy Sunshine South (U17)",
+            "register in Academy Sunshine South (U19)",
+            "alias 'Miami Futbol Academy Rush' (Academy) → 'Miami Futbol Academy Rush Academy'"
+          ]
+        },
+        {
+          "id": "a018",
+          "type": "create_team",
+          "external_name": "Players Development Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 374,
+            "team_id": 1280,
+            "team_created": true,
+            "mapping_ids": [
+              3644,
+              3645,
+              3646,
+              3647
+            ],
+            "alias_id": 31
+          },
+          "steps": [
+            "create team 'PDA Academy' (Academy)",
+            "register in Academy Garden State (U15)",
+            "register in Academy Garden State (U16)",
+            "register in Academy Garden State (U17)",
+            "register in Academy Garden State (U19)",
+            "alias 'Players Development Academy' (Academy) → 'PDA Academy'"
+          ]
+        },
+        {
+          "id": "a019",
+          "type": "create_team",
+          "external_name": "One FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 704,
+            "team_id": 1281,
+            "team_created": true,
+            "mapping_ids": [
+              3648,
+              3649,
+              3650,
+              3651,
+              3652,
+              3653
+            ],
+            "alias_id": 32
+          },
+          "steps": [
+            "create team 'One FC Academy' (Academy)",
+            "register in Academy Sunshine South (U13)",
+            "register in Academy Sunshine South (U14)",
+            "register in Academy Sunshine South (U15)",
+            "register in Academy Sunshine South (U16)",
+            "register in Academy Sunshine South (U17)",
+            "register in Academy Sunshine South (U19)",
+            "alias 'One FC' (Academy) → 'One FC Academy'"
+          ]
+        },
+        {
+          "id": "a020",
+          "type": "create_team",
+          "external_name": "St. Louis Scott Gallagher",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 281,
+            "team_id": 1282,
+            "team_created": true,
+            "mapping_ids": [
+              3654,
+              3655,
+              3656
+            ],
+            "alias_id": 33
+          },
+          "steps": [
+            "create team 'St. Louis Scott Gallagher Academy' (Academy)",
+            "register in Academy Great Lakes South (U15)",
+            "register in Academy Great Lakes South (U16)",
+            "register in Academy Great Lakes South (U17)",
+            "alias 'St. Louis Scott Gallagher' (Academy) → 'St. Louis Scott Gallagher Academy'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 813,
+          "raw_name": "Miami Futbol Academy Rush",
+          "league": "Academy",
+          "team_id": 1279
+        },
+        {
+          "id": 967,
+          "raw_name": "Club Ohio",
+          "league": "Academy",
+          "team_id": 680
+        },
+        {
+          "id": 810,
+          "raw_name": "Houston Rangers",
+          "league": "Academy",
+          "team_id": 1277
+        },
+        {
+          "id": 815,
+          "raw_name": "Players Development Academy",
+          "league": "Academy",
+          "team_id": 1280
+        },
+        {
+          "id": 816,
+          "raw_name": "One FC",
+          "league": "Academy",
+          "team_id": 1281
+        },
+        {
+          "id": 812,
+          "raw_name": "Tulsa Greenwood SC",
+          "league": "Academy",
+          "team_id": 1278
+        },
+        {
+          "id": 817,
+          "raw_name": "St. Louis Scott Gallagher",
+          "league": "Academy",
+          "team_id": 1282
+        },
+        {
+          "id": 893,
+          "raw_name": "Las Vegas Sports Academy",
+          "league": "Academy",
+          "team_id": 1276
+        }
+      ]
+    },
+    {
+      "batch": 3,
+      "applied_at": "2026-11-28T19:12:34+00:00",
+      "actions": [
+        {
+          "id": "a021",
+          "type": "create_team",
+          "external_name": "Cedar Stars Academy Bergen",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 155,
+            "team_id": 1283,
+            "team_created": true,
+            "mapping_ids": [
+              3657,
+              3658,
+              3659,
+              3660,
+              3661
+            ],
+            "alias_id": 34
+          },
+          "steps": [
+            "create team 'Cedar Stars Academy Bergen Academy' (Academy)",
+            "register in Academy Garden State (U13)",
+            "register in Academy Garden State (U14)",
+            "register in Academy Garden State (U15)",
+            "register in Academy Garden State (U16)",
+            "register in Academy Garden State (U17)",
+            "alias 'Cedar Stars Academy Bergen' (Academy) → 'Cedar Stars Academy Bergen Academy'"
+          ]
+        },
+        {
+          "id": "a022",
+          "type": "create_team",
+          "external_name": "Inter Atlanta FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 257,
+            "team_id": 1284,
+            "team_created": true,
+            "mapping_ids": [
+              3662,
+              3663,
+              3664,
+              3665,
+              3666,
+              3667
+            ],
+            "alias_id": 35
+          },
+          "steps": [
+            "create team 'Inter Atlanta FC Academy' (Academy)",
+            "register in Academy South (U13)",
+            "register in Academy South (U14)",
+            "register in Academy South (U15)",
+            "register in Academy South (U16)",
+            "register in Academy South (U17)",
+            "register in Academy South (U19)",
+            "alias 'Inter Atlanta FC' (Academy) → 'Inter Atlanta FC Academy'"
+          ]
+        },
+        {
+          "id": "a023",
+          "type": "create_team",
+          "external_name": "FA Euro New York",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 164,
+            "team_id": 1285,
+            "team_created": true,
+            "mapping_ids": [
+              3668,
+              3669,
+              3670,
+              3671,
+              3672,
+              3673
+            ],
+            "alias_id": 36
+          },
+          "steps": [
+            "create team 'FA Euro New York Academy' (Academy)",
+            "register in Academy Northeast (U13)",
+            "register in Academy Northeast (U14)",
+            "register in Academy Northeast (U15)",
+            "register in Academy Northeast (U16)",
+            "register in Academy Northeast (U17)",
+            "register in Academy Northeast (U19)",
+            "alias 'FA Euro New York' (Academy) → 'FA Euro New York Academy'"
+          ]
+        },
+        {
+          "id": "a024",
+          "type": "create_team",
+          "external_name": "Alexandria SA",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 236,
+            "team_id": 1286,
+            "team_created": true,
+            "mapping_ids": [
+              3674,
+              3675,
+              3676
+            ],
+            "alias_id": 37
+          },
+          "steps": [
+            "create team 'Alexandria SA Academy' (Academy)",
+            "register in Academy Virginia (U14)",
+            "register in Academy Virginia (U16)",
+            "register in Academy Virginia (U17)",
+            "alias 'Alexandria SA' (Academy) → 'Alexandria SA Academy'"
+          ]
+        },
+        {
+          "id": "a025",
+          "type": "create_team",
+          "external_name": "FC DELCO",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 90,
+            "team_id": 1287,
+            "team_created": true,
+            "mapping_ids": [
+              3677,
+              3678,
+              3679,
+              3680
+            ],
+            "alias_id": 38
+          },
+          "steps": [
+            "create team 'FC Delco Academy' (Academy)",
+            "register in Academy Mid-Atlantic (U15)",
+            "register in Academy Mid-Atlantic (U16)",
+            "register in Academy Mid-Atlantic (U17)",
+            "register in Academy Mid-Atlantic (U19)",
+            "alias 'FC DELCO' (Academy) → 'FC Delco Academy'"
+          ]
+        },
+        {
+          "id": "a026",
+          "type": "create_team",
+          "external_name": "SGA",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 467,
+            "team_id": 1288,
+            "team_created": true,
+            "mapping_ids": [
+              3681,
+              3682
+            ],
+            "alias_id": 39
+          },
+          "steps": [
+            "create team 'SGA Academy' (Academy)",
+            "register in Academy Pioneer (U17)",
+            "register in Academy Pioneer (U19)",
+            "alias 'SGA' (Academy) → 'SGA Academy'"
+          ]
+        },
+        {
+          "id": "a027",
+          "type": "create_team",
+          "external_name": "Weston FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 151,
+            "team_id": 1289,
+            "team_created": true,
+            "mapping_ids": [
+              3683,
+              3684,
+              3685,
+              3686,
+              3687,
+              3688
+            ],
+            "alias_id": 40
+          },
+          "steps": [
+            "create team 'Weston FC Academy' (Academy)",
+            "register in Academy Sunshine South (U13)",
+            "register in Academy Sunshine South (U14)",
+            "register in Academy Sunshine South (U15)",
+            "register in Academy Sunshine South (U16)",
+            "register in Academy Sunshine South (U17)",
+            "register in Academy Sunshine South (U19)",
+            "alias 'Weston FC' (Academy) → 'Weston FC Academy'"
+          ]
+        },
+        {
+          "id": "a028",
+          "type": "create_team",
+          "external_name": "ALBION SC Merced",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 441,
+            "team_id": 1290,
+            "team_created": true,
+            "mapping_ids": [
+              3689,
+              3690,
+              3691,
+              3692,
+              3693,
+              3694
+            ],
+            "alias_id": 41
+          },
+          "steps": [
+            "create team 'ALBION SC Merced Academy' (Academy)",
+            "register in Academy Northern California Redwood (U13)",
+            "register in Academy Northern California Redwood (U14)",
+            "register in Academy Northern California Redwood (U15)",
+            "register in Academy Northern California Redwood (U16)",
+            "register in Academy Northern California Redwood (U17)",
+            "register in Academy Northern California Redwood (U19)",
+            "alias 'ALBION SC Merced' (Academy) → 'ALBION SC Merced Academy'"
+          ]
+        },
+        {
+          "id": "a029",
+          "type": "create_team",
+          "external_name": "Phoenix Rising FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 268,
+            "team_id": 1291,
+            "team_created": true,
+            "mapping_ids": [
+              3695,
+              3696,
+              3697,
+              3698,
+              3699,
+              3700
+            ],
+            "alias_id": 42
+          },
+          "steps": [
+            "create team 'Phoenix Rising FC Academy' (Academy)",
+            "register in Academy Desert (U13)",
+            "register in Academy Desert (U14)",
+            "register in Academy Desert (U15)",
+            "register in Academy Desert (U16)",
+            "register in Academy Desert (U17)",
+            "register in Academy Desert (U19)",
+            "alias 'Phoenix Rising FC' (Academy) → 'Phoenix Rising FC Academy'"
+          ]
+        },
+        {
+          "id": "a030",
+          "type": "create_team",
+          "external_name": "Sacramento United",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 468,
+            "team_id": 1292,
+            "team_created": true,
+            "mapping_ids": [
+              3701,
+              3702,
+              3703,
+              3704,
+              3705,
+              3706
+            ],
+            "alias_id": 43
+          },
+          "steps": [
+            "create team 'Sacramento United Academy' (Academy)",
+            "register in Academy Northern California Redwood (U13)",
+            "register in Academy Northern California Redwood (U14)",
+            "register in Academy Northern California Redwood (U15)",
+            "register in Academy Northern California Redwood (U16)",
+            "register in Academy Northern California Redwood (U17)",
+            "register in Academy Northern California Redwood (U19)",
+            "alias 'Sacramento United' (Academy) → 'Sacramento United Academy'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 823,
+          "raw_name": "ALBION SC Merced",
+          "league": "Academy",
+          "team_id": 1290
+        },
+        {
+          "id": 825,
+          "raw_name": "Sacramento United",
+          "league": "Academy",
+          "team_id": 1292
+        },
+        {
+          "id": 824,
+          "raw_name": "Phoenix Rising FC",
+          "league": "Academy",
+          "team_id": 1291
+        },
+        {
+          "id": 818,
+          "raw_name": "Cedar Stars Academy Bergen",
+          "league": "Academy",
+          "team_id": 1283
+        },
+        {
+          "id": 822,
+          "raw_name": "Weston FC",
+          "league": "Academy",
+          "team_id": 1289
+        },
+        {
+          "id": 871,
+          "raw_name": "Alexandria SA",
+          "league": "Academy",
+          "team_id": 1286
+        },
+        {
+          "id": 1007,
+          "raw_name": "Inter Atlanta FC",
+          "league": "Academy",
+          "team_id": 1284
+        },
+        {
+          "id": 820,
+          "raw_name": "FC DELCO",
+          "league": "Academy",
+          "team_id": 1287
+        },
+        {
+          "id": 821,
+          "raw_name": "SGA",
+          "league": "Academy",
+          "team_id": 1288
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "applied_at": "2026-11-28T19:12:41+00:00",
+      "actions": [
+        {
+          "id": "a031",
+          "type": "create_team",
+          "external_name": "TSF Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 158,
+            "team_id": 1293,
+            "team_created": true,
+            "mapping_ids": [
+              3707,
+              3708,
+              3709,
+              3710
+            ],
+            "alias_id": 44
+          },
+          "steps": [
+            "create team 'TSF Academy AD' (Academy)",
+            "register in Academy Garden State (U15)",
+            "register in Academy Garden State (U16)",
+            "register in Academy Garden State (U17)",
+            "register in Academy Garden State (U19)",
+            "alias 'TSF Academy' (Academy) → 'TSF Academy AD'"
+          ]
+        },
+        {
+          "id": "a032",
+          "type": "create_team",
+          "external_name": "Total Futbol Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 285,
+            "team_id": 1294,
+            "team_created": true,
+            "mapping_ids": [
+              3711,
+              3712,
+              3713,
+              3714,
+              3715,
+              3716
+            ],
+            "alias_id": 45
+          },
+          "steps": [
+            "create team 'Total Futbol Academy AD' (Academy)",
+            "register in Academy Southern California (U13)",
+            "register in Academy Southern California (U14)",
+            "register in Academy Southern California (U15)",
+            "register in Academy Southern California (U16)",
+            "register in Academy Southern California (U17)",
+            "register in Academy Southern California (U19)",
+            "alias 'Total Futbol Academy' (Academy) → 'Total Futbol Academy AD'"
+          ]
+        },
+        {
+          "id": "a033",
+          "type": "create_team",
+          "external_name": "ALBION SC Colorado",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 233,
+            "team_id": 1295,
+            "team_created": true,
+            "alias_id": 46
+          },
+          "steps": [
+            "create team 'ALBION SC Colorado Academy' (Academy)",
+            "alias 'ALBION SC Colorado' (Academy) → 'ALBION SC Colorado Academy'"
+          ]
+        },
+        {
+          "id": "a034",
+          "type": "create_team",
+          "external_name": "Tampa Bay United",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 149,
+            "team_id": 1296,
+            "team_created": true,
+            "mapping_ids": [
+              3717,
+              3718,
+              3719,
+              3720,
+              3721,
+              3722
+            ],
+            "alias_id": 47
+          },
+          "steps": [
+            "create team 'Tampa Bay United Academy' (Academy)",
+            "register in Academy Sunshine North (U13)",
+            "register in Academy Sunshine North (U14)",
+            "register in Academy Sunshine North (U15)",
+            "register in Academy Sunshine North (U16)",
+            "register in Academy Sunshine North (U17)",
+            "register in Academy Sunshine North (U19)",
+            "alias 'Tampa Bay United' (Academy) → 'Tampa Bay United Academy'"
+          ]
+        },
+        {
+          "id": "a035",
+          "type": "create_team",
+          "external_name": "City SC - San Diego",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 446,
+            "team_id": 1297,
+            "team_created": true,
+            "mapping_ids": [
+              3723,
+              3724,
+              3725,
+              3726,
+              3727,
+              3728
+            ],
+            "alias_id": 48
+          },
+          "steps": [
+            "create team 'City SC - San Diego Academy' (Academy)",
+            "register in Academy Southern California (U13)",
+            "register in Academy Southern California (U14)",
+            "register in Academy Southern California (U15)",
+            "register in Academy Southern California (U16)",
+            "register in Academy Southern California (U17)",
+            "register in Academy Southern California (U19)",
+            "alias 'City SC - San Diego' (Academy) → 'City SC - San Diego Academy'"
+          ]
+        },
+        {
+          "id": "a036",
+          "type": "create_team",
+          "external_name": "IMG",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 138,
+            "team_id": 1298,
+            "team_created": true,
+            "mapping_ids": [
+              3729,
+              3730,
+              3731,
+              3732
+            ],
+            "alias_id": 49
+          },
+          "steps": [
+            "create team 'IMG Academy' (Academy)",
+            "register in Academy Sunshine North (U15)",
+            "register in Academy Sunshine North (U16)",
+            "register in Academy Sunshine North (U17)",
+            "register in Academy Sunshine North (U19)",
+            "alias 'IMG' (Academy) → 'IMG Academy'"
+          ]
+        },
+        {
+          "id": "a037",
+          "type": "create_team",
+          "external_name": "RSL Arizona Mesa",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 464,
+            "team_id": 1299,
+            "team_created": true,
+            "mapping_ids": [
+              3733,
+              3734,
+              3735,
+              3736,
+              3737,
+              3738
+            ],
+            "alias_id": 50
+          },
+          "steps": [
+            "create team 'RSL Arizona Mesa Academy' (Academy)",
+            "register in Academy Desert (U13)",
+            "register in Academy Desert (U14)",
+            "register in Academy Desert (U15)",
+            "register in Academy Desert (U16)",
+            "register in Academy Desert (U17)",
+            "register in Academy Desert (U19)",
+            "alias 'RSL Arizona Mesa' (Academy) → 'RSL Arizona Mesa Academy'"
+          ]
+        },
+        {
+          "id": "a038",
+          "type": "create_team",
+          "external_name": "Chargers Soccer Club",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 137,
+            "team_id": 1300,
+            "team_created": true,
+            "mapping_ids": [
+              3739,
+              3740,
+              3741
+            ],
+            "alias_id": 51
+          },
+          "steps": [
+            "create team 'Chargers Soccer Club Academy' (Academy)",
+            "register in Academy Sunshine North (U16)",
+            "register in Academy Sunshine North (U17)",
+            "register in Academy Sunshine North (U19)",
+            "alias 'Chargers Soccer Club' (Academy) → 'Chargers Soccer Club Academy'"
+          ]
+        },
+        {
+          "id": "a039",
+          "type": "create_team",
+          "external_name": "ALBION SC Santa Ana",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 709,
+            "club_created": true,
+            "team_id": 1301,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'ALBION SC Santa Ana'",
+            "create team 'ALBION SC Santa Ana' (Academy)"
+          ]
+        },
+        {
+          "id": "a040",
+          "type": "create_team",
+          "external_name": "South Florida Football Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 148,
+            "team_id": 1302,
+            "team_created": true,
+            "mapping_ids": [
+              3742,
+              3743,
+              3744,
+              3745,
+              3746,
+              3747
+            ],
+            "alias_id": 52
+          },
+          "steps": [
+            "create team 'South Florida Football Academy AD' (Academy)",
+            "register in Academy Sunshine South (U13)",
+            "register in Academy Sunshine South (U14)",
+            "register in Academy Sunshine South (U15)",
+            "register in Academy Sunshine South (U16)",
+            "register in Academy Sunshine South (U17)",
+            "register in Academy Sunshine South (U19)",
+            "alias 'South Florida Football Academy' (Academy) → 'South Florida Football Academy AD'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 830,
+          "raw_name": "City SC - San Diego",
+          "league": "Academy",
+          "team_id": 1297
+        },
+        {
+          "id": 827,
+          "raw_name": "Total Futbol Academy",
+          "league": "Academy",
+          "team_id": 1294
+        },
+        {
+          "id": 829,
+          "raw_name": "Tampa Bay United",
+          "league": "Academy",
+          "team_id": 1296
+        },
+        {
+          "id": 835,
+          "raw_name": "South Florida Football Academy",
+          "league": "Academy",
+          "team_id": 1302
+        },
+        {
+          "id": 831,
+          "raw_name": "IMG",
+          "league": "Academy",
+          "team_id": 1298
+        },
+        {
+          "id": 832,
+          "raw_name": "RSL Arizona Mesa",
+          "league": "Academy",
+          "team_id": 1299
+        },
+        {
+          "id": 826,
+          "raw_name": "TSF Academy",
+          "league": "Academy",
+          "team_id": 1293
+        },
+        {
+          "id": 828,
+          "raw_name": "ALBION SC Colorado",
+          "league": "Academy",
+          "team_id": 1295
+        },
+        {
+          "id": 833,
+          "raw_name": "Chargers Soccer Club",
+          "league": "Academy",
+          "team_id": 1300
+        },
+        {
+          "id": 834,
+          "raw_name": "ALBION SC Santa Ana",
+          "league": "Academy",
+          "team_id": 1301
+        }
+      ]
+    },
+    {
+      "batch": 5,
+      "applied_at": "2026-11-28T19:15:47+00:00",
+      "actions": [
+        {
+          "id": "a043",
+          "type": "create_team",
+          "external_name": "New York SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 161,
+            "team_id": 1303,
+            "team_created": true,
+            "mapping_ids": [
+              3748,
+              3749,
+              3750,
+              3751,
+              3752,
+              3753
+            ],
+            "alias_id": 53
+          },
+          "steps": [
+            "create team 'New York SC Academy' (Academy)",
+            "register in Academy Northeast (U13)",
+            "register in Academy Northeast (U14)",
+            "register in Academy Northeast (U15)",
+            "register in Academy Northeast (U16)",
+            "register in Academy Northeast (U17)",
+            "register in Academy Northeast (U19)",
+            "alias 'New York SC' (Academy) → 'New York SC Academy'"
+          ]
+        },
+        {
+          "id": "a046",
+          "type": "create_team",
+          "external_name": "Real Futbol Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 270,
+            "team_id": 1304,
+            "team_created": true,
+            "mapping_ids": [
+              3754,
+              3755,
+              3756,
+              3757
+            ],
+            "alias_id": 54
+          },
+          "steps": [
+            "create team 'Real Futbol Academy AD' (Academy)",
+            "register in Academy Garden State (U15)",
+            "register in Academy Garden State (U16)",
+            "register in Academy Garden State (U17)",
+            "register in Academy Garden State (U19)",
+            "alias 'Real Futbol Academy' (Academy) → 'Real Futbol Academy AD'"
+          ]
+        },
+        {
+          "id": "a048",
+          "type": "create_team",
+          "external_name": "Wake FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 287,
+            "team_id": 1305,
+            "team_created": true,
+            "mapping_ids": [
+              3758,
+              3759,
+              3760,
+              3761,
+              3762,
+              3763
+            ],
+            "alias_id": 55
+          },
+          "steps": [
+            "create team 'Wake FC Academy' (Academy)",
+            "register in Academy Carolinas (U13)",
+            "register in Academy Carolinas (U14)",
+            "register in Academy Carolinas (U15)",
+            "register in Academy Carolinas (U16)",
+            "register in Academy Carolinas (U17)",
+            "register in Academy Carolinas (U19)",
+            "alias 'Wake FC' (Academy) → 'Wake FC Academy'"
+          ]
+        },
+        {
+          "id": "a049",
+          "type": "create_team",
+          "external_name": "Vardar Soccer Club",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 298,
+            "team_id": 1306,
+            "team_created": true,
+            "mapping_ids": [
+              3764,
+              3765,
+              3766,
+              3767,
+              3768,
+              3769
+            ],
+            "alias_id": 56
+          },
+          "steps": [
+            "create team 'Vardar Soccer Club Academy' (Academy)",
+            "register in Academy Great Lakes North (U13)",
+            "register in Academy Great Lakes North (U14)",
+            "register in Academy Great Lakes North (U15)",
+            "register in Academy Great Lakes North (U16)",
+            "register in Academy Great Lakes North (U17)",
+            "register in Academy Great Lakes North (U19)",
+            "alias 'Vardar Soccer Club' (Academy) → 'Vardar Soccer Club Academy'"
+          ]
+        },
+        {
+          "id": "a050",
+          "type": "create_team",
+          "external_name": "Lou Fusz Athletic",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 262,
+            "team_id": 1307,
+            "team_created": true,
+            "mapping_ids": [
+              3770,
+              3771,
+              3772
+            ],
+            "alias_id": 57
+          },
+          "steps": [
+            "create team 'Lou Fusz Athletic Academy' (Academy)",
+            "register in Academy Heartland (U16)",
+            "register in Academy Heartland (U17)",
+            "register in Academy Heartland (U19)",
+            "alias 'Lou Fusz Athletic' (Academy) → 'Lou Fusz Athletic Academy'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 841,
+          "raw_name": "Real Futbol Academy",
+          "league": "Academy",
+          "team_id": 1304
+        },
+        {
+          "id": 838,
+          "raw_name": "New York SC",
+          "league": "Academy",
+          "team_id": 1303
+        },
+        {
+          "id": 842,
+          "raw_name": "Wake FC",
+          "league": "Academy",
+          "team_id": 1305
+        },
+        {
+          "id": 843,
+          "raw_name": "Vardar Soccer Club",
+          "league": "Academy",
+          "team_id": 1306
+        },
+        {
+          "id": 844,
+          "raw_name": "Lou Fusz Athletic",
+          "league": "Academy",
+          "team_id": 1307
+        }
+      ]
+    },
+    {
+      "batch": 6,
+      "applied_at": "2026-11-28T19:15:55+00:00",
+      "actions": [
+        {
+          "id": "a051",
+          "type": "alias",
+          "external_name": "Beachside of Connecticut",
+          "outcome": "applied",
+          "ids": {
+            "team_id": 674,
+            "alias_id": 58
+          },
+          "steps": [
+            "alias 'Beachside of Connecticut' (Academy) → team 674"
+          ]
+        },
+        {
+          "id": "a052",
+          "type": "create_team",
+          "external_name": "Albion SC Las Vegas",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 442,
+            "team_id": 1308,
+            "team_created": true,
+            "mapping_ids": [
+              3773,
+              3774,
+              3775,
+              3776,
+              3777,
+              3778
+            ],
+            "alias_id": 59
+          },
+          "steps": [
+            "create team 'Albion SC Las Vegas Academy' (Academy)",
+            "register in Academy Desert (U13)",
+            "register in Academy Desert (U14)",
+            "register in Academy Desert (U15)",
+            "register in Academy Desert (U16)",
+            "register in Academy Desert (U17)",
+            "register in Academy Desert (U19)",
+            "alias 'Albion SC Las Vegas' (Academy) → 'Albion SC Las Vegas Academy'"
+          ]
+        },
+        {
+          "id": "a053",
+          "type": "create_team",
+          "external_name": "SC Wave",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 466,
+            "team_id": 1309,
+            "team_created": true,
+            "mapping_ids": [
+              3779,
+              3780,
+              3781,
+              3782
+            ],
+            "alias_id": 60
+          },
+          "steps": [
+            "create team 'SC Wave Academy' (Academy)",
+            "register in Academy North (U13)",
+            "register in Academy North (U14)",
+            "register in Academy North (U16)",
+            "register in Academy North (U17)",
+            "alias 'SC Wave' (Academy) → 'SC Wave Academy'"
+          ]
+        },
+        {
+          "id": "a054",
+          "type": "create_team",
+          "external_name": "Chula Vista FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 245,
+            "team_id": 1310,
+            "team_created": true,
+            "mapping_ids": [
+              3783,
+              3784,
+              3785,
+              3786
+            ],
+            "alias_id": 61
+          },
+          "steps": [
+            "create team 'Chula Vista FC Academy' (Academy)",
+            "register in Academy Southern California (U13)",
+            "register in Academy Southern California (U14)",
+            "register in Academy Southern California (U16)",
+            "register in Academy Southern California (U17)",
+            "alias 'Chula Vista FC' (Academy) → 'Chula Vista FC Academy'"
+          ]
+        },
+        {
+          "id": "a055",
+          "type": "create_team",
+          "external_name": "The Island FC West",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 160,
+            "team_id": 1311,
+            "team_created": true,
+            "mapping_ids": [
+              3787,
+              3788,
+              3789,
+              3790,
+              3791,
+              3792
+            ],
+            "alias_id": 62
+          },
+          "steps": [
+            "create team 'The Island FC West Academy' (Academy)",
+            "register in Academy Northeast (U13)",
+            "register in Academy Northeast (U14)",
+            "register in Academy Northeast (U15)",
+            "register in Academy Northeast (U16)",
+            "register in Academy Northeast (U17)",
+            "register in Academy Northeast (U19)",
+            "alias 'The Island FC West' (Academy) → 'The Island FC West Academy'"
+          ]
+        },
+        {
+          "id": "a056",
+          "type": "create_team",
+          "external_name": "Penn Rising XI",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 463,
+            "team_id": 1312,
+            "team_created": true,
+            "mapping_ids": [
+              3793,
+              3794,
+              3795,
+              3796
+            ],
+            "alias_id": 63
+          },
+          "steps": [
+            "create team 'Penn Rising XI Academy' (Academy)",
+            "register in Academy Mid-Atlantic (U15)",
+            "register in Academy Mid-Atlantic (U16)",
+            "register in Academy Mid-Atlantic (U17)",
+            "register in Academy Mid-Atlantic (U19)",
+            "alias 'Penn Rising XI' (Academy) → 'Penn Rising XI Academy'"
+          ]
+        },
+        {
+          "id": "a057",
+          "type": "create_team",
+          "external_name": "Springfield SYC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 279,
+            "team_id": 1313,
+            "team_created": true,
+            "mapping_ids": [
+              3797,
+              3798,
+              3799,
+              3800,
+              3801,
+              3802
+            ],
+            "alias_id": 64
+          },
+          "steps": [
+            "create team 'Springfield SYC Academy' (Academy)",
+            "register in Academy Virginia (U13)",
+            "register in Academy Virginia (U14)",
+            "register in Academy Virginia (U15)",
+            "register in Academy Virginia (U16)",
+            "register in Academy Virginia (U17)",
+            "register in Academy Virginia (U19)",
+            "alias 'Springfield SYC' (Academy) → 'Springfield SYC Academy'"
+          ]
+        },
+        {
+          "id": "a058",
+          "type": "create_team",
+          "external_name": "West Florida Flames",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 150,
+            "team_id": 1314,
+            "team_created": true,
+            "mapping_ids": [
+              3803,
+              3804,
+              3805,
+              3806
+            ],
+            "alias_id": 65
+          },
+          "steps": [
+            "create team 'West Florida Flames Academy' (Academy)",
+            "register in Academy Sunshine North (U14)",
+            "register in Academy Sunshine North (U15)",
+            "register in Academy Sunshine North (U17)",
+            "register in Academy Sunshine North (U19)",
+            "alias 'West Florida Flames' (Academy) → 'West Florida Flames Academy'"
+          ]
+        },
+        {
+          "id": "a059",
+          "type": "create_team",
+          "external_name": "Strikers FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 282,
+            "team_id": 1315,
+            "team_created": true,
+            "mapping_ids": [
+              3807,
+              3808
+            ],
+            "alias_id": 66
+          },
+          "steps": [
+            "create team 'Strikers FC Academy' (Academy)",
+            "register in Academy Southern California (U17)",
+            "register in Academy Southern California (U19)",
+            "alias 'Strikers FC' (Academy) → 'Strikers FC Academy'"
+          ]
+        },
+        {
+          "id": "a060",
+          "type": "create_team",
+          "external_name": "Northern Virginia Alliance",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 267,
+            "team_id": 1316,
+            "team_created": true,
+            "alias_id": 67
+          },
+          "steps": [
+            "create team 'Northern Virginia Alliance Academy' (Academy)",
+            "alias 'Northern Virginia Alliance' (Academy) → 'Northern Virginia Alliance Academy'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 846,
+          "raw_name": "Chula Vista FC",
+          "league": "Academy",
+          "team_id": 1310
+        },
+        {
+          "id": 845,
+          "raw_name": "Albion SC Las Vegas",
+          "league": "Academy",
+          "team_id": 1308
+        },
+        {
+          "id": 848,
+          "raw_name": "Penn Rising XI",
+          "league": "Academy",
+          "team_id": 1312
+        },
+        {
+          "id": 898,
+          "raw_name": "West Florida Flames",
+          "league": "Academy",
+          "team_id": 1314
+        },
+        {
+          "id": 890,
+          "raw_name": "SC Wave",
+          "league": "Academy",
+          "team_id": 1309
+        },
+        {
+          "id": 851,
+          "raw_name": "Northern Virginia Alliance",
+          "league": "Academy",
+          "team_id": 1316
+        },
+        {
+          "id": 849,
+          "raw_name": "Springfield SYC",
+          "league": "Academy",
+          "team_id": 1313
+        },
+        {
+          "id": 883,
+          "raw_name": "Beachside of Connecticut",
+          "league": "Academy",
+          "team_id": 674
+        },
+        {
+          "id": 850,
+          "raw_name": "Strikers FC",
+          "league": "Academy",
+          "team_id": 1315
+        }
+      ]
+    },
+    {
+      "batch": 7,
+      "applied_at": "2026-11-28T19:18:26+00:00",
+      "actions": [
+        {
+          "id": "a061",
+          "type": "create_team",
+          "external_name": "AC River",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 231,
+            "team_id": 1317,
+            "team_created": true,
+            "mapping_ids": [
+              3809,
+              3810
+            ],
+            "alias_id": 68
+          },
+          "steps": [
+            "create team 'AC River Academy' (Academy)",
+            "register in Academy Pioneer (U17)",
+            "register in Academy Pioneer (U19)",
+            "alias 'AC River' (Academy) → 'AC River Academy'"
+          ]
+        },
+        {
+          "id": "a063",
+          "type": "create_team",
+          "external_name": "Midwest United FC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 264,
+            "team_id": 1318,
+            "team_created": true,
+            "mapping_ids": [
+              3811,
+              3812,
+              3813,
+              3814,
+              3815,
+              3816
+            ],
+            "alias_id": 69
+          },
+          "steps": [
+            "create team 'Midwest United FC Academy' (Academy)",
+            "register in Academy Great Lakes North (U13)",
+            "register in Academy Great Lakes North (U14)",
+            "register in Academy Great Lakes North (U15)",
+            "register in Academy Great Lakes North (U16)",
+            "register in Academy Great Lakes North (U17)",
+            "register in Academy Great Lakes North (U19)",
+            "alias 'Midwest United FC' (Academy) → 'Midwest United FC Academy'"
+          ]
+        },
+        {
+          "id": "a064",
+          "type": "create_team",
+          "external_name": "Bavarian United SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 240,
+            "team_id": 1319,
+            "team_created": true,
+            "mapping_ids": [
+              3817,
+              3818,
+              3819,
+              3820,
+              3821,
+              3822
+            ],
+            "alias_id": 70
+          },
+          "steps": [
+            "create team 'Bavarian United SC Academy' (Academy)",
+            "register in Academy North (U13)",
+            "register in Academy North (U14)",
+            "register in Academy North (U15)",
+            "register in Academy North (U16)",
+            "register in Academy North (U17)",
+            "register in Academy North (U19)",
+            "alias 'Bavarian United SC' (Academy) → 'Bavarian United SC Academy'"
+          ]
+        },
+        {
+          "id": "a065",
+          "type": "create_team",
+          "external_name": "RSL Arizona",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 269,
+            "team_id": 1320,
+            "team_created": true,
+            "mapping_ids": [
+              3823,
+              3824,
+              3825,
+              3826,
+              3827,
+              3828
+            ],
+            "alias_id": 71
+          },
+          "steps": [
+            "create team 'RSL Arizona Academy' (Academy)",
+            "register in Academy Desert (U13)",
+            "register in Academy Desert (U14)",
+            "register in Academy Desert (U15)",
+            "register in Academy Desert (U16)",
+            "register in Academy Desert (U17)",
+            "register in Academy Desert (U19)",
+            "alias 'RSL Arizona' (Academy) → 'RSL Arizona Academy'"
+          ]
+        },
+        {
+          "id": "a066",
+          "type": "create_team",
+          "external_name": "City SC Southwest",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 447,
+            "team_id": 1321,
+            "team_created": true,
+            "mapping_ids": [
+              3829,
+              3830,
+              3831,
+              3832,
+              3833,
+              3834
+            ],
+            "alias_id": 72
+          },
+          "steps": [
+            "create team 'City SC Southwest Academy' (Academy)",
+            "register in Academy Southern California (U13)",
+            "register in Academy Southern California (U14)",
+            "register in Academy Southern California (U15)",
+            "register in Academy Southern California (U16)",
+            "register in Academy Southern California (U17)",
+            "register in Academy Southern California (U19)",
+            "alias 'City SC Southwest' (Academy) → 'City SC Southwest Academy'"
+          ]
+        },
+        {
+          "id": "a067",
+          "type": "create_team",
+          "external_name": "SC Del Sol",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 465,
+            "team_id": 1322,
+            "team_created": true,
+            "mapping_ids": [
+              3835,
+              3836,
+              3837,
+              3838,
+              3839,
+              3840
+            ],
+            "alias_id": 73
+          },
+          "steps": [
+            "create team 'SC Del Sol Academy' (Academy)",
+            "register in Academy Desert (U13)",
+            "register in Academy Desert (U14)",
+            "register in Academy Desert (U15)",
+            "register in Academy Desert (U16)",
+            "register in Academy Desert (U17)",
+            "register in Academy Desert (U19)",
+            "alias 'SC Del Sol' (Academy) → 'SC Del Sol Academy'"
+          ]
+        },
+        {
+          "id": "a068",
+          "type": "create_team",
+          "external_name": "Beadling SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 705,
+            "team_id": 1323,
+            "team_created": true,
+            "mapping_ids": [
+              3841,
+              3842,
+              3843,
+              3844
+            ],
+            "alias_id": 74
+          },
+          "steps": [
+            "create team 'Beadling SC Academy' (Academy)",
+            "register in Academy Great Lakes South (U15)",
+            "register in Academy Great Lakes South (U16)",
+            "register in Academy Great Lakes South (U17)",
+            "register in Academy Great Lakes South (U19)",
+            "alias 'Beadling SC' (Academy) → 'Beadling SC Academy'"
+          ]
+        },
+        {
+          "id": "a069",
+          "type": "create_team",
+          "external_name": "IDEA Toros Fútbol Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 710,
+            "club_created": true,
+            "team_id": 1324,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'IDEA Toros Fútbol Academy'",
+            "create team 'IDEA Toros Fútbol Academy' (Academy)"
+          ]
+        },
+        {
+          "id": "a070",
+          "type": "alias",
+          "external_name": "Blau Weiss Gottschee",
+          "outcome": "applied",
+          "ids": {
+            "team_id": 675,
+            "alias_id": 75
+          },
+          "steps": [
+            "alias 'Blau Weiss Gottschee' (Academy) → team 675"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 854,
+          "raw_name": "Bavarian United SC",
+          "league": "Academy",
+          "team_id": 1319
+        },
+        {
+          "id": 918,
+          "raw_name": "RSL Arizona",
+          "league": "Academy",
+          "team_id": 1320
+        },
+        {
+          "id": 855,
+          "raw_name": "City SC Southwest",
+          "league": "Academy",
+          "team_id": 1321
+        },
+        {
+          "id": 856,
+          "raw_name": "SC Del Sol",
+          "league": "Academy",
+          "team_id": 1322
+        },
+        {
+          "id": 857,
+          "raw_name": "Beadling SC",
+          "league": "Academy",
+          "team_id": 1323
+        },
+        {
+          "id": 853,
+          "raw_name": "Midwest United FC",
+          "league": "Academy",
+          "team_id": 1318
+        },
+        {
+          "id": 858,
+          "raw_name": "IDEA Toros Fútbol Academy",
+          "league": "Academy",
+          "team_id": 1324
+        },
+        {
+          "id": 912,
+          "raw_name": "Blau Weiss Gottschee",
+          "league": "Academy",
+          "team_id": 675
+        },
+        {
+          "id": 915,
+          "raw_name": "AC River",
+          "league": "Academy",
+          "team_id": 1317
+        }
+      ]
+    },
+    {
+      "batch": 8,
+      "applied_at": "2026-11-28T19:18:35+00:00",
+      "actions": [
+        {
+          "id": "a071",
+          "type": "create_team",
+          "external_name": "Southern Soccer Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 277,
+            "team_id": 1325,
+            "team_created": true,
+            "mapping_ids": [
+              3845,
+              3846,
+              3847,
+              3848,
+              3849,
+              3850
+            ],
+            "alias_id": 76
+          },
+          "steps": [
+            "create team 'Southern Soccer Academy AD' (Academy)",
+            "register in Academy South (U13)",
+            "register in Academy South (U14)",
+            "register in Academy South (U15)",
+            "register in Academy South (U16)",
+            "register in Academy South (U17)",
+            "register in Academy South (U19)",
+            "alias 'Southern Soccer Academy' (Academy) → 'Southern Soccer Academy AD'"
+          ]
+        },
+        {
+          "id": "a072",
+          "type": "create_team",
+          "external_name": "Sporting City",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 473,
+            "team_id": 1326,
+            "team_created": true,
+            "mapping_ids": [
+              3851,
+              3852,
+              3853,
+              3854,
+              3855,
+              3856
+            ],
+            "alias_id": 77
+          },
+          "steps": [
+            "create team 'Sporting City Academy' (Academy)",
+            "register in Academy Heartland (U13)",
+            "register in Academy Heartland (U14)",
+            "register in Academy Heartland (U15)",
+            "register in Academy Heartland (U16)",
+            "register in Academy Heartland (U17)",
+            "register in Academy Heartland (U19)",
+            "alias 'Sporting City' (Academy) → 'Sporting City Academy'"
+          ]
+        },
+        {
+          "id": "a073",
+          "type": "alias",
+          "external_name": "Sporting Athletic Club",
+          "outcome": "applied",
+          "ids": {
+            "team_id": 673,
+            "alias_id": 78
+          },
+          "steps": [
+            "alias 'Sporting Athletic Club' (Academy) → team 673"
+          ]
+        },
+        {
+          "id": "a074",
+          "type": "create_team",
+          "external_name": "ALBION SC San Diego",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 235,
+            "team_id": 1327,
+            "team_created": true,
+            "mapping_ids": [
+              3857,
+              3858,
+              3859,
+              3860,
+              3861
+            ],
+            "alias_id": 79
+          },
+          "steps": [
+            "create team 'ALBION SC San Diego Academy' (Academy)",
+            "register in Academy Southern California (U13)",
+            "register in Academy Southern California (U14)",
+            "register in Academy Southern California (U15)",
+            "register in Academy Southern California (U17)",
+            "register in Academy Southern California (U19)",
+            "alias 'ALBION SC San Diego' (Academy) → 'ALBION SC San Diego Academy'"
+          ]
+        },
+        {
+          "id": "a075",
+          "type": "create_team",
+          "external_name": "Cedar Stars Academy Monmouth",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 242,
+            "team_id": 1328,
+            "team_created": true,
+            "mapping_ids": [
+              3862,
+              3863
+            ],
+            "alias_id": 80
+          },
+          "steps": [
+            "create team 'Cedar Stars Academy Monmouth Academy' (Academy)",
+            "register in Academy Garden State (U17)",
+            "register in Academy Garden State (U19)",
+            "alias 'Cedar Stars Academy Monmouth' (Academy) → 'Cedar Stars Academy Monmouth Academy'"
+          ]
+        },
+        {
+          "id": "a076",
+          "type": "create_team",
+          "external_name": "Orlando City Soccer School South",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 145,
+            "team_id": 1329,
+            "team_created": true,
+            "mapping_ids": [
+              3864,
+              3865,
+              3866,
+              3867,
+              3868
+            ],
+            "alias_id": 81
+          },
+          "steps": [
+            "create team 'Orlando City Soccer School South Academy' (Academy)",
+            "register in Academy Sunshine North (U13)",
+            "register in Academy Sunshine North (U14)",
+            "register in Academy Sunshine North (U15)",
+            "register in Academy Sunshine North (U16)",
+            "register in Academy Sunshine North (U17)",
+            "alias 'Orlando City Soccer School South' (Academy) → 'Orlando City Soccer School South Academy'"
+          ]
+        },
+        {
+          "id": "a077",
+          "type": "create_team",
+          "external_name": "Chicago FC United",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 244,
+            "team_id": 1330,
+            "team_created": true,
+            "mapping_ids": [
+              3869,
+              3870,
+              3871,
+              3872,
+              3873,
+              3874
+            ],
+            "alias_id": 82
+          },
+          "steps": [
+            "create team 'Chicago FC United Academy' (Academy)",
+            "register in Academy North (U13)",
+            "register in Academy North (U14)",
+            "register in Academy North (U15)",
+            "register in Academy North (U16)",
+            "register in Academy North (U17)",
+            "register in Academy North (U19)",
+            "alias 'Chicago FC United' (Academy) → 'Chicago FC United Academy'"
+          ]
+        },
+        {
+          "id": "a078",
+          "type": "create_team",
+          "external_name": "Athletum FC Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 136,
+            "team_id": 1331,
+            "team_created": true,
+            "mapping_ids": [
+              3875,
+              3876,
+              3877,
+              3878,
+              3879,
+              3880
+            ],
+            "alias_id": 83
+          },
+          "steps": [
+            "create team 'Athletum FC Academy AD' (Academy)",
+            "register in Academy Sunshine South (U13)",
+            "register in Academy Sunshine South (U14)",
+            "register in Academy Sunshine South (U15)",
+            "register in Academy Sunshine South (U16)",
+            "register in Academy Sunshine South (U17)",
+            "register in Academy Sunshine South (U19)",
+            "alias 'Athletum FC Academy' (Academy) → 'Athletum FC Academy AD'"
+          ]
+        },
+        {
+          "id": "a079",
+          "type": "create_team",
+          "external_name": "Barca Residency Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 297,
+            "team_id": 1332,
+            "team_created": true,
+            "mapping_ids": [
+              3881,
+              3882,
+              3883,
+              3884
+            ],
+            "alias_id": 84
+          },
+          "steps": [
+            "create team 'Barca Residency Academy AD' (Academy)",
+            "register in Academy Desert (U15)",
+            "register in Academy Desert (U16)",
+            "register in Academy Desert (U17)",
+            "register in Academy Desert (U19)",
+            "alias 'Barca Residency Academy' (Academy) → 'Barca Residency Academy AD'"
+          ]
+        },
+        {
+          "id": "a080",
+          "type": "create_team",
+          "external_name": "AC Grand Rapids",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 440,
+            "team_id": 1333,
+            "team_created": true,
+            "mapping_ids": [
+              3885,
+              3886,
+              3887,
+              3888,
+              3889,
+              3890
+            ],
+            "alias_id": 85
+          },
+          "steps": [
+            "create team 'AC Grand Rapids Academy' (Academy)",
+            "register in Academy Great Lakes North (U13)",
+            "register in Academy Great Lakes North (U14)",
+            "register in Academy Great Lakes North (U15)",
+            "register in Academy Great Lakes North (U16)",
+            "register in Academy Great Lakes North (U17)",
+            "register in Academy Great Lakes North (U19)",
+            "alias 'AC Grand Rapids' (Academy) → 'AC Grand Rapids Academy'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 866,
+          "raw_name": "Barca Residency Academy",
+          "league": "Academy",
+          "team_id": 1332
+        },
+        {
+          "id": 864,
+          "raw_name": "Chicago FC United",
+          "league": "Academy",
+          "team_id": 1330
+        },
+        {
+          "id": 861,
+          "raw_name": "ALBION SC San Diego",
+          "league": "Academy",
+          "team_id": 1327
+        },
+        {
+          "id": 860,
+          "raw_name": "Sporting City",
+          "league": "Academy",
+          "team_id": 1326
+        },
+        {
+          "id": 909,
+          "raw_name": "Orlando City Soccer School South",
+          "league": "Academy",
+          "team_id": 1329
+        },
+        {
+          "id": 863,
+          "raw_name": "Athletum FC Academy",
+          "league": "Academy",
+          "team_id": 1331
+        },
+        {
+          "id": 956,
+          "raw_name": "AC Grand Rapids",
+          "league": "Academy",
+          "team_id": 1333
+        },
+        {
+          "id": 859,
+          "raw_name": "Southern Soccer Academy",
+          "league": "Academy",
+          "team_id": 1325
+        },
+        {
+          "id": 908,
+          "raw_name": "Sporting Athletic Club",
+          "league": "Academy",
+          "team_id": 673
+        },
+        {
+          "id": 862,
+          "raw_name": "Cedar Stars Academy Monmouth",
+          "league": "Academy",
+          "team_id": 1328
+        }
+      ]
+    },
+    {
+      "batch": 9,
+      "applied_at": "2026-11-28T19:18:40+00:00",
+      "actions": [
+        {
+          "id": "a081",
+          "type": "create_team",
+          "external_name": "Cincinnati United Soccer Club",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 246,
+            "team_id": 1334,
+            "team_created": true,
+            "mapping_ids": [
+              3891,
+              3892,
+              3893,
+              3894
+            ],
+            "alias_id": 86
+          },
+          "steps": [
+            "create team 'Cincinnati United Soccer Club Academy' (Academy)",
+            "register in Academy Great Lakes South (U13)",
+            "register in Academy Great Lakes South (U15)",
+            "register in Academy Great Lakes South (U17)",
+            "register in Academy Great Lakes South (U19)",
+            "alias 'Cincinnati United Soccer Club' (Academy) → 'Cincinnati United Soccer Club Academy'"
+          ]
+        },
+        {
+          "id": "a083",
+          "type": "create_team",
+          "external_name": "The Island FC East",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 406,
+            "team_id": 1335,
+            "team_created": true,
+            "mapping_ids": [
+              3895,
+              3896,
+              3897,
+              3898,
+              3899,
+              3900
+            ],
+            "alias_id": 87
+          },
+          "steps": [
+            "create team 'The Island FC East Academy' (Academy)",
+            "register in Academy Northeast (U13)",
+            "register in Academy Northeast (U14)",
+            "register in Academy Northeast (U15)",
+            "register in Academy Northeast (U16)",
+            "register in Academy Northeast (U17)",
+            "register in Academy Northeast (U19)",
+            "alias 'The Island FC East' (Academy) → 'The Island FC East Academy'"
+          ]
+        },
+        {
+          "id": "a084",
+          "type": "create_team",
+          "external_name": "Indy Eleven",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 256,
+            "team_id": 1336,
+            "team_created": true,
+            "mapping_ids": [
+              3901,
+              3902,
+              3903,
+              3904
+            ],
+            "alias_id": 88
+          },
+          "steps": [
+            "create team 'Indy Eleven Academy' (Academy)",
+            "register in Academy Great Lakes South (U13)",
+            "register in Academy Great Lakes South (U14)",
+            "register in Academy Great Lakes South (U17)",
+            "register in Academy Great Lakes South (U19)",
+            "alias 'Indy Eleven' (Academy) → 'Indy Eleven Academy'"
+          ]
+        },
+        {
+          "id": "a085",
+          "type": "create_team",
+          "external_name": "Downtown United Soccer Club",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 163,
+            "team_id": 1337,
+            "team_created": true,
+            "mapping_ids": [
+              3905,
+              3906
+            ],
+            "alias_id": 89
+          },
+          "steps": [
+            "create team 'Downtown United Soccer Club Academy' (Academy)",
+            "register in Academy Northeast (U17)",
+            "register in Academy Northeast (U19)",
+            "alias 'Downtown United Soccer Club' (Academy) → 'Downtown United Soccer Club Academy'"
+          ]
+        },
+        {
+          "id": "a088",
+          "type": "create_team",
+          "external_name": "Hoover-Vestavia Soccer",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 453,
+            "team_id": 1338,
+            "team_created": true,
+            "mapping_ids": [
+              3907
+            ],
+            "alias_id": 90
+          },
+          "steps": [
+            "create team 'Hoover-Vestavia Soccer Academy' (Academy)",
+            "register in Academy South (U19)",
+            "alias 'Hoover-Vestavia Soccer' (Academy) → 'Hoover-Vestavia Soccer Academy'"
+          ]
+        },
+        {
+          "id": "a089",
+          "type": "create_team",
+          "external_name": "Seminole United",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 470,
+            "team_id": 1339,
+            "team_created": true,
+            "mapping_ids": [
+              3908
+            ],
+            "alias_id": 91
+          },
+          "steps": [
+            "create team 'Seminole United Academy' (Academy)",
+            "register in Academy Sunshine North (U19)",
+            "alias 'Seminole United' (Academy) → 'Seminole United Academy'"
+          ]
+        },
+        {
+          "id": "a090",
+          "type": "create_team",
+          "external_name": "Albion SC Los Angeles",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 234,
+            "team_id": 1340,
+            "team_created": true,
+            "mapping_ids": [
+              3909,
+              3910,
+              3911
+            ],
+            "alias_id": 92
+          },
+          "steps": [
+            "create team 'ALBION SC Los Angeles Academy' (Academy)",
+            "register in Academy Southern California (U14)",
+            "register in Academy Southern California (U15)",
+            "register in Academy Southern California (U19)",
+            "alias 'Albion SC Los Angeles' (Academy) → 'ALBION SC Los Angeles Academy'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 868,
+          "raw_name": "Indy Eleven",
+          "league": "Academy",
+          "team_id": 1336
+        },
+        {
+          "id": 867,
+          "raw_name": "The Island FC East",
+          "league": "Academy",
+          "team_id": 1335
+        },
+        {
+          "id": 1014,
+          "raw_name": "Albion SC Los Angeles",
+          "league": "Academy",
+          "team_id": 1340
+        },
+        {
+          "id": 865,
+          "raw_name": "Cincinnati United Soccer Club",
+          "league": "Academy",
+          "team_id": 1334
+        },
+        {
+          "id": 996,
+          "raw_name": "Hoover-Vestavia Soccer",
+          "league": "Academy",
+          "team_id": 1338
+        },
+        {
+          "id": 919,
+          "raw_name": "Downtown United Soccer Club",
+          "league": "Academy",
+          "team_id": 1337
+        },
+        {
+          "id": 1010,
+          "raw_name": "Seminole United",
+          "league": "Academy",
+          "team_id": 1339
+        }
+      ]
+    },
+    {
+      "batch": 10,
+      "applied_at": "2026-11-28T19:18:43+00:00",
+      "actions": [
+        {
+          "id": "a091",
+          "type": "create_team",
+          "external_name": "IdeaSport SA",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 139,
+            "team_id": 1341,
+            "team_created": true,
+            "mapping_ids": [
+              3912
+            ],
+            "alias_id": 93
+          },
+          "steps": [
+            "create team 'IdeaSport SA Academy' (Academy)",
+            "register in Academy Sunshine North (U19)",
+            "alias 'IdeaSport SA' (Academy) → 'IdeaSport SA Academy'"
+          ]
+        },
+        {
+          "id": "a092",
+          "type": "create_team",
+          "external_name": "Albion SC Dallas",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 711,
+            "club_created": true,
+            "team_id": 1342,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'Albion SC Dallas'",
+            "create team 'Albion SC Dallas' (Academy)"
+          ]
+        },
+        {
+          "id": "a093",
+          "type": "create_team",
+          "external_name": "Sockers FC Chicago",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 276,
+            "team_id": 1343,
+            "team_created": true,
+            "mapping_ids": [
+              3913
+            ],
+            "alias_id": 94
+          },
+          "steps": [
+            "create team 'Sockers FC Chicago Academy' (Academy)",
+            "register in Academy North (U19)",
+            "alias 'Sockers FC Chicago' (Academy) → 'Sockers FC Chicago Academy'"
+          ]
+        },
+        {
+          "id": "a096",
+          "type": "create_team",
+          "external_name": "NorthWest Elite",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 712,
+            "club_created": true,
+            "team_id": 1344,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'NorthWest Elite'",
+            "create team 'NorthWest Elite' (Academy)"
+          ]
+        },
+        {
+          "id": "a097",
+          "type": "create_team",
+          "external_name": "Silicon Valley Soccer Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 275,
+            "team_id": 1345,
+            "team_created": true,
+            "alias_id": 95
+          },
+          "steps": [
+            "create team 'Silicon Valley Soccer Academy AD' (Academy)",
+            "alias 'Silicon Valley Soccer Academy' (Academy) → 'Silicon Valley Soccer Academy AD'"
+          ]
+        },
+        {
+          "id": "a098",
+          "type": "create_team",
+          "external_name": "Morris Elite SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 713,
+            "club_created": true,
+            "team_id": 1346,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'Morris Elite SC'",
+            "create team 'Morris Elite SC' (Academy)"
+          ]
+        },
+        {
+          "id": "a099",
+          "type": "create_team",
+          "external_name": "Dynamos SC",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 714,
+            "club_created": true,
+            "team_id": 1347,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'Dynamos SC'",
+            "create team 'Dynamos SC' (Academy)"
+          ]
+        },
+        {
+          "id": "a100",
+          "type": "create_team",
+          "external_name": "FC Bay Area Surf",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 250,
+            "team_id": 1348,
+            "team_created": true,
+            "mapping_ids": [
+              3914,
+              3915,
+              3916
+            ],
+            "alias_id": 96
+          },
+          "steps": [
+            "create team 'FC Bay Area Surf Academy' (Academy)",
+            "register in Academy Northern California Coast (U13)",
+            "register in Academy Northern California Coast (U14)",
+            "register in Academy Northern California Coast (U15)",
+            "alias 'FC Bay Area Surf' (Academy) → 'FC Bay Area Surf Academy'"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 1312,
+          "raw_name": "FC Bay Area Surf",
+          "league": "Academy",
+          "team_id": 1348
+        },
+        {
+          "id": 1223,
+          "raw_name": "Dynamos SC",
+          "league": "Academy",
+          "team_id": 1347
+        },
+        {
+          "id": 1199,
+          "raw_name": "Silicon Valley Soccer Academy",
+          "league": "Academy",
+          "team_id": 1345
+        },
+        {
+          "id": 1198,
+          "raw_name": "NorthWest Elite ",
+          "league": "Academy",
+          "team_id": 1344
+        },
+        {
+          "id": 1206,
+          "raw_name": "Morris Elite SC",
+          "league": "Academy",
+          "team_id": 1346
+        },
+        {
+          "id": 1033,
+          "raw_name": "Albion SC Dallas ",
+          "league": "Academy",
+          "team_id": 1342
+        },
+        {
+          "id": 1024,
+          "raw_name": "IdeaSport SA",
+          "league": "Academy",
+          "team_id": 1341
+        },
+        {
+          "id": 1042,
+          "raw_name": "Sockers FC Chicago",
+          "league": "Academy",
+          "team_id": 1343
+        }
+      ]
+    },
+    {
+      "batch": 11,
+      "applied_at": "2026-11-28T19:18:45+00:00",
+      "actions": [
+        {
+          "id": "a101",
+          "type": "alias",
+          "external_name": "Seacoast United",
+          "outcome": "applied",
+          "ids": {
+            "team_id": 129,
+            "alias_id": 97
+          },
+          "steps": [
+            "alias 'Seacoast United' (Academy) → team 129"
+          ]
+        },
+        {
+          "id": "a102",
+          "type": "create_team",
+          "external_name": "Bali SBK Academy",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 715,
+            "club_created": true,
+            "team_id": 1349,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'Bali SBK Academy'",
+            "create team 'Bali SBK Academy' (Academy)"
+          ]
+        },
+        {
+          "id": "a103",
+          "type": "create_team",
+          "external_name": "S1 Alliance",
+          "outcome": "applied",
+          "ids": {
+            "club_id": 716,
+            "club_created": true,
+            "team_id": 1350,
+            "team_created": true
+          },
+          "steps": [
+            "create club 'S1 Alliance'",
+            "create team 'S1 Alliance' (Academy)"
+          ]
+        }
+      ],
+      "failures_closed": [
+        {
+          "id": 1602,
+          "raw_name": "S1 Alliance ",
+          "league": "Academy",
+          "team_id": 1350
+        },
+        {
+          "id": 1228,
+          "raw_name": "Seacoast United",
+          "league": "Academy",
+          "team_id": 129
+        },
+        {
+          "id": 1389,
+          "raw_name": "Bali SBK Academy ",
+          "league": "Academy",
+          "team_id": 1349
+        }
+      ]
+    }
+  ]
+}

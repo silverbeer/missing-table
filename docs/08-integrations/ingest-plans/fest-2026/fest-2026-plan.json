@@ -1,0 +1,7000 @@
+{
+ "plan_id": "plan-20261128T184043-a784296a",
+ "generated_at": "2026-11-28T18:40:43+00:00",
+ "generated_by": "tom",
+ "environment": "prod",
+ "database": "4c58d15d2bed",
+ "inputs": {
+  "teams": "fest-2026.json",
+  "brackets": "brackets.json"
+ },
+ "review": "Nothing here is applied as generated. Set \"status\" to \"approved\" on each action to apply, and fill in whatever a \"needs_review\" action asks for first.",
+ "report": {
+  "entries": 1887,
+  "sides": {
+   "Academy": {
+    "entries": 1102,
+    "resolved": 676,
+    "ambiguous": 0,
+    "missing": {
+     "total": 426,
+     "alias_fixable": 28,
+     "needs_create": 398,
+     "unknown": 0
+    },
+    "unknown_league": 0,
+    "unknown_age_group": 0,
+    "resolver": {
+     "wrong_side": 408,
+     "missing": 18
+    }
+   },
+   "Homegrown": {
+    "entries": 710,
+    "resolved": 706,
+    "ambiguous": 0,
+    "missing": {
+     "total": 4,
+     "alias_fixable": 0,
+     "needs_create": 4,
+     "unknown": 0
+    },
+    "unknown_league": 0,
+    "unknown_age_group": 0,
+    "resolver": {
+     "wrong_side": 0,
+     "missing": 4
+    }
+   },
+   "no hint": {
+    "entries": 75,
+    "resolved": 75,
+    "ambiguous": 0,
+    "missing": {
+     "total": 0,
+     "alias_fixable": 0,
+     "needs_create": 0,
+     "unknown": 0
+    },
+    "unknown_league": 0,
+    "unknown_age_group": 0,
+    "resolver": {
+     "wrong_side": 0,
+     "missing": 0
+    }
+   }
+  },
+  "matches": {
+   "total": 2492,
+   "would_land": 1572,
+   "would_land_after_plan": 2492
+  },
+  "conferences": {
+   "placed": [
+    {
+     "league": "Academy",
+     "conference": "Carolinas",
+     "teams": 3,
+     "registrations": 11
+    },
+    {
+     "league": "Academy",
+     "conference": "Desert",
+     "teams": 7,
+     "registrations": 37
+    },
+    {
+     "league": "Academy",
+     "conference": "Garden State",
+     "teams": 6,
+     "registrations": 23
+    },
+    {
+     "league": "Academy",
+     "conference": "Great Lakes North",
+     "teams": 4,
+     "registrations": 24
+    },
+    {
+     "league": "Academy",
+     "conference": "Great Lakes South",
+     "teams": 4,
+     "registrations": 15
+    },
+    {
+     "league": "Academy",
+     "conference": "Heartland",
+     "teams": 2,
+     "registrations": 9
+    },
+    {
+     "league": "Academy",
+     "conference": "Mid-Atlantic",
+     "teams": 5,
+     "registrations": 18
+    },
+    {
+     "league": "Academy",
+     "conference": "North",
+     "teams": 4,
+     "registrations": 17
+    },
+    {
+     "league": "Academy",
+     "conference": "Northeast",
+     "teams": 5,
+     "registrations": 26
+    },
+    {
+     "league": "Academy",
+     "conference": "Northern California Coast",
+     "teams": 1,
+     "registrations": 3
+    },
+    {
+     "league": "Academy",
+     "conference": "Northern California Redwood",
+     "teams": 2,
+     "registrations": 12
+    },
+    {
+     "league": "Academy",
+     "conference": "Pioneer",
+     "teams": 4,
+     "registrations": 16
+    },
+    {
+     "league": "Academy",
+     "conference": "South",
+     "teams": 3,
+     "registrations": 13
+    },
+    {
+     "league": "Academy",
+     "conference": "Southern California",
+     "teams": 12,
+     "registrations": 55
+    },
+    {
+     "league": "Academy",
+     "conference": "Sunshine North",
+     "teams": 7,
+     "registrations": 24
+    },
+    {
+     "league": "Academy",
+     "conference": "Sunshine South",
+     "teams": 5,
+     "registrations": 30
+    },
+    {
+     "league": "Academy",
+     "conference": "Virginia",
+     "teams": 2,
+     "registrations": 9
+    }
+   ],
+   "unplaced": 20,
+   "unknown": []
+  },
+  "ambiguous": [],
+  "unknown": [],
+  "actions": {
+   "alias": {
+    "proposed": 6,
+    "needs_review": 1
+   },
+   "create_team": {
+    "proposed": 72,
+    "needs_review": 24
+   }
+  }
+ },
+ "actions": [
+  {
+   "id": "a001",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Coppermine SC' is team 941 on the other side; Coppermine SC has no Academy team.",
+   "external_name": "Coppermine SC",
+   "league": "Academy",
+   "club_id": 450,
+   "club_name": "Coppermine SC",
+   "new_club_name": null,
+   "team_name": "Coppermine SC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Coppermine SC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Coppermine SC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Coppermine SC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Coppermine SC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Coppermine SC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Coppermine SC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a002",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Baltimore Armour' is team 573 on the other side; Baltimore Armour has no Academy team.",
+   "external_name": "Baltimore Armour",
+   "league": "Academy",
+   "club_id": 239,
+   "club_name": "Baltimore Armour",
+   "new_club_name": null,
+   "team_name": "Baltimore Armour Academy",
+   "age_groups": [
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Baltimore Armour",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Baltimore Armour",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Baltimore Armour",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a003",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'SoCal Reds FC' is team 963 on the other side; SoCal Reds FC has no Academy team.",
+   "external_name": "SoCal Reds FC",
+   "league": "Academy",
+   "club_id": 472,
+   "club_name": "SoCal Reds FC",
+   "new_club_name": null,
+   "team_name": "SoCal Reds FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "SoCal Reds FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SoCal Reds FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SoCal Reds FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SoCal Reds FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SoCal Reds FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a004",
+   "type": "alias",
+   "status": "approved",
+   "reason": "'Michigan Wolves' is team 486 on the other side; Michigan Wolves has one Academy team, 'Michigan Wolves Academy' (676).",
+   "external_name": "Michigan Wolves",
+   "league": "Academy",
+   "team_id": 676,
+   "team_name": "Michigan Wolves Academy",
+   "candidates": [
+    {
+     "team_id": 676,
+     "team_name": "Michigan Wolves Academy",
+     "registered_age_groups": []
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Michigan Wolves",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Wolves",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Wolves",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Wolves",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Wolves",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Wolves",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a005",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Queen City Mutiny FC' is team 639 on the other side; Queen City Mutiny FC has no Academy team.",
+   "external_name": "Queen City Mutiny FC",
+   "league": "Academy",
+   "club_id": 300,
+   "club_name": "Queen City Mutiny FC",
+   "new_club_name": null,
+   "team_name": "Queen City Mutiny FC Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Carolinas"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Queen City Mutiny FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Queen City Mutiny FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Queen City Mutiny FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Queen City Mutiny FC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a006",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Michigan Jaguars' is team 597 on the other side; Michigan Jaguars has no Academy team.",
+   "external_name": "Michigan Jaguars",
+   "league": "Academy",
+   "club_id": 263,
+   "club_name": "Michigan Jaguars",
+   "new_club_name": null,
+   "team_name": "Michigan Jaguars Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Michigan Jaguars",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Jaguars",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Jaguars",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Jaguars",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Jaguars",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Michigan Jaguars",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a007",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'The Football Academy' is team 617 on the other side; The Football Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "The Football Academy",
+   "league": "Academy",
+   "club_id": 283,
+   "club_name": "The Football Academy",
+   "new_club_name": null,
+   "team_name": "The Football Academy AD",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Garden State"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "The Football Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Football Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Football Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Football Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a008",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Bethesda SC' is team 891 on the other side; Bethesda Soccer Club has no Academy team.",
+   "external_name": "Bethesda SC",
+   "league": "Academy",
+   "club_id": 403,
+   "club_name": "Bethesda Soccer Club",
+   "new_club_name": null,
+   "team_name": "Bethesda Soccer Club Academy",
+   "age_groups": [
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Bethesda SC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a009",
+   "type": "alias",
+   "status": "approved",
+   "reason": "'FC Westchester' is team 18 on the other side; FC Westchester has one Academy team, 'FC Westchester Academy' (679).",
+   "external_name": "FC Westchester",
+   "league": "Academy",
+   "team_id": 679,
+   "team_name": "FC Westchester Academy",
+   "candidates": [
+    {
+     "team_id": 679,
+     "team_name": "FC Westchester Academy",
+     "registered_age_groups": []
+    }
+   ],
+   "fixes": [
+    {
+     "name": "FC Westchester",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC Westchester",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a010",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'Boca OC'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "Boca OC",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Boca OC",
+   "team_name": "Boca OC",
+   "age_groups": [
+    "U17"
+   ],
+   "placements": [],
+   "near_matches": [],
+   "fixes": [
+    {
+     "name": "Boca OC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a011",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Las Vegas Sports Academy' is team 950 on the other side; Las Vegas Sports Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "Las Vegas Sports Academy",
+   "league": "Academy",
+   "club_id": 459,
+   "club_name": "Las Vegas Sports Academy",
+   "new_club_name": null,
+   "team_name": "Las Vegas Sports Academy AD",
+   "age_groups": [
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Desert"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Las Vegas Sports Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Las Vegas Sports Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Las Vegas Sports Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a012",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Houston Rangers' is team 589 on the other side; Houston Rangers has no Academy team.",
+   "external_name": "Houston Rangers",
+   "league": "Academy",
+   "club_id": 255,
+   "club_name": "Houston Rangers",
+   "new_club_name": null,
+   "team_name": "Houston Rangers Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Pioneer"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Houston Rangers",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Houston Rangers",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Houston Rangers",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Houston Rangers",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Houston Rangers",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Houston Rangers",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a013",
+   "type": "alias",
+   "status": "approved",
+   "reason": "'Club Ohio' is team 939 on the other side; Club Ohio has one Academy team, 'Club Ohio Academy' (680).",
+   "external_name": "Club Ohio",
+   "league": "Academy",
+   "team_id": 680,
+   "team_name": "Club Ohio Academy",
+   "candidates": [
+    {
+     "team_id": 680,
+     "team_name": "Club Ohio Academy",
+     "registered_age_groups": []
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Club Ohio",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Club Ohio",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Club Ohio",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Club Ohio",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Club Ohio",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Club Ohio",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a014",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'Los Angeles Sports Club' is team 952 on the other side; Los Angeles Sports Club has no Academy team.",
+   "external_name": "Los Angeles Sports Club",
+   "league": "Academy",
+   "club_id": 461,
+   "club_name": "Los Angeles Sports Club",
+   "new_club_name": null,
+   "team_name": "Los Angeles Sports Club Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Los Angeles Sports Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Sports Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Sports Club",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Sports Club",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Sports Club",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Sports Club",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a015",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Tulsa Greenwood SC' is team 620 on the other side; Tulsa Greenwood SC has no Academy team.",
+   "external_name": "Tulsa Greenwood SC",
+   "league": "Academy",
+   "club_id": 286,
+   "club_name": "Tulsa Greenwood SC",
+   "new_club_name": null,
+   "team_name": "Tulsa Greenwood SC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Pioneer"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Tulsa Greenwood SC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tulsa Greenwood SC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tulsa Greenwood SC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tulsa Greenwood SC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tulsa Greenwood SC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tulsa Greenwood SC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a016",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Miami Futbol Academy Rush' is team 414 on the other side; Miami Futbol Academy Rush has no Academy team.",
+   "external_name": "Miami Futbol Academy Rush",
+   "league": "Academy",
+   "club_id": 143,
+   "club_name": "Miami Futbol Academy Rush",
+   "new_club_name": null,
+   "team_name": "Miami Futbol Academy Rush Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Miami Futbol Academy Rush",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Miami Futbol Academy Rush",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Miami Futbol Academy Rush",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Miami Futbol Academy Rush",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Miami Futbol Academy Rush",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Miami Futbol Academy Rush",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a017",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'Los Angeles Bulls Soccer Club' is team 951 on the other side; Los Angeles Bulls Soccer Club has no Academy team.",
+   "external_name": "Los Angeles Bulls Soccer Club",
+   "league": "Academy",
+   "club_id": 460,
+   "club_name": "Los Angeles Bulls Soccer Club",
+   "new_club_name": null,
+   "team_name": "Los Angeles Bulls Soccer Club Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Los Angeles Bulls Soccer Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Bulls Soccer Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Bulls Soccer Club",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Bulls Soccer Club",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Los Angeles Bulls Soccer Club",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a018",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Players Development Academy' is team 911 on the other side; PDA has no Academy team.",
+   "external_name": "Players Development Academy",
+   "league": "Academy",
+   "club_id": 374,
+   "club_name": "PDA",
+   "new_club_name": null,
+   "team_name": "PDA Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Garden State"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Players Development Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Players Development Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Players Development Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Players Development Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a019",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'One FC' is team 487 on the other side; One FC has no Academy team.",
+   "external_name": "One FC",
+   "league": "Academy",
+   "club_id": 704,
+   "club_name": "One FC",
+   "new_club_name": null,
+   "team_name": "One FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "One FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "One FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "One FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "One FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "One FC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "One FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a020",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'St. Louis Scott Gallagher' is team 615 on the other side; St. Louis Scott Gallagher has no Academy team.",
+   "external_name": "St. Louis Scott Gallagher",
+   "league": "Academy",
+   "club_id": 281,
+   "club_name": "St. Louis Scott Gallagher",
+   "new_club_name": null,
+   "team_name": "St. Louis Scott Gallagher Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "St. Louis Scott Gallagher",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "St. Louis Scott Gallagher",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "St. Louis Scott Gallagher",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a021",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Cedar Stars Academy Bergen' is team 14 on the other side; Cedar Stars Academy Bergen has no Academy team.",
+   "external_name": "Cedar Stars Academy Bergen",
+   "league": "Academy",
+   "club_id": 155,
+   "club_name": "Cedar Stars Academy Bergen",
+   "new_club_name": null,
+   "team_name": "Cedar Stars Academy Bergen Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Garden State"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Cedar Stars Academy Bergen",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cedar Stars Academy Bergen",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cedar Stars Academy Bergen",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cedar Stars Academy Bergen",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cedar Stars Academy Bergen",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a022",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Inter Atlanta FC' is team 591 on the other side; Inter Atlanta FC has no Academy team.",
+   "external_name": "Inter Atlanta FC",
+   "league": "Academy",
+   "club_id": 257,
+   "club_name": "Inter Atlanta FC",
+   "new_club_name": null,
+   "team_name": "Inter Atlanta FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Inter Atlanta FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Inter Atlanta FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Inter Atlanta FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Inter Atlanta FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Inter Atlanta FC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Inter Atlanta FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a023",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'FA Euro New York' is team 16 on the other side; FA Euro New York has no Academy team.",
+   "external_name": "FA Euro New York",
+   "league": "Academy",
+   "club_id": 164,
+   "club_name": "FA Euro New York",
+   "new_club_name": null,
+   "team_name": "FA Euro New York Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Northeast"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "FA Euro New York",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FA Euro New York",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FA Euro New York",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FA Euro New York",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FA Euro New York",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FA Euro New York",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a024",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Alexandria SA' is team 570 on the other side; Alexandria SA has no Academy team.",
+   "external_name": "Alexandria SA",
+   "league": "Academy",
+   "club_id": 236,
+   "club_name": "Alexandria SA",
+   "new_club_name": null,
+   "team_name": "Alexandria SA Academy",
+   "age_groups": [
+    "U14",
+    "U16",
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Virginia"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Virginia"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Virginia"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Alexandria SA",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Alexandria SA",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Alexandria SA",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a025",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'FC DELCO' is team 317 on the other side; FC Delco has no Academy team.",
+   "external_name": "FC DELCO",
+   "league": "Academy",
+   "club_id": 90,
+   "club_name": "FC Delco",
+   "new_club_name": null,
+   "team_name": "FC Delco Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "FC DELCO",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC DELCO",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC DELCO",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC DELCO",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a026",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'SGA' is team 958 on the other side; SGA has no Academy team.",
+   "external_name": "SGA",
+   "league": "Academy",
+   "club_id": 467,
+   "club_name": "SGA",
+   "new_club_name": null,
+   "team_name": "SGA Academy",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Pioneer"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "SGA",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SGA",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a027",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Weston FC' is team 422 on the other side; Weston FC has no Academy team.",
+   "external_name": "Weston FC",
+   "league": "Academy",
+   "club_id": 151,
+   "club_name": "Weston FC",
+   "new_club_name": null,
+   "team_name": "Weston FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Weston FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Weston FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Weston FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Weston FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Weston FC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Weston FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a028",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'ALBION SC Merced' is team 932 on the other side; ALBION SC Merced has no Academy team.",
+   "external_name": "ALBION SC Merced",
+   "league": "Academy",
+   "club_id": 441,
+   "club_name": "ALBION SC Merced",
+   "new_club_name": null,
+   "team_name": "ALBION SC Merced Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "ALBION SC Merced",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Merced",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Merced",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Merced",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Merced",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Merced",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a029",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Phoenix Rising FC' is team 602 on the other side; Phoenix Rising FC has no Academy team.",
+   "external_name": "Phoenix Rising FC",
+   "league": "Academy",
+   "club_id": 268,
+   "club_name": "Phoenix Rising FC",
+   "new_club_name": null,
+   "team_name": "Phoenix Rising FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Desert"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Phoenix Rising FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Phoenix Rising FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Phoenix Rising FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Phoenix Rising FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Phoenix Rising FC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Phoenix Rising FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a030",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Sacramento United' is team 959 on the other side; Sacramento United has no Academy team.",
+   "external_name": "Sacramento United",
+   "league": "Academy",
+   "club_id": 468,
+   "club_name": "Sacramento United",
+   "new_club_name": null,
+   "team_name": "Sacramento United Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Northern California Redwood"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Sacramento United",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sacramento United",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sacramento United",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sacramento United",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sacramento United",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sacramento United",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a031",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'TSF Academy' is team 35 on the other side; TSF Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "TSF Academy",
+   "league": "Academy",
+   "club_id": 158,
+   "club_name": "TSF Academy",
+   "new_club_name": null,
+   "team_name": "TSF Academy AD",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Garden State"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "TSF Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "TSF Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "TSF Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "TSF Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a032",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Total Futbol Academy' is team 619 on the other side; Total Futbol Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "Total Futbol Academy",
+   "league": "Academy",
+   "club_id": 285,
+   "club_name": "Total Futbol Academy",
+   "new_club_name": null,
+   "team_name": "Total Futbol Academy AD",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Total Futbol Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Total Futbol Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Total Futbol Academy",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Total Futbol Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Total Futbol Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Total Futbol Academy",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a033",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'ALBION SC Colorado' is team 567 on the other side; ALBION SC Colorado has no Academy team.",
+   "external_name": "ALBION SC Colorado",
+   "league": "Academy",
+   "club_id": 233,
+   "club_name": "ALBION SC Colorado",
+   "new_club_name": null,
+   "team_name": "ALBION SC Colorado Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "fixes": [
+    {
+     "name": "ALBION SC Colorado",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Colorado",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Colorado",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Colorado",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Colorado",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC Colorado",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a034",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Tampa Bay United' is team 420 on the other side; Tampa Bay United has no Academy team.",
+   "external_name": "Tampa Bay United",
+   "league": "Academy",
+   "club_id": 149,
+   "club_name": "Tampa Bay United",
+   "new_club_name": null,
+   "team_name": "Tampa Bay United Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Tampa Bay United",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tampa Bay United",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tampa Bay United",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tampa Bay United",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tampa Bay United",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Tampa Bay United",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a035",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'City SC - San Diego' is team 937 on the other side; City SC - San Diego has no Academy team.",
+   "external_name": "City SC - San Diego",
+   "league": "Academy",
+   "club_id": 446,
+   "club_name": "City SC - San Diego",
+   "new_club_name": null,
+   "team_name": "City SC - San Diego Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "City SC - San Diego",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC - San Diego",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC - San Diego",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC - San Diego",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC - San Diego",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC - San Diego",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a036",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'IMG' is team 409 on the other side; IMG has no Academy team.",
+   "external_name": "IMG",
+   "league": "Academy",
+   "club_id": 138,
+   "club_name": "IMG",
+   "new_club_name": null,
+   "team_name": "IMG Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "IMG",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "IMG",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "IMG",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "IMG",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a037",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'RSL Arizona Mesa' is team 955 on the other side; RSL Arizona Mesa has no Academy team.",
+   "external_name": "RSL Arizona Mesa",
+   "league": "Academy",
+   "club_id": 464,
+   "club_name": "RSL Arizona Mesa",
+   "new_club_name": null,
+   "team_name": "RSL Arizona Mesa Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Desert"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "RSL Arizona Mesa",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona Mesa",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona Mesa",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona Mesa",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona Mesa",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona Mesa",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a038",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Chargers Soccer Club' is team 408 on the other side; Chargers Soccer Club has no Academy team.",
+   "external_name": "Chargers Soccer Club",
+   "league": "Academy",
+   "club_id": 137,
+   "club_name": "Chargers Soccer Club",
+   "new_club_name": null,
+   "team_name": "Chargers Soccer Club Academy",
+   "age_groups": [
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Chargers Soccer Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chargers Soccer Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chargers Soccer Club",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a039",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'ALBION SC Santa Ana'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "ALBION SC Santa Ana",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "ALBION SC Santa Ana",
+   "team_name": "ALBION SC Santa Ana",
+   "age_groups": [
+    "U16",
+    "U17"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 567,
+     "team_name": "ALBION SC Colorado",
+     "club_id": 233
+    },
+    {
+     "team_id": 568,
+     "team_name": "ALBION SC Los Angeles",
+     "club_id": 234
+    },
+    {
+     "team_id": 569,
+     "team_name": "ALBION SC San Diego",
+     "club_id": 235
+    },
+    {
+     "team_id": 932,
+     "team_name": "ALBION SC Merced",
+     "club_id": 441
+    },
+    {
+     "team_id": 933,
+     "team_name": "Albion SC Las Vegas",
+     "club_id": 442
+    }
+   ],
+   "fixes": [
+    {
+     "name": "ALBION SC Santa Ana",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "missing"
+    },
+    {
+     "name": "ALBION SC Santa Ana",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a040",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'South Florida Football Academy' is team 419 on the other side; South Florida Football Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "South Florida Football Academy",
+   "league": "Academy",
+   "club_id": 148,
+   "club_name": "South Florida Football Academy",
+   "new_club_name": null,
+   "team_name": "South Florida Football Academy AD",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "South Florida Football Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "South Florida Football Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "South Florida Football Academy",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "South Florida Football Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "South Florida Football Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "South Florida Football Academy",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a041",
+   "type": "create_team",
+   "status": "needs_review",
+   "reason": "'GFI Academy' is team 943 on the other side; GFI Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "GFI Academy",
+   "league": "Academy",
+   "club_id": 452,
+   "club_name": "GFI Academy",
+   "new_club_name": null,
+   "team_name": "GFI Academy Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "fixes": [
+    {
+     "name": "GFI Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "GFI Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "GFI Academy",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "GFI Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "GFI Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "GFI Academy",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a042",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'De Anza Force' is team 583 on the other side; De Anza Force has no Academy team.",
+   "external_name": "De Anza Force",
+   "league": "Academy",
+   "club_id": 249,
+   "club_name": "De Anza Force",
+   "new_club_name": null,
+   "team_name": "De Anza Force Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "fixes": [
+    {
+     "name": "De Anza Force",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "De Anza Force",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "De Anza Force",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "De Anza Force",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "De Anza Force",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a043",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'New York SC' is team 23 on the other side; New York SC has no Academy team.",
+   "external_name": "New York SC",
+   "league": "Academy",
+   "club_id": 161,
+   "club_name": "New York SC",
+   "new_club_name": null,
+   "team_name": "New York SC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Northeast"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "New York SC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "New York SC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "New York SC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "New York SC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "New York SC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "New York SC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a044",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'Capital City SC' is team 934 on the other side; Capital City SC has no Academy team.",
+   "external_name": "Capital City SC",
+   "league": "Academy",
+   "club_id": 443,
+   "club_name": "Capital City SC",
+   "new_club_name": null,
+   "team_name": "Capital City SC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "fixes": [
+    {
+     "name": "Capital City SC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Capital City SC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Capital City SC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Capital City SC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Capital City SC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Capital City SC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a045",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'Dallas Hornets' is team 582 on the other side; Dallas Hornets has no Academy team.",
+   "external_name": "Dallas Hornets",
+   "league": "Academy",
+   "club_id": 248,
+   "club_name": "Dallas Hornets",
+   "new_club_name": null,
+   "team_name": "Dallas Hornets Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "fixes": [
+    {
+     "name": "Dallas Hornets",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Dallas Hornets",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Dallas Hornets",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Dallas Hornets",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Dallas Hornets",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Dallas Hornets",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a046",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Real Futbol Academy' is team 604 on the other side; Real Futbol Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "Real Futbol Academy",
+   "league": "Academy",
+   "club_id": 270,
+   "club_name": "Real Futbol Academy",
+   "new_club_name": null,
+   "team_name": "Real Futbol Academy AD",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Garden State"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Real Futbol Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Real Futbol Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Real Futbol Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Real Futbol Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a047",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'LA Surf Soccer Club' is team 948 on the other side; LA Surf Soccer Club has no Academy team.",
+   "external_name": "LA Surf Soccer Club",
+   "league": "Academy",
+   "club_id": 457,
+   "club_name": "LA Surf Soccer Club",
+   "new_club_name": null,
+   "team_name": "LA Surf Soccer Club Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "LA Surf Soccer Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "LA Surf Soccer Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "LA Surf Soccer Club",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "LA Surf Soccer Club",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a048",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Wake FC' is team 621 on the other side; Wake FC has no Academy team.",
+   "external_name": "Wake FC",
+   "league": "Academy",
+   "club_id": 287,
+   "club_name": "Wake FC",
+   "new_club_name": null,
+   "team_name": "Wake FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Carolinas"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Carolinas"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Wake FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Wake FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Wake FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Wake FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Wake FC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Wake FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a049",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Vardar Soccer Club' is team 637 on the other side; Vardar Soccer Club has no Academy team.",
+   "external_name": "Vardar Soccer Club",
+   "league": "Academy",
+   "club_id": 298,
+   "club_name": "Vardar Soccer Club",
+   "new_club_name": null,
+   "team_name": "Vardar Soccer Club Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Vardar Soccer Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Vardar Soccer Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Vardar Soccer Club",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Vardar Soccer Club",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Vardar Soccer Club",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Vardar Soccer Club",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a050",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Lou Fusz Athletic' is team 596 on the other side; Lou Fusz Athletic has no Academy team.",
+   "external_name": "Lou Fusz Athletic",
+   "league": "Academy",
+   "club_id": 262,
+   "club_name": "Lou Fusz Athletic",
+   "new_club_name": null,
+   "team_name": "Lou Fusz Athletic Academy",
+   "age_groups": [
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Heartland"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Heartland"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Heartland"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Lou Fusz Athletic",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Lou Fusz Athletic",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Lou Fusz Athletic",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a051",
+   "type": "alias",
+   "status": "approved",
+   "reason": "'Beachside of Connecticut' is team 12 on the other side; Beachside of Connecticut has one Academy team, 'Beachside Academy' (674).",
+   "external_name": "Beachside of Connecticut",
+   "league": "Academy",
+   "team_id": 674,
+   "team_name": "Beachside Academy",
+   "candidates": [
+    {
+     "team_id": 674,
+     "team_name": "Beachside Academy",
+     "registered_age_groups": []
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Beachside of Connecticut",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Beachside of Connecticut",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a052",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Albion SC Las Vegas' is team 933 on the other side; Albion SC Las Vegas has no Academy team.",
+   "external_name": "Albion SC Las Vegas",
+   "league": "Academy",
+   "club_id": 442,
+   "club_name": "Albion SC Las Vegas",
+   "new_club_name": null,
+   "team_name": "Albion SC Las Vegas Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Desert"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Albion SC Las Vegas",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Albion SC Las Vegas",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Albion SC Las Vegas",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Albion SC Las Vegas",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Albion SC Las Vegas",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Albion SC Las Vegas",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a053",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'SC Wave' is team 957 on the other side; SC Wave has no Academy team.",
+   "external_name": "SC Wave",
+   "league": "Academy",
+   "club_id": 466,
+   "club_name": "SC Wave",
+   "new_club_name": null,
+   "team_name": "SC Wave Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U16",
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "SC Wave",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Wave",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Wave",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Wave",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a054",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Chula Vista FC' is team 579 on the other side; Chula Vista FC has no Academy team.",
+   "external_name": "Chula Vista FC",
+   "league": "Academy",
+   "club_id": 245,
+   "club_name": "Chula Vista FC",
+   "new_club_name": null,
+   "team_name": "Chula Vista FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U16",
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Chula Vista FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chula Vista FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chula Vista FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chula Vista FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a055",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'The Island FC West' is team 20 on the other side; The Island FC West has no Academy team.",
+   "external_name": "The Island FC West",
+   "league": "Academy",
+   "club_id": 160,
+   "club_name": "The Island FC West",
+   "new_club_name": null,
+   "team_name": "The Island FC West Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Northeast"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "The Island FC West",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC West",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC West",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC West",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC West",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC West",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a056",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Penn Rising XI' is team 954 on the other side; Penn Rising XI has no Academy team.",
+   "external_name": "Penn Rising XI",
+   "league": "Academy",
+   "club_id": 463,
+   "club_name": "Penn Rising XI",
+   "new_club_name": null,
+   "team_name": "Penn Rising XI Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Mid-Atlantic"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Penn Rising XI",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Penn Rising XI",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Penn Rising XI",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Penn Rising XI",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a057",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Springfield SYC' is team 613 on the other side; Springfield SYC has no Academy team.",
+   "external_name": "Springfield SYC",
+   "league": "Academy",
+   "club_id": 279,
+   "club_name": "Springfield SYC",
+   "new_club_name": null,
+   "team_name": "Springfield SYC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Virginia"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Virginia"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Virginia"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Virginia"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Virginia"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Virginia"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Springfield SYC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Springfield SYC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Springfield SYC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Springfield SYC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Springfield SYC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Springfield SYC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a058",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'West Florida Flames' is team 421 on the other side; West Florida Flames has no Academy team.",
+   "external_name": "West Florida Flames",
+   "league": "Academy",
+   "club_id": 150,
+   "club_name": "West Florida Flames",
+   "new_club_name": null,
+   "team_name": "West Florida Flames Academy",
+   "age_groups": [
+    "U14",
+    "U15",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "West Florida Flames",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "West Florida Flames",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "West Florida Flames",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "West Florida Flames",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a059",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Strikers FC' is team 616 on the other side; Strikers FC has no Academy team.",
+   "external_name": "Strikers FC",
+   "league": "Academy",
+   "club_id": 282,
+   "club_name": "Strikers FC",
+   "new_club_name": null,
+   "team_name": "Strikers FC Academy",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Strikers FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Strikers FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a060",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Northern Virginia Alliance' is team 601 on the other side; Northern Virginia Alliance has no Academy team.",
+   "external_name": "Northern Virginia Alliance",
+   "league": "Academy",
+   "club_id": 267,
+   "club_name": "Northern Virginia Alliance",
+   "new_club_name": null,
+   "team_name": "Northern Virginia Alliance Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "fixes": [
+    {
+     "name": "Northern Virginia Alliance",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Northern Virginia Alliance",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Northern Virginia Alliance",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Northern Virginia Alliance",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Northern Virginia Alliance",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Northern Virginia Alliance",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a061",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'AC River' is team 565 on the other side; AC River has no Academy team.",
+   "external_name": "AC River",
+   "league": "Academy",
+   "club_id": 231,
+   "club_name": "AC River",
+   "new_club_name": null,
+   "team_name": "AC River Academy",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Pioneer"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Pioneer"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "AC River",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "AC River",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a062",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'FC Golden State Force' is team 942 on the other side; FC Golden State Force has no Academy team.",
+   "external_name": "FC Golden State Force",
+   "league": "Academy",
+   "club_id": 451,
+   "club_name": "FC Golden State Force",
+   "new_club_name": null,
+   "team_name": "FC Golden State Force Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "FC Golden State Force",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC Golden State Force",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC Golden State Force",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a063",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Midwest United FC' is team 598 on the other side; Midwest United FC has no Academy team.",
+   "external_name": "Midwest United FC",
+   "league": "Academy",
+   "club_id": 264,
+   "club_name": "Midwest United FC",
+   "new_club_name": null,
+   "team_name": "Midwest United FC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Midwest United FC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Midwest United FC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Midwest United FC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Midwest United FC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Midwest United FC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Midwest United FC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a064",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Bavarian United SC' is team 574 on the other side; Bavarian United SC has no Academy team.",
+   "external_name": "Bavarian United SC",
+   "league": "Academy",
+   "club_id": 240,
+   "club_name": "Bavarian United SC",
+   "new_club_name": null,
+   "team_name": "Bavarian United SC Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Bavarian United SC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Bavarian United SC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Bavarian United SC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Bavarian United SC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Bavarian United SC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Bavarian United SC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a065",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'RSL Arizona' is team 603 on the other side; RSL Arizona has no Academy team.",
+   "external_name": "RSL Arizona",
+   "league": "Academy",
+   "club_id": 269,
+   "club_name": "RSL Arizona",
+   "new_club_name": null,
+   "team_name": "RSL Arizona Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Desert"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "RSL Arizona",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "RSL Arizona",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a066",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'City SC Southwest' is team 938 on the other side; City SC Southwest has no Academy team.",
+   "external_name": "City SC Southwest",
+   "league": "Academy",
+   "club_id": 447,
+   "club_name": "City SC Southwest",
+   "new_club_name": null,
+   "team_name": "City SC Southwest Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "City SC Southwest",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC Southwest",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC Southwest",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC Southwest",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC Southwest",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "City SC Southwest",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a067",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'SC Del Sol' is team 956 on the other side; SC Del Sol has no Academy team.",
+   "external_name": "SC Del Sol",
+   "league": "Academy",
+   "club_id": 465,
+   "club_name": "SC Del Sol",
+   "new_club_name": null,
+   "team_name": "SC Del Sol Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Desert"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "SC Del Sol",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Del Sol",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Del Sol",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Del Sol",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Del Sol",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "SC Del Sol",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a068",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Beadling SC' is team 908 on the other side; Beadling SC has no Academy team.",
+   "external_name": "Beadling SC",
+   "league": "Academy",
+   "club_id": 705,
+   "club_name": "Beadling SC",
+   "new_club_name": null,
+   "team_name": "Beadling SC Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Beadling SC",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Beadling SC",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Beadling SC",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Beadling SC",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a069",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'IDEA Toros Fútbol Academy'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "IDEA Toros Fútbol Academy",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "IDEA Toros Fútbol Academy",
+   "team_name": "IDEA Toros Fútbol Academy",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 410,
+     "team_name": "IdeaSport SA",
+     "club_id": 139
+    },
+    {
+     "team_id": 1060,
+     "team_name": "OV Toros",
+     "club_id": 568
+    },
+    {
+     "team_id": 1008,
+     "team_name": "Eastshore Alliance Fútbol Club",
+     "club_id": 516
+    }
+   ],
+   "fixes": [
+    {
+     "name": "IDEA Toros Fútbol Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "missing"
+    },
+    {
+     "name": "IDEA Toros Fútbol Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "missing"
+    },
+    {
+     "name": "IDEA Toros Fútbol Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "missing"
+    },
+    {
+     "name": "IDEA Toros Fútbol Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a070",
+   "type": "alias",
+   "status": "approved",
+   "reason": "'Blau Weiss Gottschee' is team 13 on the other side; Blau Weiss Gottschee has one Academy team, 'Blau Weiss Gottschee Academy' (675).",
+   "external_name": "Blau Weiss Gottschee",
+   "league": "Academy",
+   "team_id": 675,
+   "team_name": "Blau Weiss Gottschee Academy",
+   "candidates": [
+    {
+     "team_id": 675,
+     "team_name": "Blau Weiss Gottschee Academy",
+     "registered_age_groups": []
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Blau Weiss Gottschee",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Blau Weiss Gottschee",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Blau Weiss Gottschee",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Blau Weiss Gottschee",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a071",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Southern Soccer Academy' is team 611 on the other side; Southern Soccer Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "Southern Soccer Academy",
+   "league": "Academy",
+   "club_id": 277,
+   "club_name": "Southern Soccer Academy",
+   "new_club_name": null,
+   "team_name": "Southern Soccer Academy AD",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Southern Soccer Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Southern Soccer Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Southern Soccer Academy",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Southern Soccer Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Southern Soccer Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Southern Soccer Academy",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a072",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Sporting City' is team 964 on the other side; Sporting City has no Academy team.",
+   "external_name": "Sporting City",
+   "league": "Academy",
+   "club_id": 473,
+   "club_name": "Sporting City",
+   "new_club_name": null,
+   "team_name": "Sporting City Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Heartland"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Heartland"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Heartland"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Heartland"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Heartland"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Heartland"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Sporting City",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting City",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting City",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting City",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting City",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting City",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a073",
+   "type": "alias",
+   "status": "approved",
+   "reason": "'Sporting Athletic Club' is team 612 on the other side; Sporting Athletic Club has one Academy team, 'Sporting Athletic Club Academy' (673).",
+   "external_name": "Sporting Athletic Club",
+   "league": "Academy",
+   "team_id": 673,
+   "team_name": "Sporting Athletic Club Academy",
+   "candidates": [
+    {
+     "team_id": 673,
+     "team_name": "Sporting Athletic Club Academy",
+     "registered_age_groups": []
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Sporting Athletic Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting Athletic Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting Athletic Club",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting Athletic Club",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting Athletic Club",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Sporting Athletic Club",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a074",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'ALBION SC San Diego' is team 569 on the other side; ALBION SC San Diego has no Academy team.",
+   "external_name": "ALBION SC San Diego",
+   "league": "Academy",
+   "club_id": 235,
+   "club_name": "ALBION SC San Diego",
+   "new_club_name": null,
+   "team_name": "ALBION SC San Diego Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "ALBION SC San Diego",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC San Diego",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC San Diego",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC San Diego",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "ALBION SC San Diego",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a075",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Cedar Stars Academy Monmouth' is team 576 on the other side; Cedar Stars Academy Monmouth has no Academy team.",
+   "external_name": "Cedar Stars Academy Monmouth",
+   "league": "Academy",
+   "club_id": 242,
+   "club_name": "Cedar Stars Academy Monmouth",
+   "new_club_name": null,
+   "team_name": "Cedar Stars Academy Monmouth Academy",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Garden State"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Garden State"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Cedar Stars Academy Monmouth",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cedar Stars Academy Monmouth",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a076",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Orlando City Soccer School South' is team 416 on the other side; Orlando City Soccer School South has no Academy team.",
+   "external_name": "Orlando City Soccer School South",
+   "league": "Academy",
+   "club_id": 145,
+   "club_name": "Orlando City Soccer School South",
+   "new_club_name": null,
+   "team_name": "Orlando City Soccer School South Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Orlando City Soccer School South",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Orlando City Soccer School South",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Orlando City Soccer School South",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Orlando City Soccer School South",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Orlando City Soccer School South",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a077",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Chicago FC United' is team 578 on the other side; Chicago FC United has no Academy team.",
+   "external_name": "Chicago FC United",
+   "league": "Academy",
+   "club_id": 244,
+   "club_name": "Chicago FC United",
+   "new_club_name": null,
+   "team_name": "Chicago FC United Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Chicago FC United",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chicago FC United",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chicago FC United",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chicago FC United",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chicago FC United",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Chicago FC United",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a078",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Athletum FC Academy' is team 407 on the other side; Athletum FC Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "Athletum FC Academy",
+   "league": "Academy",
+   "club_id": 136,
+   "club_name": "Athletum FC Academy",
+   "new_club_name": null,
+   "team_name": "Athletum FC Academy AD",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Athletum FC Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Athletum FC Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Athletum FC Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Athletum FC Academy",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Athletum FC Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Athletum FC Academy",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a079",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Barca Residency Academy' is team 636 on the other side; Barca Residency Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "Barca Residency Academy",
+   "league": "Academy",
+   "club_id": 297,
+   "club_name": "Barca Residency Academy",
+   "new_club_name": null,
+   "team_name": "Barca Residency Academy AD",
+   "age_groups": [
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Desert"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Desert"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Barca Residency Academy",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Barca Residency Academy",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Barca Residency Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Barca Residency Academy",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a080",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'AC Grand Rapids' is team 931 on the other side; AC Grand Rapids has no Academy team.",
+   "external_name": "AC Grand Rapids",
+   "league": "Academy",
+   "club_id": 440,
+   "club_name": "AC Grand Rapids",
+   "new_club_name": null,
+   "team_name": "AC Grand Rapids Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Great Lakes North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "AC Grand Rapids",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "AC Grand Rapids",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "AC Grand Rapids",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "AC Grand Rapids",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "AC Grand Rapids",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "AC Grand Rapids",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a081",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Cincinnati United Soccer Club' is team 580 on the other side; Cincinnati United Soccer Club has no Academy team.",
+   "external_name": "Cincinnati United Soccer Club",
+   "league": "Academy",
+   "club_id": 246,
+   "club_name": "Cincinnati United Soccer Club",
+   "new_club_name": null,
+   "team_name": "Cincinnati United Soccer Club Academy",
+   "age_groups": [
+    "U13",
+    "U15",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Cincinnati United Soccer Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cincinnati United Soccer Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cincinnati United Soccer Club",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Cincinnati United Soccer Club",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a082",
+   "type": "create_team",
+   "status": "proposed",
+   "reason": "'Charlotte Independence Soccer Club' is team 935 on the other side; Charlotte Independence Soccer Club has no Academy team.",
+   "external_name": "Charlotte Independence Soccer Club",
+   "league": "Academy",
+   "club_id": 444,
+   "club_name": "Charlotte Independence Soccer Club",
+   "new_club_name": null,
+   "team_name": "Charlotte Independence Soccer Club Academy",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Carolinas"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Charlotte Independence Soccer Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Charlotte Independence Soccer Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a083",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'The Island FC East' is team 896 on the other side; The Island FC East has no Academy team.",
+   "external_name": "The Island FC East",
+   "league": "Academy",
+   "club_id": 406,
+   "club_name": "The Island FC East",
+   "new_club_name": null,
+   "team_name": "The Island FC East Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U16",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Northeast"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "The Island FC East",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC East",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC East",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC East",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC East",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "The Island FC East",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a084",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Indy Eleven' is team 590 on the other side; Indy Eleven has no Academy team.",
+   "external_name": "Indy Eleven",
+   "league": "Academy",
+   "club_id": 256,
+   "club_name": "Indy Eleven",
+   "new_club_name": null,
+   "team_name": "Indy Eleven Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Great Lakes South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Indy Eleven",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Indy Eleven",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Indy Eleven",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Indy Eleven",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a085",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Downtown United Soccer Club' is team 15 on the other side; Downtown United Soccer Club has no Academy team.",
+   "external_name": "Downtown United Soccer Club",
+   "league": "Academy",
+   "club_id": 163,
+   "club_name": "Downtown United Soccer Club",
+   "new_club_name": null,
+   "team_name": "Downtown United Soccer Club Academy",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U17",
+     "league": "Academy",
+     "conference": "Northeast"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Northeast"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Downtown United Soccer Club",
+     "age_group": "U17",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Downtown United Soccer Club",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a086",
+   "type": "create_team",
+   "status": "needs_review",
+   "reason": "MT has no team or club named 'Best of West'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "Best of West",
+   "league": "Homegrown",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Best of West",
+   "team_name": "Best of West",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 18,
+     "team_name": "FC Westchester",
+     "club_id": 162
+    },
+    {
+     "team_id": 125,
+     "team_name": "IFA West",
+     "club_id": 1
+    },
+    {
+     "team_id": 20,
+     "team_name": "The Island FC West",
+     "club_id": 160
+    },
+    {
+     "team_id": 421,
+     "team_name": "West Florida Flames",
+     "club_id": 150
+    },
+    {
+     "team_id": 422,
+     "team_name": "Weston FC",
+     "club_id": 151
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Best of West",
+     "age_group": "U17",
+     "league": "Homegrown",
+     "status": "missing"
+    },
+    {
+     "name": "Best of West",
+     "age_group": "U19",
+     "league": "Homegrown",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a087",
+   "type": "create_team",
+   "status": "needs_review",
+   "reason": "MT has no team or club named 'Best of East'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "Best of East",
+   "league": "Homegrown",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Best of East",
+   "team_name": "Best of East",
+   "age_groups": [
+    "U17",
+    "U19"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 896,
+     "team_name": "The Island FC East",
+     "club_id": 406
+    },
+    {
+     "team_id": 1005,
+     "team_name": "Dallas Hornets East",
+     "club_id": 512
+    },
+    {
+     "team_id": 1007,
+     "team_name": "Eastern Iowa United",
+     "club_id": 515
+    },
+    {
+     "team_id": 1008,
+     "team_name": "Eastshore Alliance Fútbol Club",
+     "club_id": 516
+    },
+    {
+     "team_id": 1117,
+     "team_name": "Washington East Surf SC",
+     "club_id": 625
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Best of East",
+     "age_group": "U17",
+     "league": "Homegrown",
+     "status": "missing"
+    },
+    {
+     "name": "Best of East",
+     "age_group": "U19",
+     "league": "Homegrown",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a088",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Hoover-Vestavia Soccer' is team 944 on the other side; Hoover-Vestavia Soccer has no Academy team.",
+   "external_name": "Hoover-Vestavia Soccer",
+   "league": "Academy",
+   "club_id": 453,
+   "club_name": "Hoover-Vestavia Soccer",
+   "new_club_name": null,
+   "team_name": "Hoover-Vestavia Soccer Academy",
+   "age_groups": [
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "South"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Hoover-Vestavia Soccer",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a089",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Seminole United' is team 961 on the other side; Seminole United has no Academy team.",
+   "external_name": "Seminole United",
+   "league": "Academy",
+   "club_id": 470,
+   "club_name": "Seminole United",
+   "new_club_name": null,
+   "team_name": "Seminole United Academy",
+   "age_groups": [
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Seminole United",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a090",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Albion SC Los Angeles' is team 568 on the other side; ALBION SC Los Angeles has no Academy team.",
+   "external_name": "Albion SC Los Angeles",
+   "league": "Academy",
+   "club_id": 234,
+   "club_name": "ALBION SC Los Angeles",
+   "new_club_name": null,
+   "team_name": "ALBION SC Los Angeles Academy",
+   "age_groups": [
+    "U14",
+    "U15",
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Southern California"
+    },
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Southern California"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Albion SC Los Angeles",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Albion SC Los Angeles",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Albion SC Los Angeles",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a091",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'IdeaSport SA' is team 410 on the other side; IdeaSport SA has no Academy team.",
+   "external_name": "IdeaSport SA",
+   "league": "Academy",
+   "club_id": 139,
+   "club_name": "IdeaSport SA",
+   "new_club_name": null,
+   "team_name": "IdeaSport SA Academy",
+   "age_groups": [
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "Sunshine North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "IdeaSport SA",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a092",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'Albion SC Dallas'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "Albion SC Dallas",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Albion SC Dallas",
+   "team_name": "Albion SC Dallas",
+   "age_groups": [
+    "U14",
+    "U19"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 567,
+     "team_name": "ALBION SC Colorado",
+     "club_id": 233
+    },
+    {
+     "team_id": 568,
+     "team_name": "ALBION SC Los Angeles",
+     "club_id": 234
+    },
+    {
+     "team_id": 569,
+     "team_name": "ALBION SC San Diego",
+     "club_id": 235
+    },
+    {
+     "team_id": 932,
+     "team_name": "ALBION SC Merced",
+     "club_id": 441
+    },
+    {
+     "team_id": 933,
+     "team_name": "Albion SC Las Vegas",
+     "club_id": 442
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Albion SC Dallas",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "missing"
+    },
+    {
+     "name": "Albion SC Dallas",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a093",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Sockers FC Chicago' is team 610 on the other side; Sockers FC Chicago has no Academy team.",
+   "external_name": "Sockers FC Chicago",
+   "league": "Academy",
+   "club_id": 276,
+   "club_name": "Sockers FC Chicago",
+   "new_club_name": null,
+   "team_name": "Sockers FC Chicago Academy",
+   "age_groups": [
+    "U19"
+   ],
+   "placements": [
+    {
+     "age_group": "U19",
+     "league": "Academy",
+     "conference": "North"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Sockers FC Chicago",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a094",
+   "type": "create_team",
+   "status": "needs_review",
+   "reason": "MT has no team or club named 'Best of West'. Needs review: MT has no team by this name: check the near matches before creating one; action a086 proposes the same new team, 'Best of West'; action a086 proposes the same new club, 'Best of West'.",
+   "external_name": "Best of West",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Best of West",
+   "team_name": "Best of West",
+   "age_groups": [
+    "U19"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 18,
+     "team_name": "FC Westchester",
+     "club_id": 162
+    },
+    {
+     "team_id": 125,
+     "team_name": "IFA West",
+     "club_id": 1
+    },
+    {
+     "team_id": 20,
+     "team_name": "The Island FC West",
+     "club_id": 160
+    },
+    {
+     "team_id": 421,
+     "team_name": "West Florida Flames",
+     "club_id": 150
+    },
+    {
+     "team_id": 422,
+     "team_name": "Weston FC",
+     "club_id": 151
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Best of West",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a095",
+   "type": "create_team",
+   "status": "needs_review",
+   "reason": "MT has no team or club named 'Best of East'. Needs review: MT has no team by this name: check the near matches before creating one; action a087 proposes the same new team, 'Best of East'; action a087 proposes the same new club, 'Best of East'.",
+   "external_name": "Best of East",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Best of East",
+   "team_name": "Best of East",
+   "age_groups": [
+    "U19"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 896,
+     "team_name": "The Island FC East",
+     "club_id": 406
+    },
+    {
+     "team_id": 1005,
+     "team_name": "Dallas Hornets East",
+     "club_id": 512
+    },
+    {
+     "team_id": 1007,
+     "team_name": "Eastern Iowa United",
+     "club_id": 515
+    },
+    {
+     "team_id": 1008,
+     "team_name": "Eastshore Alliance Fútbol Club",
+     "club_id": 516
+    },
+    {
+     "team_id": 1117,
+     "team_name": "Washington East Surf SC",
+     "club_id": 625
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Best of East",
+     "age_group": "U19",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a096",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'NorthWest Elite'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "NorthWest Elite",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "NorthWest Elite",
+   "team_name": "NorthWest Elite",
+   "age_groups": [
+    "U14",
+    "U16"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 183,
+     "team_name": "IFA Elite Futsal 2012 Blue",
+     "club_id": 1
+    },
+    {
+     "team_id": 139,
+     "team_name": "New York Elite Alleycats FC",
+     "club_id": 23
+    },
+    {
+     "team_id": 184,
+     "team_name": "IFA Elite Futsal 2012 White",
+     "club_id": 1
+    },
+    {
+     "team_id": 182,
+     "team_name": "IFA Elite Futsal 2012 Gold",
+     "club_id": 1
+    },
+    {
+     "team_id": 1049,
+     "team_name": "Michigan Stars Elite",
+     "club_id": 557
+    }
+   ],
+   "fixes": [
+    {
+     "name": "NorthWest Elite",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "missing"
+    },
+    {
+     "name": "NorthWest Elite",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a097",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'Silicon Valley Soccer Academy' is team 609 on the other side; Silicon Valley Soccer Academy has no Academy team. Needs review: the club's name already ends in 'Academy'.",
+   "external_name": "Silicon Valley Soccer Academy",
+   "league": "Academy",
+   "club_id": 275,
+   "club_name": "Silicon Valley Soccer Academy",
+   "new_club_name": null,
+   "team_name": "Silicon Valley Soccer Academy AD",
+   "age_groups": [
+    "U13",
+    "U14"
+   ],
+   "placements": [],
+   "fixes": [
+    {
+     "name": "Silicon Valley Soccer Academy",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Silicon Valley Soccer Academy",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a098",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'Morris Elite SC'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "Morris Elite SC",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Morris Elite SC",
+   "team_name": "Morris Elite SC",
+   "age_groups": [
+    "U14"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 183,
+     "team_name": "IFA Elite Futsal 2012 Blue",
+     "club_id": 1
+    },
+    {
+     "team_id": 139,
+     "team_name": "New York Elite Alleycats FC",
+     "club_id": 23
+    },
+    {
+     "team_id": 184,
+     "team_name": "IFA Elite Futsal 2012 White",
+     "club_id": 1
+    },
+    {
+     "team_id": 182,
+     "team_name": "IFA Elite Futsal 2012 Gold",
+     "club_id": 1
+    },
+    {
+     "team_id": 1049,
+     "team_name": "Michigan Stars Elite",
+     "club_id": 557
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Morris Elite SC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a099",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'Dynamos SC'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "Dynamos SC",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Dynamos SC",
+   "team_name": "Dynamos SC",
+   "age_groups": [
+    "U13",
+    "U14"
+   ],
+   "placements": [],
+   "near_matches": [],
+   "fixes": [
+    {
+     "name": "Dynamos SC",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "missing"
+    },
+    {
+     "name": "Dynamos SC",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a100",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "'FC Bay Area Surf' is team 584 on the other side; FC Bay Area Surf has no Academy team.",
+   "external_name": "FC Bay Area Surf",
+   "league": "Academy",
+   "club_id": 250,
+   "club_name": "FC Bay Area Surf",
+   "new_club_name": null,
+   "team_name": "FC Bay Area Surf Academy",
+   "age_groups": [
+    "U13",
+    "U14",
+    "U15"
+   ],
+   "placements": [
+    {
+     "age_group": "U13",
+     "league": "Academy",
+     "conference": "Northern California Coast"
+    },
+    {
+     "age_group": "U14",
+     "league": "Academy",
+     "conference": "Northern California Coast"
+    },
+    {
+     "age_group": "U15",
+     "league": "Academy",
+     "conference": "Northern California Coast"
+    }
+   ],
+   "fixes": [
+    {
+     "name": "FC Bay Area Surf",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC Bay Area Surf",
+     "age_group": "U15",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "FC Bay Area Surf",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a101",
+   "type": "alias",
+   "status": "approved",
+   "reason": "'Seacoast United' is team 26 on the other side; Seacoast United has 2 Academy teams. Needs review: pick one of the candidates and set team_id and team_name.",
+   "external_name": "Seacoast United",
+   "league": "Academy",
+   "team_id": 129,
+   "team_name": "Seacoast United Bedford",
+   "candidates": [
+    {
+     "team_id": 129,
+     "team_name": "Seacoast United Bedford",
+     "registered_age_groups": [
+      "U13",
+      "U14",
+      "U15",
+      "U16",
+      "U17",
+      "U19"
+     ]
+    },
+    {
+     "team_id": 130,
+     "team_name": "Seacoast United Mass",
+     "registered_age_groups": [
+      "U13",
+      "U14",
+      "U15",
+      "U16",
+      "U17",
+      "U19"
+     ]
+    }
+   ],
+   "fixes": [
+    {
+     "name": "Seacoast United",
+     "age_group": "U14",
+     "league": "Academy",
+     "status": "wrong_side"
+    },
+    {
+     "name": "Seacoast United",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "wrong_side"
+    }
+   ]
+  },
+  {
+   "id": "a102",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'Bali SBK Academy'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "Bali SBK Academy",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "Bali SBK Academy",
+   "team_name": "Bali SBK Academy",
+   "age_groups": [
+    "U16"
+   ],
+   "placements": [],
+   "near_matches": [],
+   "fixes": [
+    {
+     "name": "Bali SBK Academy",
+     "age_group": "U16",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  },
+  {
+   "id": "a103",
+   "type": "create_team",
+   "status": "approved",
+   "reason": "MT has no team or club named 'S1 Alliance'. Needs review: MT has no team by this name: check the near matches before creating one.",
+   "external_name": "S1 Alliance",
+   "league": "Academy",
+   "club_id": null,
+   "club_name": null,
+   "new_club_name": "S1 Alliance",
+   "team_name": "S1 Alliance",
+   "age_groups": [
+    "U13"
+   ],
+   "placements": [],
+   "near_matches": [
+    {
+     "team_id": 601,
+     "team_name": "Northern Virginia Alliance",
+     "club_id": 267
+    },
+    {
+     "team_id": 1008,
+     "team_name": "Eastshore Alliance Fútbol Club",
+     "club_id": 516
+    },
+    {
+     "team_id": 1110,
+     "team_name": "United Soccer Alliance",
+     "club_id": 618
+    }
+   ],
+   "fixes": [
+    {
+     "name": "S1 Alliance",
+     "age_group": "U13",
+     "league": "Academy",
+     "status": "missing"
+    }
+   ]
+  }
+ ]
+}
