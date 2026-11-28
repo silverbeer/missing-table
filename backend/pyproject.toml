@@ -63,7 +63,7 @@ dependencies = [
 [tool.uv.sources]
 telegram-notify = { git = "https://github.com/silverbeer/telegram-notify", rev = "main" }
 discord-notify = { git = "https://github.com/silverbeer/discord-notify", rev = "main" }
-sb-notify = { git = "https://github.com/silverbeer/sb-notify", tag = "v0.1.0" }
+sb-notify = { git = "https://github.com/silverbeer/sb-notify", tag = "v0.2.0" }
 
 [project.optional-dependencies]
 # MT AI against a local Ollama model (mt_ai/models.py). Never in the prod image.

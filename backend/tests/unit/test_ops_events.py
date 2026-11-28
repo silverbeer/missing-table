@@ -24,7 +24,7 @@ from notifications.ops_events import CONFIG_ENV, build_match_final_event, emit_m
 from notifications.tasks import notify_event_task
 
 CHART_CONFIG = Path(__file__).resolve().parents[3] / "helm/missing-table/files/sb-notify/config.toml"
-WEBHOOK = "https://hooks.slack.com/services/T000/B000/XXXX"  # pragma: allowlist secret
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/123456/abcDEF_-xyz"  # pragma: allowlist secret
 
 # The flattened row match_dao.get_match_by_id returns.
 MATCH = {
@@ -177,29 +177,33 @@ class TestEmitMatchFinal:
 
 @pytest.mark.unit
 class TestThroughSbNotify:
-    """The real library against the chart's config, with Slack's HTTP stubbed out."""
+    """The real library against the chart's config, with Discord's HTTP stubbed out."""
+
+    FEST = {**MATCH, "tournament_id": 9, "tournament_name": "2026 MLS NEXT Fest"}
 
     @pytest.fixture
-    def slack(self, monkeypatch, tmp_path):
+    def discord(self, monkeypatch, tmp_path):
         monkeypatch.setenv(CONFIG_ENV, str(CHART_CONFIG))
         monkeypatch.setenv("SB_NOTIFY_STATE", str(tmp_path / "state.db"))
-        monkeypatch.setenv("SB_NOTIFY_SLACK_MT_SCORES_WEBHOOK", WEBHOOK)
+        monkeypatch.setenv("SB_NOTIFY_DISCORD_FEST_WEBHOOK", DISCORD_WEBHOOK)
         posts = []
 
         def post(self, url, json=None, **kwargs):
             posts.append(json)
-            return httpx.Response(200, text="ok", request=httpx.Request("POST", url))
+            return httpx.Response(204, request=httpx.Request("POST", url))
 
         monkeypatch.setattr(httpx.Client, "post", post)
         return posts
 
-    def _outside_quiet_hours(self):
-        return patch("sb_notify.router.time.time", return_value=datetime(2026, 11, 9, 17, tzinfo=UTC).timestamp())
+    def _at(self, hour):
+        """A New York wall-clock hour on a November day (UTC-5)."""
+        stamp = datetime(2026, 11, 9, (hour + 5) % 24, tzinfo=UTC).timestamp()
+        return patch("sb_notify.router.time.time", return_value=stamp)
 
-    def test_chart_config_routes_match_final_to_slack_with_quiet_hours(self):
+    def test_chart_config_routes_fest_scores_to_discord_in_real_time(self):
         config = load_config(CHART_CONFIG)
-        assert [route.sinks for route in config.routes] == [("slack-mt-scores",)]
-        assert config.sinks["slack-mt-scores"].destination_env == "SB_NOTIFY_SLACK_MT_SCORES_WEBHOOK"
+        assert [(route.sinks, route.quiet_hours) for route in config.routes] == [(("discord-mls-next-fest",), False)]
+        assert config.sinks["discord-mls-next-fest"].destination_env == "SB_NOTIFY_DISCORD_FEST_WEBHOOK"
         quiet = config.quiet_hours
         assert (quiet.start.isoformat(), quiet.end.isoformat(), quiet.timezone) == (
             "22:00:00",
@@ -208,18 +212,31 @@ class TestThroughSbNotify:
         )
         assert {str(level) for level in quiet.levels} == {"info", "warn", "error", "critical"}
 
-    def test_delivers_once_and_the_dedupe_key_drops_a_repeat(self, slack):
-        hostile = {**MATCH, "home_team_name": "<!channel> FC"}
-        with self._outside_quiet_hours(), patch.object(ops_events, "logger") as log:
+    def test_a_fest_score_posts_once_and_the_dedupe_key_drops_a_repeat(self, discord):
+        hostile = {**self.FEST, "home_team_name": "@everyone FC"}
+        with self._at(15), patch.object(ops_events, "logger") as log:
             emit_match_final(hostile)
             emit_match_final(hostile)
         assert [c.kwargs["status"] for c in log.info.call_args_list] == ["delivered", "suppressed"]
-        assert len(slack) == 1
-        text = slack[0]["text"]
-        assert "&lt;!channel&gt; FC 2\u20131 NEFC" in text
-        assert "<!channel>" not in text
+        assert len(discord) == 1
+        payload = discord[0]
+        assert "2\u20131 NEFC" in payload["content"]
+        assert "@everyone" not in payload["content"]
+        assert payload["allowed_mentions"] == {"parse": []}
         # The destination is never logged.
-        assert WEBHOOK not in json.dumps([c.kwargs for c in log.info.call_args_list], default=str)
+        assert DISCORD_WEBHOOK not in json.dumps([c.kwargs for c in log.info.call_args_list], default=str)
+
+    def test_a_late_fest_score_posts_at_once_despite_quiet_hours(self, discord):
+        with self._at(23), patch.object(ops_events, "logger") as log:
+            emit_match_final(self.FEST)
+        assert [c.kwargs["status"] for c in log.info.call_args_list] == ["delivered"]
+        assert len(discord) == 1
+
+    def test_a_score_outside_the_fest_goes_nowhere(self, discord):
+        with self._at(15), patch.object(ops_events, "logger") as log:
+            emit_match_final({**MATCH, "tournament_id": 4})
+        assert [c.kwargs["status"] for c in log.info.call_args_list] == ["unrouted"]
+        assert discord == []
 
 
 # --- the hook ----------------------------------------------------------------------

@@ -77,6 +77,13 @@ sb-notify wiring shared by the backend and the flush CronJob (SB-1849).
       name: {{ include "missing-table.fullname" . }}-secrets
       key: sb-notify-slack-mt-scores-webhook
       optional: true
+# Destination for the discord-mls-next-fest sink (SB-1853). Optional, as above.
+- name: SB_NOTIFY_DISCORD_FEST_WEBHOOK
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "missing-table.fullname" . }}-secrets
+      key: sb-notify-discord-fest-webhook
+      optional: true
 {{- end }}
 
 {{- define "missing-table.sbNotifyVolumeMounts" -}}
