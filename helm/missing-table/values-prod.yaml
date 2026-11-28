@@ -102,3 +102,9 @@ imageCredentials:
   registry: ghcr.io
   username: silverbeer
   # password comes from ExternalSecret (missing-table-ghcr)
+
+# sb-notify operator/community feeds (SB-1849, SB-1853): MLS NEXT Fest scores
+# to Discord. Adds the sb-notify ConfigMap, a state PVC (Linode bills 10Gi,
+# ~$1/month, retain class) and the 07:00 America/New_York flush CronJob.
+sbNotify:
+  enabled: true
