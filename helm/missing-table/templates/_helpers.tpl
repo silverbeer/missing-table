@@ -60,3 +60,38 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+sb-notify wiring shared by the backend and the flush CronJob (SB-1849).
+*/}}
+{{- define "missing-table.sbNotifyEnv" -}}
+- name: SB_NOTIFY_CONFIG
+  value: /etc/sb-notify/config.toml
+- name: SB_NOTIFY_STATE
+  value: /var/lib/sb-notify/state.db
+# Destination for the slack-mt-scores sink. Optional: the pod starts without
+# it, and each send fails with a log line until ESO populates the key.
+- name: SB_NOTIFY_SLACK_MT_SCORES_WEBHOOK
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "missing-table.fullname" . }}-secrets
+      key: sb-notify-slack-mt-scores-webhook
+      optional: true
+{{- end }}
+
+{{- define "missing-table.sbNotifyVolumeMounts" -}}
+- name: sb-notify-config
+  mountPath: /etc/sb-notify
+  readOnly: true
+- name: sb-notify-state
+  mountPath: /var/lib/sb-notify
+{{- end }}
+
+{{- define "missing-table.sbNotifyVolumes" -}}
+- name: sb-notify-config
+  configMap:
+    name: {{ include "missing-table.fullname" . }}-sb-notify
+- name: sb-notify-state
+  persistentVolumeClaim:
+    claimName: {{ include "missing-table.fullname" . }}-sb-notify-state
+{{- end }}

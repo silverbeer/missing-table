@@ -146,6 +146,34 @@ notifications:
   # values.secrets.adminDiscordWebhookUrl / ESO instead.
   adminTelegramChatId: ""
 
+# Operator feed via sb-notify (SB-1849): one routed event per new final score.
+# Routing lives in files/sb-notify/config.toml (mounted as SB_NOTIFY_CONFIG).
+# The Slack webhook is key sb-notify-slack-mt-scores-webhook in
+# missing-table-secrets (ESO in prod, values.secrets.sbNotifySlackMtScoresWebhook
+# locally); optional, so the pod starts without it and sends just fail.
+# Off: no ConfigMap, PVC or CronJob, and the backend pod spec is unchanged.
+sbNotify:
+  enabled: false
+  # Dedupe + quiet-hours outbox (SQLite). Must persist: events held overnight
+  # live here until the 07:00 flush. Linode bills a 10Gi minimum per volume.
+  persistence:
+    size: 1Gi
+    storageClass: ""  # Use default storage class (same as redis)
+  # appuser in the backend image (Dockerfile useradd; k3s/worker uses the same).
+  # Pod fsGroup so the non-root user can write the volume.
+  fsGroup: 1000
+  # Morning digest: sends what quiet hours held. Matches [quiet_hours] end.
+  flush:
+    schedule: "0 7 * * *"
+    timeZone: America/New_York
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
 # Frontend configuration
 frontend:
   replicaCount: 1

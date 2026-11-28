@@ -34,6 +34,12 @@ spec:
       imagePullSecrets:
         - name: {{ include "missing-table.fullname" . }}-ghcr
       {{- end }}
+      {{- if .Values.sbNotify.enabled }}
+      # The sb-notify state volume must be writable by appuser (SB-1849).
+      securityContext:
+        fsGroup: {{ .Values.sbNotify.fsGroup }}
+        fsGroupChangePolicy: OnRootMismatch
+      {{- end }}
       containers:
       - name: backend
         image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
@@ -283,6 +289,12 @@ spec:
         - name: {{ $key }}
           value: {{ $value | quote }}
         {{- end }}
+        {{- if .Values.sbNotify.enabled }}
+        # Operator feed (SB-1849): routing config, state file, Slack webhook.
+        {{- include "missing-table.sbNotifyEnv" . | nindent 8 }}
+        volumeMounts:
+        {{- include "missing-table.sbNotifyVolumeMounts" . | nindent 8 }}
+        {{- end }}
         resources:
           {{- toYaml .Values.backend.resources | nindent 10 }}
         livenessProbe:
@@ -300,6 +312,10 @@ spec:
         {{- if .Values.backend.command }}
         command: {{- toYaml .Values.backend.command | nindent 8 }}
         {{- end }}
+      {{- if .Values.sbNotify.enabled }}
+      volumes:
+      {{- include "missing-table.sbNotifyVolumes" . | nindent 6 }}
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
