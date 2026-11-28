@@ -1,0 +1,26 @@
+# sb-notify routing for the MT backend (SB-1849). Mounted from the
+# sb-notify ConfigMap at $SB_NOTIFY_CONFIG when sbNotify.enabled is true.
+# Destinations are secrets: each sink names only the env var that holds it,
+# populated from missing-table-secrets (ESO in prod).
+# backend/tests/unit/test_ops_events.py loads this file, so a broken route
+# fails CI rather than the operator feed.
+
+[sinks.slack-mt-scores]
+type = "slack"
+destination_env = "SB_NOTIFY_SLACK_MT_SCORES_WEBHOOK"
+
+[[routes]]
+match = { kind = ["mt.match_final"] }
+sinks = ["slack-mt-scores"]
+
+# No routed event wakes anyone: everything is held 22:00-07:00 and goes out
+# as one digest at 07:00 (the sb-notify-flush CronJob).
+[quiet_hours]
+start = "22:00"
+end = "07:00"
+timezone = "America/New_York"
+levels = ["info", "warn", "error", "critical"]
+digest = true
+
+[dedupe]
+window = "1d"

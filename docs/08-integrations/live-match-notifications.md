@@ -499,3 +499,18 @@ A channel with `post_as_threads` posts each match as its own thread and every la
 - **Not built (follow-ups):** Slack threads need a bot token and `chat.postMessage`, because webhooks do not return `ts`. Telegram would use forum topics (`message_thread_id`, with an admin bot holding `can_manage_topics`) or reply chains.
 
 The in-app setup guide for club managers (tabs per channel type, Slack / Telegram / Discord) is described in [channel-setup-guide.md](channel-setup-guide.md) (SB-1672).
+
+## Operator feed: final scores via sb-notify (SB-1849)
+
+Separate from everything above: one routed [sb-notify](https://github.com/silverbeer/sb-notify) event per new final score, for the operator, not for clubs or followers. Kind `mt.match_final`, source `mt-backend`, level `info`; title `IFA 2–1 NEFC`, body competition · age group · division · date, a link to `/?matchId=<id>`, and `dedupe_key` `mt.match_final:<id>:<home>-<away>`.
+
+- **Hook:** `notify_event_task` (`notifications/tasks.py`) calls `notifications/ops_events.py` for every `fulltime` task, after the fan-out and independent of it. All three final-score paths arrive there: `_maybe_notify_final_score`, `POST /api/matches/{id}/final-score-alert`, and live scoring's `end_match`. Their own guards (`is_new_final_score`, the Redis claim, the end_match replay check) keep it to one event per score; the 1-day sb-notify dedupe is the second guard, for example when a score is written by both the API and the scraper.
+- **Not sent:** test matches, and rows without both scores. `NOTIFICATIONS_ENABLED` does not gate it: that switch is for club and follower traffic.
+- **Dormant** unless `SB_NOTIFY_CONFIG` is set: one `ops_events.dormant` info log per process, no match read. A failure logs `ops_events.failed` with the error type only; `ops_events.sent` carries status (`delivered`, `failed`, `unrouted`, `suppressed`, `held`) and reason, never a destination.
+- **Routing** is `helm/missing-table/files/sb-notify/config.toml`: Slack sink `slack-mt-scores` (webhook from `SB_NOTIFY_SLACK_MT_SCORES_WEBHOOK`), quiet hours 22:00–07:00 America/New_York for every level. `tests/unit/test_ops_events.py` loads that file.
+- **Helm:** `sbNotify.enabled` (default false) adds the ConfigMap, a 1Gi RWO PVC for the state file at `/var/lib/sb-notify/state.db` (Linode bills 10Gi), pod `fsGroup: 1000` so appuser can write it, and the `sb-notify-flush` CronJob at 07:00 America/New_York that sends the overnight digest. The PVC is shared by the backend and the CronJob, which works only while the cluster has one node.
+- **Enabling in prod, in this order** (a property mapped in the ExternalSecret but missing from AWS fails the whole sync):
+  1. Add property `sb_notify_slack_mt_scores_webhook` (the Slack incoming webhook URL) to the AWS Secrets Manager secret `missing-table-app-secrets`.
+  2. In missingtable-platform-bootstrap, map it in the `missing-table-app-secrets` ExternalSecret as `secretKey: sb-notify-slack-mt-scores-webhook`, then plan and apply.
+  3. Set `sbNotify.enabled: true` in `values-prod.yaml`.
+  4. Check: `kubectl -n missing-table exec deploy/missing-table-backend -- /app/.venv/bin/sb-notify check` exits 0.

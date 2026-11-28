@@ -1,0 +1,88 @@
+{{- if .Values.sbNotify.enabled }}
+# sb-notify operator feed (SB-1849). The backend sends; this CronJob sends the
+# morning digest of what quiet hours held. Both share one state file.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "missing-table.fullname" . }}-sb-notify
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: sb-notify
+data:
+  config.toml: |
+    {{- .Files.Get "files/sb-notify/config.toml" | nindent 4 }}
+---
+# ReadWriteOnce, shared by the backend pod and the flush CronJob. That is only
+# safe because the cluster has one node: RWO is per node, so both pods (and a
+# rolling update's old and new backend pods) can mount it there. On a second
+# node, pin these pods together or move the state off a block volume. SQLite
+# over a network filesystem is not supported by sb-notify.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "missing-table.fullname" . }}-sb-notify-state
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: sb-notify
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.sbNotify.persistence.size }}
+  {{- if .Values.sbNotify.persistence.storageClass }}
+  storageClassName: {{ .Values.sbNotify.persistence.storageClass }}
+  {{- end }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "missing-table.fullname" . }}-sb-notify-flush
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "missing-table.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: sb-notify-flush
+spec:
+  schedule: {{ .Values.sbNotify.flush.schedule | quote }}
+  timeZone: {{ .Values.sbNotify.flush.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ include "missing-table.name" . }}
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: sb-notify-flush
+        spec:
+          restartPolicy: OnFailure
+          {{- if .Values.imageCredentials }}
+          imagePullSecrets:
+            - name: {{ include "missing-table.fullname" . }}-ghcr
+          {{- end }}
+          securityContext:
+            fsGroup: {{ .Values.sbNotify.fsGroup }}
+            fsGroupChangePolicy: OnRootMismatch
+          containers:
+          - name: flush
+            image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+            imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+            # The image's entrypoint starts the API; call the venv's CLI directly.
+            command: ["/app/.venv/bin/sb-notify", "flush"]
+            env:
+            {{- include "missing-table.sbNotifyEnv" . | nindent 12 }}
+            volumeMounts:
+            {{- include "missing-table.sbNotifyVolumeMounts" . | nindent 12 }}
+            resources:
+              {{- toYaml .Values.sbNotify.flush.resources | nindent 14 }}
+          volumes:
+          {{- include "missing-table.sbNotifyVolumes" . | nindent 10 }}
+{{- end }}
