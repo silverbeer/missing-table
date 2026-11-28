@@ -12,7 +12,7 @@ Handles all database operations related to teams including:
 import structlog
 from postgrest.exceptions import APIError
 
-from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, dao_cache, invalidates_cache
+from dao.base_dao import MATCHES_READ_RELATION, BaseDAO, clear_cache, dao_cache, invalidates_cache
 from dao.team_sides import (
     AMBIGUOUS,
     MISSING,
@@ -685,6 +685,22 @@ class TeamDAO(BaseDAO):
             .execute()
         )
         return response.data or []
+
+    def merge_team(self, from_id: int, into_id: int, dry_run: bool = True) -> dict:
+        """Fold a duplicate team into its canonical row (SB-1822).
+
+        One transaction in the database (merge_team RPC): matches, mappings,
+        rosters, follows and every other team reference move to `into_id`,
+        collisions are dropped, the source name is kept as a former_name alias
+        so the feed still resolves it, and the source team is deleted. A dry
+        run reports the same per-table counts and changes nothing. A real run
+        raises while the dry run lists blockers.
+        """
+        response = self.client.rpc("merge_team", {"p_from": from_id, "p_into": into_id, "p_dry_run": dry_run}).execute()
+        if not dry_run:
+            # Matches, standings, stats and rosters all moved, not just teams.
+            clear_cache("mt:dao:*")
+        return response.data or {}
 
     def get_team_by_name_and_division(self, name: str, division_id: int | None) -> dict | None:
         """Get a team by name (exact match, case-sensitive) within a specific division.
