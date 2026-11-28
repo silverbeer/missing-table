@@ -95,6 +95,9 @@ def build_match_final_event(match: dict) -> dict | None:
         "match_type": _present(match.get("match_type_name")),
         # Who wrote the score: the scraper, or a person in the app.
         "match_source": _present(match.get("source")),
+        # Routes match on the id (stable); the name is for people (SB-1853).
+        "tournament_id": str(match["tournament_id"]) if match.get("tournament_id") is not None else None,
+        "tournament": _present(match.get("tournament_name")),
     }
 
     base_url = os.getenv("APP_BASE_URL", "https://missingtable.com").rstrip("/")

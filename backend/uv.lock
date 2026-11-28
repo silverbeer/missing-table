@@ -1956,7 +1956,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.7.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "safety", marker = "extra == 'dev'", specifier = ">=3.2.0" },
-    { name = "sb-notify", git = "https://github.com/silverbeer/sb-notify?tag=v0.1.0" },
+    { name = "sb-notify", git = "https://github.com/silverbeer/sb-notify?tag=v0.2.0" },
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "structlog", specifier = ">=25.4.0" },
     { name = "supabase", specifier = ">=2.10.0" },
@@ -3492,8 +3492,8 @@ wheels = [
 
 [[package]]
 name = "sb-notify"
-version = "0.1.0"
-source = { git = "https://github.com/silverbeer/sb-notify?tag=v0.1.0#6ba4f441045cabd56be536e3685e8891fb4b5c0a" }
+version = "0.2.0"
+source = { git = "https://github.com/silverbeer/sb-notify?tag=v0.2.0#96a1a5f3ff38f7eab4bc6c24e69a92e2fc84ee3f" }
 dependencies = [
     { name = "httpx" },
     { name = "tzdata" },

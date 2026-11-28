@@ -1,20 +1,40 @@
-# sb-notify routing for the MT backend (SB-1849). Mounted from the
+# sb-notify routing for the MT backend (SB-1849, SB-1853). Mounted from the
 # sb-notify ConfigMap at $SB_NOTIFY_CONFIG when sbNotify.enabled is true.
 # Destinations are secrets: each sink names only the env var that holds it,
 # populated from missing-table-secrets (ESO in prod).
 # backend/tests/unit/test_ops_events.py loads this file, so a broken route
-# fails CI rather than the operator feed.
+# fails CI rather than the feed.
+#
+# Only configure a sink whose webhook exists: a sink with an unset env var
+# fails every send, fails `sb-notify check`, and leaves held rows in the
+# outbox that every morning flush retries.
 
-[sinks.slack-mt-scores]
-type = "slack"
-destination_env = "SB_NOTIFY_SLACK_MT_SCORES_WEBHOOK"
+# MLS NEXT Fest 2026 (tournament 9, Dec 2-13): every new final score, posted
+# to the community Discord channel as it happens.
+[sinks.discord-mls-next-fest]
+type = "discord"
+destination_env = "SB_NOTIFY_DISCORD_FEST_WEBHOOK"
 
 [[routes]]
-match = { kind = ["mt.match_final"] }
-sinks = ["slack-mt-scores"]
+match = { kind = ["mt.match_final"], tags = { tournament_id = "9" } }
+sinks = ["discord-mls-next-fest"]
+# A community feed, not an alert: post late games in real time.
+quiet_hours = false
 
-# No routed event wakes anyone: everything is held 22:00-07:00 and goes out
-# as one digest at 07:00 (the sb-notify-flush CronJob).
+# Operator feed of every final score in Slack. Enable once the webhook is in
+# AWS SM (property sb_notify_slack_mt_scores_webhook) and mapped by ESO:
+#
+# [sinks.slack-mt-scores]
+# type = "slack"
+# destination_env = "SB_NOTIFY_SLACK_MT_SCORES_WEBHOOK"
+#
+# [[routes]]
+# match = { kind = ["mt.match_final"] }
+# sinks = ["slack-mt-scores"]
+
+# Nothing routed wakes anyone: unless a route sets quiet_hours = false,
+# events are held 22:00-07:00 and go out as one digest at 07:00 (the
+# sb-notify-flush CronJob).
 [quiet_hours]
 start = "22:00"
 end = "07:00"
